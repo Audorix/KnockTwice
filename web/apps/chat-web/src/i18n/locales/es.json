@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Audorix.ChatX",
+    "documentTitle": "Audorix.ChatX — Base",
+    "skipToContent": "Saltar al contenido principal",
+    "stage": "Etapa de base",
+    "tagline": "Comunicación de código abierto, construida de forma abierta.",
+    "intro": "Esta versión es la base de la plataforma: el servidor de la API, la capa de base de datos y esta interfaz web traducida. La mensajería, las cuentas y las integraciones llegarán en próximas etapas, por lo que aquí solo puede elegir el idioma y consultar el estado.",
+    "footer": "Código abierto con licencia MIT."
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español"
+  },
+  "readiness": {
+    "title": "Estado del servicio",
+    "loading": "Comprobando la API…",
+    "available": "API lista",
+    "availableDetail": "La API y su base de datos están listas para atender solicitudes.",
+    "notReady": "API no preparada",
+    "notReadyDetail": "La API respondió, pero su base de datos no está disponible o su esquema no se ha migrado.",
+    "unreachable": "API no disponible",
+    "unreachableDetail": "No se pudo contactar con la API. Compruebe que está en ejecución y vuelva a intentarlo.",
+    "checkedAt": "Última comprobación a las {{time}}",
+    "responseTime": "Tiempo de respuesta: {{duration}}",
+    "retry": "Comprobar de nuevo",
+    "checking": "Comprobando…"
+  },
+  "foundation": {
+    "includedTitle": "Incluido en esta versión",
+    "included": {
+      "api": "API de ASP.NET Core con comprobaciones de actividad y disponibilidad",
+      "database": "Compatibilidad con SQLite y PostgreSQL con migraciones independientes",
+      "localization": "Interfaz en inglés y español",
+      "docker": "Perfiles de Docker para desarrollo local"
+    },
+    "nextTitle": "Próxima etapa",
+    "next": "Identidad y autenticación: registro, inicio de sesión y perfiles de usuario.",
+    "languageCount_one": "{{count}} idioma de interfaz disponible",
+    "languageCount_other": "{{count}} idiomas de interfaz disponibles"
+  }
+}

@@ -1,0 +1,20 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Test naming and assertion style do not follow library analyzer rules. -->
+    <NoWarn>$(NoWarn);CA1707;CA1515;CA2007;CA1861;CA1063;CA1816;CA2000;CA1001;CA1031</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- xunit.v3 runs on Microsoft.Testing.Platform (selected in global.json); no VSTest adapter needed. -->
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

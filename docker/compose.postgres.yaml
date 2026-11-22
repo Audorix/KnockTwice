@@ -1,0 +1,71 @@
+# Development profile 2: API + web with PostgreSQL and persistent database storage.
+# Production-oriented database path. Usage (from the repository root):
+#   copy docker/.env.example to docker/.env and set CHATX_POSTGRES_PASSWORD, then
+#   docker compose -f docker/compose.postgres.yaml up --build -d
+# See docs/development/docker.md for migration, shutdown and reset commands.
+name: chatx-postgres
+
+x-api-image: &api-image
+  build:
+    context: ..
+    dockerfile: docker/api.Dockerfile
+  image: audorix/chatx-api:dev
+
+x-api-environment: &api-environment
+  ASPNETCORE_ENVIRONMENT: ${CHATX_ENVIRONMENT:-Development}
+  Database__Provider: PostgreSql
+  Database__ConnectionString: Host=postgres;Port=5432;Database=chatx;Username=chatx;Password=${CHATX_POSTGRES_PASSWORD:?Set CHATX_POSTGRES_PASSWORD in docker/.env}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: chatx
+      POSTGRES_USER: chatx
+      POSTGRES_PASSWORD: ${CHATX_POSTGRES_PASSWORD:?Set CHATX_POSTGRES_PASSWORD in docker/.env}
+    volumes:
+      # PostgreSQL 18 images keep version-specific data under /var/lib/postgresql.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatx -d chatx"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Not published to the host by default. Uncomment to connect with local tools:
+    # ports:
+    #   - "127.0.0.1:${CHATX_POSTGRES_PORT:-55432}:5432"
+    restart: unless-stopped
+
+  # One-off schema migration; the API starts only after it succeeds.
+  migrate:
+    <<: *api-image
+    command: ["migrate"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *api-image
+    environment: *api-environment
+    ports:
+      - "${CHATX_API_PORT:-5080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    image: audorix/chatx-web:dev
+    ports:
+      - "${CHATX_WEB_PORT:-8080}:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

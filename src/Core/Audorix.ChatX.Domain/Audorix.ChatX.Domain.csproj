@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.ChatX.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Domain intentionally has no package or project references. See docs/development/architecture-boundaries.md. -->
+
+</Project>

@@ -1,0 +1,21 @@
+# Keep build contexts small and free of local data, secrets and the licensed demo template.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/App_Data/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/.env
+docker/.env
+.git/
+.vs/
+.vscode/
+.idea/
+.claude/
+demo/
+Demo/
+docs/
+tests/
+TestResults/

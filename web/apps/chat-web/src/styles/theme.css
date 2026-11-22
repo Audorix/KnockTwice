@@ -1,0 +1,322 @@
+/*
+ * Audorix.ChatX theme layer on top of Bootstrap 5.3.
+ * Original design tokens: a deep teal primary, warm neutral surfaces, system fonts.
+ */
+
+:root,
+[data-bs-theme='light'] {
+  --cx-primary: #0b6e66;
+  --cx-primary-rgb: 11, 110, 102;
+  --cx-primary-strong: #08524c;
+  --cx-accent: #e0a526;
+  --cx-surface: #ffffff;
+  --cx-canvas: #f3f5f4;
+  --cx-border: #dfe5e3;
+  --cx-text: #1d2725;
+  --cx-text-muted: #56635f;
+  --cx-identity-bg: linear-gradient(160deg, #0b6e66 0%, #0a4f5c 100%);
+  --cx-identity-text: #f4fbf9;
+  --cx-identity-muted: rgba(244, 251, 249, 0.82);
+  --cx-mark-ink: #0a4f5c;
+  --cx-ok: #1f8a4c;
+  --cx-warn: #b7791f;
+  --cx-down: #c2413a;
+  --cx-radius: 0.875rem;
+  --cx-shadow: 0 1px 2px rgba(16, 32, 29, 0.06), 0 8px 24px rgba(16, 32, 29, 0.06);
+
+  --bs-primary: var(--cx-primary);
+  --bs-primary-rgb: var(--cx-primary-rgb);
+  --bs-link-color: var(--cx-primary);
+  --bs-link-color-rgb: var(--cx-primary-rgb);
+  --bs-link-hover-color: var(--cx-primary-strong);
+  --bs-body-bg: var(--cx-canvas);
+  --bs-body-color: var(--cx-text);
+  --bs-body-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+  --bs-focus-ring-color: rgba(var(--cx-primary-rgb), 0.35);
+}
+
+[data-bs-theme='dark'] {
+  --cx-primary: #4fc3b5;
+  --cx-primary-rgb: 79, 195, 181;
+  --cx-primary-strong: #7fd6cb;
+  --cx-surface: #18211f;
+  --cx-canvas: #101715;
+  --cx-border: #2a3633;
+  --cx-text: #e5eeeb;
+  --cx-text-muted: #a3b2ae;
+  --cx-identity-bg: linear-gradient(160deg, #0d3b38 0%, #0b2a33 100%);
+  --cx-mark-ink: #0d3b38;
+  --cx-ok: #4cc27f;
+  --cx-warn: #e2b04a;
+  --cx-down: #ef7a72;
+  --cx-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+body {
+  background: var(--cx-canvas);
+  color: var(--cx-text);
+  min-height: 100vh;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--cx-primary);
+  --bs-btn-border-color: var(--cx-primary);
+  --bs-btn-hover-bg: var(--cx-primary);
+  --bs-btn-hover-border-color: var(--cx-primary);
+  --bs-btn-hover-color: var(--cx-surface);
+  --bs-btn-active-bg: var(--cx-primary-strong);
+  --bs-btn-active-border-color: var(--cx-primary-strong);
+  --bs-btn-disabled-color: var(--cx-text-muted);
+  --bs-btn-disabled-border-color: var(--cx-border);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(var(--cx-primary-rgb), 0.6);
+  outline-offset: 2px;
+}
+
+/* ---- Layout: identity panel + content; stacks on narrow screens (mobile first) ---- */
+
+.cx-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.cx-skip {
+  position: absolute;
+  inset-inline-start: 1rem;
+  top: 1rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--cx-surface);
+  color: var(--cx-text);
+}
+
+.cx-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem;
+  background: var(--cx-identity-bg);
+  color: var(--cx-identity-text);
+}
+
+.cx-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.cx-mark {
+  color: var(--cx-identity-text);
+  flex: none;
+}
+
+.cx-product {
+  font-size: 1.125rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.cx-badge {
+  display: inline-block;
+  margin-top: 0.125rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--cx-identity-text);
+}
+
+.cx-tagline {
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.125rem);
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
+}
+
+.cx-intro {
+  color: var(--cx-identity-muted);
+  max-width: 34rem;
+  margin-bottom: 0;
+}
+
+.cx-identity-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.cx-language {
+  max-width: 14rem;
+}
+
+.cx-language-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--cx-identity-muted);
+  margin-bottom: 0.25rem;
+}
+
+.cx-footnote {
+  font-size: 0.8125rem;
+  color: var(--cx-identity-muted);
+}
+
+.cx-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem 1rem 2rem;
+  outline: none;
+}
+
+.cx-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 768px) {
+  .cx-identity {
+    padding: 2rem;
+  }
+
+  .cx-content {
+    padding: 2rem;
+  }
+
+  .cx-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 992px) {
+  .cx-shell {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+  }
+
+  .cx-identity {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 2.5rem 2.25rem;
+  }
+
+  .cx-content {
+    padding: 2.5rem;
+    max-width: 64rem;
+    justify-content: center;
+  }
+}
+
+/* ---- Cards ---- */
+
+.cx-card {
+  background: var(--cx-surface);
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius);
+  box-shadow: var(--cx-shadow);
+  padding: 1.25rem;
+}
+
+.cx-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cx-card-title {
+  font-size: 1rem;
+  font-weight: 650;
+  margin: 0 0 0.75rem;
+}
+
+.cx-card-header .cx-card-title {
+  margin-bottom: 0;
+}
+
+.cx-muted {
+  color: var(--cx-text-muted);
+}
+
+.cx-meta {
+  font-size: 0.8125rem;
+  color: var(--cx-text-muted);
+}
+
+/* ---- Readiness ---- */
+
+.cx-status-body {
+  min-height: 5.5rem;
+}
+
+.cx-status-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.0625rem;
+  margin-bottom: 0.25rem;
+}
+
+.cx-dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  flex: none;
+}
+
+.cx-dot-ok {
+  background: var(--cx-ok);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cx-ok) 22%, transparent);
+}
+
+.cx-dot-warn {
+  background: var(--cx-warn);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cx-warn) 22%, transparent);
+}
+
+.cx-dot-down {
+  background: var(--cx-down);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cx-down) 22%, transparent);
+}
+
+/* ---- Checklist ---- */
+
+.cx-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cx-checklist li {
+  position: relative;
+  padding-inline-start: 1.5rem;
+}
+
+.cx-checklist li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0.25rem;
+  top: 0.45em;
+  width: 0.5rem;
+  height: 0.8rem;
+  border: solid var(--cx-primary);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-border {
+    animation-duration: 2s;
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@audorix/chatx-workspace",
+  "private": true,
+  "description": "npm workspace root for Audorix.ChatX frontend applications and (later) packages.",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @audorix/chatx-web",
+    "build": "npm run build --workspace @audorix/chatx-web",
+    "typecheck": "npm run typecheck --workspace @audorix/chatx-web",
+    "test": "npm run test --workspace @audorix/chatx-web"
+  }
+}

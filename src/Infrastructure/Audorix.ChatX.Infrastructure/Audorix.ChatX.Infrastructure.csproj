@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.ChatX.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Audorix.ChatX.Application\Audorix.ChatX.Application.csproj" />
+    <ProjectReference Include="..\..\Core\Audorix.ChatX.Domain\Audorix.ChatX.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Provider-neutral EF Core only. SQLite and PostgreSQL packages live in their own persistence projects. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Audorix.ChatX.UnitTests" />
+    <InternalsVisibleTo Include="Audorix.ChatX.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.ChatX.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Audorix.ChatX.Domain\Audorix.ChatX.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only framework abstractions; no EF Core, ASP.NET Core, SignalR or provider packages. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+</Project>

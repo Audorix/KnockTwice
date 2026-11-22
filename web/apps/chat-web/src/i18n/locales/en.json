@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Audorix.ChatX",
+    "documentTitle": "Audorix.ChatX — Foundation",
+    "skipToContent": "Skip to main content",
+    "stage": "Foundation stage",
+    "tagline": "Open-source communication, built in the open.",
+    "intro": "This build is the platform foundation: the API host, the database layer and this localized web shell. Messaging, accounts and integrations arrive in later milestones, so nothing here is interactive beyond language and status.",
+    "footer": "Open source under the MIT License."
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español"
+  },
+  "readiness": {
+    "title": "Service status",
+    "loading": "Checking the API…",
+    "available": "API ready",
+    "availableDetail": "The API and its database are ready to serve requests.",
+    "notReady": "API not ready",
+    "notReadyDetail": "The API responded, but its database is unavailable or its schema has not been migrated.",
+    "unreachable": "API unavailable",
+    "unreachableDetail": "The API could not be reached. Check that it is running and try again.",
+    "checkedAt": "Last checked at {{time}}",
+    "responseTime": "Response time: {{duration}}",
+    "retry": "Check again",
+    "checking": "Checking…"
+  },
+  "foundation": {
+    "includedTitle": "In this build",
+    "included": {
+      "api": "ASP.NET Core API with liveness and readiness checks",
+      "database": "SQLite and PostgreSQL support with separate migrations",
+      "localization": "English and Spanish interface",
+      "docker": "Docker profiles for local development"
+    },
+    "nextTitle": "Next milestone",
+    "next": "Identity and authentication: registration, sign-in and user profiles.",
+    "languageCount_one": "{{count}} interface language available",
+    "languageCount_other": "{{count}} interface languages available"
+  }
+}
