@@ -30,10 +30,8 @@ const tabPermission: Record<Tab, string> = {
   audit: 'audit.read',
 };
 
-/** Whether the user may open the administration at all (used by the navigation). */
-export function canAdminister(permissions: readonly string[] | undefined): boolean {
-  return Object.values(tabPermission).some((p) => permissions?.includes(p));
-}
+/** Whether the user may open the administration at all (the navigation uses the same rule from app/navigationRules). */
+export { canAdminister } from '../../app/navigationRules';
 
 export function AdminPage() {
   return (

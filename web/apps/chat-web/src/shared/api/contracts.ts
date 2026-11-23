@@ -445,6 +445,13 @@ export interface ConversationHistoryResponse {
   hasMore: boolean;
 }
 
+/** A page of the conversation list (Phase 22). Pass nextCursor as `after` for the next page. */
+export interface ConversationListPageResponse {
+  items: ConversationSummaryResponse[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface ConversationReadResponse {
   lastReadSequence: number;
   unreadCount: number;

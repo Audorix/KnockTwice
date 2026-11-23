@@ -173,6 +173,17 @@ public sealed class ConversationSettings
 public sealed record ConversationSummaryView(
     Conversation Conversation, ConversationParticipant Me, int UnreadCount, UserSummary? Counterpart, string? OrganizationName);
 
+/// <summary>Where a page of the conversation list ends: the last item's activity time and id (Phase 22).</summary>
+public readonly record struct ConversationListPosition(long ActivityTicks, Guid Id)
+{
+    /// <summary>True when this position comes after <paramref name="other"/> in list order (older activity, then lower id).</summary>
+    public bool IsAfter(ConversationListPosition other) =>
+        ActivityTicks < other.ActivityTicks || (ActivityTicks == other.ActivityTicks && Id.CompareTo(other.Id) < 0);
+}
+
+/// <summary>A page of the conversation list; <see cref="Next"/> is set when more follow.</summary>
+public sealed record ConversationListPage(IReadOnlyList<ConversationSummaryView> Items, ConversationListPosition? Next);
+
 public sealed record ParticipantView(ConversationParticipant Participant, UserSummary User);
 
 public sealed record ConversationDetailView(ConversationSummaryView Summary, IReadOnlyList<ParticipantView> Participants);
@@ -395,8 +406,22 @@ public sealed partial class ConversationService(
     // ---- Reading ---------------------------------------------------------------------------
 
     /// <summary>The caller's conversations, most recent activity first. Organization conversations need active membership.</summary>
-    public async Task<IReadOnlyList<ConversationSummaryView>> ListAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ConversationSummaryView>> ListAsync(Guid userId, CancellationToken cancellationToken) =>
+        (await ListPageAsync(userId, after: null, limit: int.MaxValue, cancellationToken).ConfigureAwait(false)).Items;
+
+    public const int DefaultListPageSize = 50;
+    public const int MaxListPageSize = 200;
+
+    /// <summary>
+    /// One page of the caller's conversations (Phase 22), in the same order as <see cref="ListAsync"/>.
+    /// The page boundary is a position (activity time, id), so a conversation that becomes active while
+    /// someone pages moves to the top and is not repeated further down; realtime updates bring it in.
+    /// </summary>
+    public async Task<ConversationListPage> ListPageAsync(Guid userId, ConversationListPosition? after, int limit, CancellationToken cancellationToken)
     {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+
+
         var memberships = (await organizations.ListActiveMembershipsAsync(userId, cancellationToken).ConfigureAwait(false))
             .ToDictionary(m => m.Organization.Id, m => m.Organization.Name);
         var guestOf = (await organizations.ListGuestOrganizationsAsync(userId, cancellationToken).ConfigureAwait(false))
@@ -412,20 +437,29 @@ public sealed partial class ConversationService(
             memberships.TryAdd(id, name);
         }
 
+        var ordered = participations
+            .Select(p => (Item: p, Position: new ConversationListPosition(p.Conversation.LastActivityAtUtc.UtcTicks, p.Conversation.Id)))
+            .Where(x => after is not { } a || x.Position.IsAfter(a))
+            .OrderByDescending(x => x.Position.ActivityTicks)
+            .ThenByDescending(x => x.Position.Id)
+            .ToList();
+        var page = limit < ordered.Count ? ordered.Take(limit).ToList() : ordered;
+        var hasMore = page.Count < ordered.Count;
+
+        // Profiles are looked up for this page only: that is most of the cost of a long list.
         var counterparts = await directory.GetSummariesAsync(
-            participations.Where(p => p.CounterpartUserId is not null).Select(p => p.CounterpartUserId!.Value).Distinct().ToList(),
+            page.Where(x => x.Item.CounterpartUserId is not null).Select(x => x.Item.CounterpartUserId!.Value).Distinct().ToList(),
             cancellationToken).ConfigureAwait(false);
 
-        return participations
-            .Select(p => new ConversationSummaryView(
-                p.Conversation,
-                p.Participant,
-                p.UnreadCount,
-                p.CounterpartUserId is { } other ? counterparts.GetValueOrDefault(other) : null,
-                p.Conversation.OrganizationId is { } org ? memberships[org] : null))
-            .OrderByDescending(v => v.Conversation.LastActivityAtUtc)
-            .ThenByDescending(v => v.Conversation.Id)
+        var items = page
+            .Select(x => new ConversationSummaryView(
+                x.Item.Conversation,
+                x.Item.Participant,
+                x.Item.UnreadCount,
+                x.Item.CounterpartUserId is { } other ? counterparts.GetValueOrDefault(other) : null,
+                x.Item.Conversation.OrganizationId is { } org ? memberships[org] : null))
             .ToList();
+        return new ConversationListPage(items, hasMore ? page[^1].Position : null);
     }
 
     public async Task<ConversationDetailView> GetAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)

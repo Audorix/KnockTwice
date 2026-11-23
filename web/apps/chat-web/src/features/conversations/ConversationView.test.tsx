@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
 import { authConfig, json, mockFetch } from '../../test/fetchRoutes';
+import { FakeHub } from '../../test/fakeHub';
 import { AuthProvider } from '../auth/AuthContext';
+import { RealtimeProvider } from '../realtime/RealtimeContext';
 import { ConversationView } from './ConversationView';
 
 const ana = { id: 'u-ana', displayName: 'Ana', avatar: { initials: 'A' } };
@@ -53,6 +55,57 @@ describe('ConversationView', () => {
   beforeEach(async () => {
     resetCsrfToken();
     await i18n.changeLanguage('en');
+  });
+
+  it('catches up after a reconnect with what changed while away, without reloading history', async () => {
+    const hub = new FakeHub();
+    let historyLoads = 0;
+    const asked: string[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/conversations/c1': () => json(200, detail(2, 2)),
+      'GET /api/v1/conversations/c1/history': () => {
+        historyLoads++;
+        return json(200, history);
+      },
+      'GET /api/v1/changes/cursor': () => json(200, { cursor: 'cur-1' }),
+      'GET /api/v1/changes?since=cur-1': () => {
+        asked.push('cur-1');
+        return json(200, {
+          reset: false,
+          cursor: 'cur-2',
+          conversationIds: ['c1'],
+          entries: [
+            { conversationId: 'c1', entry: { ...history.items[1], body: 'Hello again, Ana', version: 2, editedAtUtc: '2026-11-22T09:05:00Z' } },
+            { conversationId: 'c1', entry: { id: 'm4', sequence: 3, kind: 'message', actor: ben, subject: null, text: null, body: 'Missed while away', createdAtUtc: '2026-11-22T09:06:00Z', version: 1, clientMessageId: 'b-4' } },
+            { conversationId: 'c-other', entry: { id: 'x1', sequence: 9, kind: 'message', actor: ben, subject: null, text: null, body: 'Another chat', createdAtUtc: '2026-11-22T09:06:00Z', version: 1 } },
+          ],
+        });
+      },
+      'POST /api/v1/conversations/c1/delivered': () => json(200, { lastDeliveredSequence: 3 }),
+      'POST /api/v1/conversations/c1/read': () => json(200, { lastReadSequence: 3, unreadCount: 0 }),
+    });
+    render(
+      <AuthProvider>
+        <RealtimeProvider factory={() => hub.asHub()}>
+          <ConversationView conversationId="c1" onChanged={() => undefined} />
+        </RealtimeProvider>
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText(/How are you\?/)).toBeInTheDocument();
+    await waitFor(() => expect(hub.start).toHaveBeenCalled());
+    const loadsBefore = historyLoads;
+    hub.reconnect();
+
+    expect(await screen.findByText('Missed while away')).toBeInTheDocument();
+    expect(screen.getByText('Hello again, Ana')).toBeInTheDocument();
+    expect(screen.queryByText(/How are you\?/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Another chat')).not.toBeInTheDocument();
+    expect(asked).toEqual(['cur-1']);
+    expect(historyLoads).toBe(loadsBefore);
   });
 
   it('sends a reply with a client message id and shows its receipt', async () => {

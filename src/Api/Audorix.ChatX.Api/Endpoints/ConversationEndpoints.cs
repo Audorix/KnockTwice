@@ -24,6 +24,16 @@ internal static class ConversationEndpoints
             TypedResults.Ok((await service.ListAsync(http.User.RequireUserId(), ct)).Select(ToSummary).ToList()))
             .WithSummary("The caller's conversations, most recent activity first, with unread counts.");
 
+        conversations.MapGet("/page", async (string? after, int? limit, HttpContext http, ConversationService service, CancellationToken ct) =>
+        {
+            var size = Math.Clamp(limit ?? ConversationService.DefaultListPageSize, 1, ConversationService.MaxListPageSize);
+            var page = await service.ListPageAsync(http.User.RequireUserId(), DecodeListCursor(after), size, ct);
+            return TypedResults.Ok(new ConversationListPageResponse(
+                page.Items.Select(ToSummary).ToList(),
+                page.Next is { } next ? EncodeListCursor(next) : null,
+                page.Next is not null));
+        }).WithSummary("The caller's conversations a page at a time (default 50, at most 200), in list order. Pass nextCursor as 'after' for the next page.");
+
         conversations.MapPost("/direct", async Task<Results<Ok<ConversationSummaryResponse>, Created<ConversationSummaryResponse>>> (
             OpenDirectConversationRequest request, HttpContext http, ConversationService service, CancellationToken ct) =>
         {
@@ -337,5 +347,36 @@ internal static class ConversationEndpoints
         }
 
         throw new RequestValidationException("before", "cursor_invalid");
+    }
+
+    private const string ListCursorPrefix = "l1:";
+
+    internal static string EncodeListCursor(ConversationListPosition position) =>
+        Base64Url.EncodeToString(Encoding.UTF8.GetBytes(
+            $"{ListCursorPrefix}{position.ActivityTicks.ToString(CultureInfo.InvariantCulture)}:{position.Id:N}"));
+
+    internal static ConversationListPosition? DecodeListCursor(string? cursor)
+    {
+        if (string.IsNullOrEmpty(cursor))
+        {
+            return null;
+        }
+
+        try
+        {
+            var text = Encoding.UTF8.GetString(Base64Url.DecodeFromChars(cursor));
+            var parts = text.StartsWith(ListCursorPrefix, StringComparison.Ordinal) ? text[ListCursorPrefix.Length..].Split(':') : [];
+            if (parts.Length == 2
+                && long.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
+                && Guid.TryParseExact(parts[1], "N", out var id))
+            {
+                return new ConversationListPosition(ticks, id);
+            }
+        }
+        catch (FormatException)
+        {
+        }
+
+        throw new RequestValidationException("after", "cursor_invalid");
     }
 }

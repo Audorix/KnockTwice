@@ -7,6 +7,7 @@ they are called out here.
 
 ## [Unreleased]
 
+Phase 22, performance ([delivery record](docs/releases/phase-22-performance.md)),
 Phase 21, release readiness ([delivery record](docs/releases/phase-21-release-readiness.md)),
 Phase 20, drafts, scheduled messages and reminders ([delivery record](docs/releases/phase-20-planning.md)),
 Phase 19, rich text ([delivery record](docs/releases/phase-19-rich-text.md)), Phase 18, message
@@ -16,6 +17,26 @@ threads ([delivery record](docs/releases/phase-16-reactions-threads.md)),
 Phase 15, notifications ([delivery record](docs/releases/phase-15-notifications.md)), Phase 14,
 message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 13, 1.0 hardening
 ([delivery record](docs/releases/phase-13-hardening.md)).
+
+### Added (Phase 22)
+
+- **Reconnect catch-up:** after a dropped connection the web app fetches what changed while it was
+  away (`GET /api/v1/changes?since=`): new, edited and deleted messages and reactions appear without
+  a reload. Over 500 changes, or after 24 hours, it reloads instead.
+- **Paged conversation list:** `GET /api/v1/conversations/page` (50 at a time, at most 200); the web
+  app shows "Show more conversations". The unpaged list is unchanged.
+- **Load test:** `tools/Audorix.ChatX.LoadTest` measures a test installation against the capacity
+  targets (2,000 connected people, 100 messages a second, p95 send < 300 ms, p95 history < 200 ms).
+
+### Changed (Phase 22)
+
+- **Presence:** you now see online status of your contacts and of people you share a direct chat or
+  group with. Sharing an organization alone no longer shows it (in large organizations announcing
+  everyone to everyone overloaded the server). Channels and website chats do not count.
+
+- **Faster first load:** pages are downloaded when first opened and the realtime client only after
+  sign-in; the first download fell from 182 kB to 167 kB gzip. CI fails when it grows past 180 kB
+  (`npm run check:bundle`).
 
 ### Added (Phase 21)
 

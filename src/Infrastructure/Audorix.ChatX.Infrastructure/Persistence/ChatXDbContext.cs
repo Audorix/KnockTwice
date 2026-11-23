@@ -117,6 +117,8 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
     public DbSet<Notifications.PushQueueItem> PushQueue => Set<Notifications.PushQueueItem>();
 
+    public DbSet<ChangeLogItem> ChangeLog => Set<ChangeLogItem>();
+
     public DbSet<Notifications.WebPushKeys> WebPushKeys => Set<Notifications.WebPushKeys>();
 
     public DbSet<Domain.Notifications.PushSubscription> PushSubscriptions => Set<Domain.Notifications.PushSubscription>();
@@ -129,8 +131,21 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
     {
         var queued = new List<Search.SearchQueueItem>();
         var pushes = new List<Notifications.PushQueueItem>();
+        var changes = new Dictionary<Guid, ChangeLogItem>();
+        var now = DateTimeOffset.UtcNow;
+
+        // Change log (Phase 22): every new or changed history entry, and entries whose reactions
+        // changed, so reconnecting clients can catch up. Old history (demo data) is not logged.
+        void Changed(Guid conversationId, Guid entryId) =>
+            changes.TryAdd(entryId, new ChangeLogItem { ConversationId = conversationId, EntryId = entryId, RecordedTicks = now.UtcTicks });
+
         foreach (var entry in ChangeTracker.Entries<Domain.Conversations.ConversationEvent>())
         {
+            if (entry.State == EntityState.Modified || (entry.State == EntityState.Added && now - entry.Entity.CreatedAtUtc < TimeSpan.FromMinutes(5)))
+            {
+                Changed(entry.Entity.ConversationId, entry.Entity.Id);
+            }
+
             if (entry.State == EntityState.Added)
             {
                 entry.Property(CreatedAtTicks).CurrentValue = entry.Entity.CreatedAtUtc.UtcTicks;
@@ -167,8 +182,17 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
             }
         }
 
+        foreach (var entry in ChangeTracker.Entries<Domain.Conversations.MessageReaction>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Deleted)
+            {
+                Changed(entry.Entity.ConversationId, entry.Entity.EntryId);
+            }
+        }
+
         SearchQueue.AddRange(queued);
         PushQueue.AddRange(pushes);
+        ChangeLog.AddRange(changes.Values);
     }
 
     protected override void OnModelCreating(ModelBuilder builder)

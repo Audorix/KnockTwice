@@ -13,6 +13,7 @@
     "dev": "npm run dev --workspace @audorix/chatx-web",
     "build": "npm run build --workspace @audorix/chatx-web",
     "typecheck": "npm run typecheck --workspace @audorix/chatx-web",
+    "check:bundle": "npm run check:bundle --workspace @audorix/chatx-web",
     "test": "npm run test --workspace @audorix/chatx-web"
   }
 }

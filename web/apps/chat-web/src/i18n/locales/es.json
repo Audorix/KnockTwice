@@ -115,7 +115,7 @@
       "organizations": "Organizaciones con invitaciones, roles y espacios de trabajo",
       "conversations": "Conversaciones directas y de grupo con roles, historial y contadores de no leídos",
       "contacts": "Contactos, búsqueda de personas que respeta la privacidad y bloqueo",
-      "realtime": "Conexión en vivo con presencia de contactos y colegas"
+      "realtime": "Conexión en vivo con presencia de contactos y de las personas con quienes conversas"
     },
     "nextTitle": "Próxima etapa",
     "next": "Adjuntos: imágenes y archivos en las conversaciones.",
@@ -519,6 +519,7 @@
     "details": "Detalles",
     "history": "Historial de la conversación",
     "loadOlder": "Cargar entradas anteriores",
+    "loadMoreConversations": "Mostrar más conversaciones",
     "messagesSoon": "Aquí aparecen los mensajes y los cambios de la conversación.",
     "roleFor": "Rol de {{name}}",
     "remove": "Quitar",

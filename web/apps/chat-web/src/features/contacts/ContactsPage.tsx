@@ -221,7 +221,7 @@ export function PeopleList<T extends { key: string; user: UserSummary }>({
   items: T[];
   actions?: (item: T) => React.ReactNode;
 }) {
-  // Presence is only known for people the user may see (contacts and colleagues).
+  // Presence is only known for people the user may see (contacts and people they chat with, Phase 22).
   const { presence } = useRealtime();
   return (
     <ul className="list-unstyled mb-0 cx-session-list">

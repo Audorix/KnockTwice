@@ -1967,6 +1967,47 @@
         }
       }
     },
+    "/api/v1/conversations/page": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "The caller's conversations a page at a time (default 50, at most 200), in list order. Pass nextCursor as 'after' for the next page.",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationListPageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversations/direct": {
       "post": {
         "tags": [
@@ -5916,6 +5957,55 @@
         }
       }
     },
+    "/api/v1/changes/cursor": {
+      "get": {
+        "tags": [
+          "Realtime"
+        ],
+        "summary": "The current change cursor. Take one after loading what you show; use it after reconnecting.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeCursorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/changes": {
+      "get": {
+        "tags": [
+          "Realtime"
+        ],
+        "summary": "What changed since a cursor (at most 500 changes, kept 24 hours): the current state of each changed entry you can see, or reset: true to reload.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangeSetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/widget/{widgetId}/config": {
       "get": {
         "tags": [
@@ -7009,6 +7099,33 @@
           }
         }
       },
+      "ChangeCursorResponse": {
+        "required": [
+          "cursor"
+        ],
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangedEntryResponse": {
+        "required": [
+          "conversationId",
+          "entry"
+        ],
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entry": {
+            "$ref": "#/components/schemas/ConversationEntryResponse"
+          }
+        }
+      },
       "ChangeMemberRoleRequest": {
         "required": [
           "role"
@@ -7055,6 +7172,36 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ChangeSetResponse": {
+        "required": [
+          "reset",
+          "cursor",
+          "conversationIds",
+          "entries"
+        ],
+        "type": "object",
+        "properties": {
+          "reset": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string"
+          },
+          "conversationIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChangedEntryResponse"
+            }
           }
         }
       },
@@ -7492,6 +7639,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ConversationEntryResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConversationListPageResponse": {
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationSummaryResponse"
             }
           },
           "nextCursor": {
@@ -10900,6 +11072,9 @@
     },
     {
       "name": "Reminders"
+    },
+    {
+      "name": "Realtime"
     },
     {
       "name": "Widget (visitors)"

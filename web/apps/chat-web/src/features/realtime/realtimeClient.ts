@@ -1,4 +1,4 @@
-import { HubConnectionBuilder, HubConnectionState, LogLevel, type HubConnection } from '@microsoft/signalr';
+import type { HubConnection } from '@microsoft/signalr';
 import type { ConversationEntryResponse, PrivateMessageResponse, ReactionChangedEvent } from '../../shared/api/contracts';
 
 export type { ReactionChangedEvent };
@@ -97,14 +97,17 @@ export interface UserPresenceResponse {
 /** The subset of HubConnection used here, so tests can supply a fake. */
 export type HubLike = Pick<HubConnection, 'start' | 'stop' | 'on' | 'off' | 'invoke' | 'onreconnecting' | 'onreconnected' | 'onclose' | 'state'>;
 
-export type HubFactory = () => HubLike;
+export type HubFactory = () => HubLike | Promise<HubLike>;
 
-const defaultFactory: HubFactory = () =>
-  new HubConnectionBuilder()
+/** Phase 22: the SignalR client is loaded only when a signed-in session starts realtime. */
+const defaultFactory: HubFactory = async () => {
+  const { HubConnectionBuilder, LogLevel } = await import('@microsoft/signalr');
+  return new HubConnectionBuilder()
     .withUrl(hubPath, { withCredentials: true })
     .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
     .configureLogging(LogLevel.Warning)
     .build();
+};
 
 /** Stable error code from a failed hub invocation ("…HubException: conversation_not_found"). */
 export function hubErrorCode(error: unknown): string | undefined {
@@ -216,7 +219,8 @@ export class RealtimeClient {
   async start(): Promise<void> {
     if (!this.stopped) return;
     this.stopped = false;
-    const hub = this.factory();
+    const hub = await this.factory();
+    if (this.stopped) return; // signed out while the SignalR client was loading
     this.hub = hub;
     hub.on('UserPresenceChanged', (event: UserPresenceChangedEvent) => this.presenceListeners.forEach((l) => l(event)));
     hub.on('TypingStatusChanged', (event: TypingStatusChangedEvent) => this.typingListeners.forEach((l) => l(event)));
@@ -280,7 +284,7 @@ export class RealtimeClient {
   }
 
   private isConnected(): boolean {
-    return this.hub?.state === HubConnectionState.Connected;
+    return this.hub?.state === ('Connected' as HubConnection['state']); // HubConnectionState.Connected, without loading SignalR
   }
 
   private async connect(): Promise<void> {

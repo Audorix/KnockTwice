@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<Application.Realtime.IPresenceAudience, EfPresenceAudience>();
         services.AddScoped<Application.Conversations.IConversationStore, EfConversationStore>();
         services.AddScoped<Application.Planning.IPlanningStore, EfPlanningStore>();
+        services.AddScoped<Application.Realtime.IChangeFeedStore, EfChangeFeedStore>();
         services.AddScoped<Application.Realtime.IConversationAccess, EfConversationAccess>();
         services.AddScoped<DatabaseMigrator>();
         services.TryAddSingleton(TimeProvider.System);

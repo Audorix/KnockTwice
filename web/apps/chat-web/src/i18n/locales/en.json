@@ -115,7 +115,7 @@
       "organizations": "Organizations with invitations, roles and workspaces",
       "conversations": "Direct and group conversations with roles, history and unread counts",
       "contacts": "Contacts, privacy-preserving people search and blocking",
-      "realtime": "Live connection with presence for contacts and colleagues"
+      "realtime": "Live connection with presence for contacts and the people you chat with"
     },
     "nextTitle": "Next milestone",
     "next": "Attachments: images and files in conversations.",
@@ -519,6 +519,7 @@
     "details": "Details",
     "history": "Conversation history",
     "loadOlder": "Load older entries",
+    "loadMoreConversations": "Show more conversations",
     "messagesSoon": "Messages and changes to the conversation appear here.",
     "roleFor": "Role for {{name}}",
     "remove": "Remove",

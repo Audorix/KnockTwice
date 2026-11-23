@@ -44,6 +44,7 @@ internal static class V1Endpoints
         Search.SearchSetup.MapSearchEndpoints(group);
         Notifications.NotificationSetup.MapNotificationEndpoints(group);
         Planning.PlanningSetup.MapPlanningEndpoints(group);
+        group.MapChangeEndpoints();
         return group;
     }
 

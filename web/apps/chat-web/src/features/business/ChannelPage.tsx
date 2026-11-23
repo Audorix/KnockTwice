@@ -8,7 +8,7 @@ import { errorMessage } from '../auth/errors';
 import { RequireUser } from '../auth/RequireUser';
 import { getOrganization, listWorkspaceMembers } from '../organizations/organizationsApi';
 import * as api from './businessApi';
-import { ChannelMark } from './ChannelsPage';
+import { ChannelMark } from './ChannelMark';
 
 /** One channel: settings, members, teams and guest invitations (managers), or just who is in it. */
 export function ChannelPage() {

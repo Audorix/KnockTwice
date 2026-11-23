@@ -99,12 +99,20 @@ public sealed class PostgreSqlTestDatabase : TestDatabase
             await command.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        var builder = new NpgsqlConnectionStringBuilder(admin) { Database = name, Pooling = false };
+        // Pooled (Phase 22): without a pool every statement opened a new server process, which made
+        // PostgreSQL tests several times slower on Windows. A small cap keeps parallel tests well
+        // under the server's connection limit; the pool is cleared before the database is dropped.
+        var builder = new NpgsqlConnectionStringBuilder(admin) { Database = name, Pooling = true, MaxPoolSize = 4, ConnectionIdleLifetime = 10 };
         return new PostgreSqlTestDatabase(admin!, name, builder.ConnectionString);
     }
 
     public override async ValueTask DisposeAsync()
     {
+        await using (var pooled = new NpgsqlConnection(ConnectionString))
+        {
+            NpgsqlConnection.ClearPool(pooled);
+        }
+
         await using var connection = new NpgsqlConnection(_adminConnectionString);
         await connection.OpenAsync().ConfigureAwait(false);
         await using var command = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)", connection);

@@ -2,6 +2,7 @@ import type {
   ConversationDetailResponse,
   ConversationEntryResponse,
   ConversationHistoryResponse,
+  ConversationListPageResponse,
   ConversationReadResponse,
   ConversationSummaryResponse,
   MentionPageResponse,
@@ -20,6 +21,13 @@ const base = (conversationId: string) => `/api/v1/conversations/${encodeURICompo
 
 export async function listConversations(): Promise<ConversationSummaryResponse[]> {
   return (await getJson<ConversationSummaryResponse[]>('/api/v1/conversations')).body ?? [];
+}
+
+/** One page of the conversation list, most recent activity first (Phase 22). */
+export async function listConversationPage(after?: string | null, limit = 50): Promise<ConversationListPageResponse> {
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (after) query.set('after', after);
+  return (await getJson<ConversationListPageResponse>(`/api/v1/conversations/page?${query.toString()}`)).body ?? { items: [], nextCursor: null, hasMore: false };
 }
 
 /** Opens (or creates) the direct conversation; pass organizationId for an organization conversation. */
@@ -57,6 +65,24 @@ export const setNotificationLevel = (conversationId: string, notificationLevel: 
 export async function listMentions(before?: string): Promise<MentionPageResponse> {
   const query = before ? `?before=${encodeURIComponent(before)}` : '';
   return (await getJson<MentionPageResponse>(`/api/v1/mentions${query}`)).body!;
+}
+
+// ---- Reconnect catch-up (Phase 22) ----
+
+export interface ChangeSetResponse {
+  /** Too much changed or the cursor is too old: reload, then continue from `cursor`. */
+  reset: boolean;
+  cursor: string;
+  conversationIds: string[];
+  entries: { conversationId: string; entry: ConversationEntryResponse }[];
+}
+
+export async function getChangeCursor(): Promise<string> {
+  return (await getJson<{ cursor: string }>('/api/v1/changes/cursor')).body!.cursor;
+}
+
+export async function getChanges(since: string): Promise<ChangeSetResponse> {
+  return (await getJson<ChangeSetResponse>(`/api/v1/changes?since=${encodeURIComponent(since)}`)).body!;
 }
 
 // ---- Message tools (Phase 18) ----

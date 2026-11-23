@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddScoped<Conversations.ConversationService>();
         services.AddScoped<Conversations.MentionService>();
         services.AddScoped<Planning.PlanningService>();
+        services.AddScoped<Realtime.ChangeFeedService>();
         services.AddScoped<Demo.DemoDataService>();
         services.AddScoped<Messaging.MessagingService>();
         services.AddScoped<Attachments.AttachmentService>();

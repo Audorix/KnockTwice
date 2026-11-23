@@ -64,10 +64,13 @@ public sealed class RealtimeTests
         using var _3 = carl;
         using var _4 = dana;
 
-        // Ana and Ben are contacts; Dana shares an organization with Ana; Carl is unrelated.
+        // Ana and Ben are contacts; Dana shares an organization group with Ana. Carl is in the same
+        // organization but shares no chat with anyone: since Phase 22 (owner decision) membership alone
+        // does not show presence.
         await ana.PostAsync("/api/v1/contacts/requests", new { userId = benId });
         await ben.PostAsync("/api/v1/contacts/requests", new { userId = anaId });
-        await JoinSameOrganizationAsync(ana, dana, "dana@example.org");
+        var organizationId = await CreateOrganizationAsync(ana, (dana, "dana@example.org"), (carl, "carl@example.org"));
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync("/api/v1/conversations/groups", new { title = "Team", userIds = new[] { danaId }, organizationId }));
 
         await using var anaHub = await HubDevice.ConnectAsync(api, "ana@example.org");
         await using var carlHub = await HubDevice.ConnectAsync(api, "carl@example.org");
@@ -278,13 +281,4 @@ public sealed class RealtimeTests
         return await session.Client.SendAsync(request, Ct);
     }
 
-    private static async Task JoinSameOrganizationAsync(ApiSession owner, ApiSession member, string memberEmail)
-    {
-        var organization = await JsonAsync(await owner.PostAsync("/api/v1/organizations", new { name = "Acme" }));
-        var organizationId = organization.GetProperty("id").GetGuid();
-        await owner.PostAsync($"/api/v1/organizations/{organizationId}/invitations", new { email = memberEmail, role = "member" });
-        var invitations = await JsonAsync(await member.GetAsync("/api/v1/organizations/invitations"));
-        var invitationId = invitations.EnumerateArray().Single().GetProperty("id").GetGuid();
-        AssertStatus(HttpStatusCode.OK, await member.PostAsync($"/api/v1/organizations/invitations/{invitationId}/accept"));
-    }
 }

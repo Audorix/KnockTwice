@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { navigate, useLocation } from '../../app/router';
 import type { ConversationSummaryResponse, OrganizationResponse } from '../../shared/api/contracts';
@@ -14,6 +14,9 @@ import { PeoplePicker, useCandidates } from './conversationParts';
 import { ConversationView } from './ConversationView';
 
 export { describeEntry } from './conversationParts';
+
+const pageSize = 50;
+const maxPageSize = 200; // the server's largest page
 
 /** Direct and group conversations (Phase 5). Messages arrive in Phase 6; history shows conversation events. */
 export function ConversationsPage() {
@@ -37,9 +40,27 @@ function Conversations() {
   const [creating, setCreating] = useState(false);
 
   const [drafts, setDrafts] = useState<Set<string>>(new Set());
+  // Phase 22: the list comes a page at a time. Refreshes fetch as many as are shown, so the list
+  // does not shrink back to one page when a message arrives.
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const shown = useRef(pageSize);
 
   const reload = useCallback(() => {
-    api.listConversations().then(setItems, setError);
+    void (async () => {
+      let list: ConversationSummaryResponse[] = [];
+      let cursor: string | null = null;
+      let full = true;
+      do {
+        const size = Math.min(maxPageSize, shown.current - list.length);
+        const page = await api.listConversationPage(cursor, size);
+        list = [...list, ...page.items.filter((i) => !list.some((x) => x.id === i.id))];
+        cursor = page.hasMore ? page.nextCursor : null;
+        full = page.items.length >= size;
+      } while (cursor && full && list.length < shown.current);
+      setItems(list);
+      setNextCursor(cursor);
+    })().catch(setError);
     // Phase 20: conversations with an unsent draft are marked.
     listDrafts().then((all) => setDrafts(new Set(all.filter((d) => !d.threadRootId).map((d) => d.conversationId))), () => undefined);
   }, []);
@@ -73,6 +94,25 @@ function Conversations() {
       offMessage();
     };
   }, [client, reload, t]);
+
+  const loadMore = async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    try {
+      const page = await api.listConversationPage(nextCursor, pageSize);
+      setItems((current) => {
+        const list = current ?? [];
+        const merged = [...list, ...page.items.filter((i) => !list.some((x) => x.id === i.id))];
+        shown.current = Math.max(shown.current, merged.length);
+        return merged;
+      });
+      setNextCursor(page.hasMore ? page.nextCursor : null);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const open = (id: string) => {
     setNotice(null);
@@ -126,6 +166,11 @@ function Conversations() {
               </li>
             ))}
           </ul>
+        )}
+        {nextCursor && (
+          <button type="button" className="btn btn-sm btn-outline-secondary w-100 mt-2" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? t('auth.working') : t('conversations.loadMoreConversations')}
+          </button>
         )}
       </section>
 

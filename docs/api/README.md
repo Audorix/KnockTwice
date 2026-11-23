@@ -65,7 +65,13 @@ Conversation history is ordered by a per-conversation **sequence**.
 - Pass `before=<nextCursor>` for older pages. Do not build or parse cursors.
 - Read state uses sequences: `POST …/read { "sequence": n }`. The read position only moves forward.
 
-Lists that are naturally small (contacts, organizations, channels) are returned whole.
+The conversation list comes whole from `GET /api/v1/conversations`, or a page at a time from
+`GET /api/v1/conversations/page?limit=50` (default 50, at most 200), most recent activity first:
+pass `after=<nextCursor>` while `hasMore` is true. A conversation that becomes active while you page
+moves to the top and is not repeated further down; realtime `ConversationUpdated` and message events
+tell you to refresh it.
+
+Other lists that are naturally small (contacts, organizations, channels) are returned whole.
 Administration searches take `skip` and `take`.
 
 ## Sending messages
@@ -209,7 +215,7 @@ payload.
 | --- | --- |
 | `JoinConversation(conversationId)` / `LeaveConversation(conversationId)` | Receive a conversation's typing and group events (access is checked). |
 | `SendTypingStatus(conversationId, isTyping)` | Typing indicator (expires by itself). |
-| `GetPresence()` | Presence of contacts and colleagues. |
+| `GetPresence()` | Presence of contacts and of people you share a direct chat or group with (not channels). |
 
 | Server → client | Payload |
 | --- | --- |
@@ -220,8 +226,20 @@ payload.
 | `UserPresenceChanged` | `{ userId, status: online/offline, atUtc }`. |
 | `PrivateChatChanged`, `PrivateMessageCreated` | Private chats. They are never stored; forget everything when `status` is `ended`. |
 
-After a reconnect, events may have been missed: reload the conversation list and the open
-history. Use the official `@microsoft/signalr` client; JSON protocol.
+After a reconnect, events may have been missed. Catch up with the change feed:
+
+1. Before or right after connecting, take a cursor: `GET /api/v1/changes/cursor` → `{ cursor }`.
+2. After a reconnect, `GET /api/v1/changes?since=<cursor>` → `{ reset, cursor, conversationIds, entries }`.
+   `entries` holds `{ conversationId, entry }` with the **current state** of every message created,
+   edited or deleted, or whose reactions changed, in conversations you may still see. Apply them by
+   `entry.id` and `entry.version`, refresh the conversations in `conversationIds`, and keep the new
+   `cursor`. The same change may come twice; never fewer.
+3. `reset: true` means more than 500 changes, or a cursor older than 24 hours: reload the
+   conversation list and the open history, then continue from the returned `cursor`.
+
+An invalid cursor is a `400` with `cursor_invalid`. Receipts, membership and conversation settings
+are not in the feed: reload the list and the open conversation for those. Use the official
+`@microsoft/signalr` client; JSON protocol.
 
 ## Website chat (widget)
 

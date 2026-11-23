@@ -128,6 +128,9 @@ internal sealed class PlanningDispatchService(
                     if (time.GetUtcNow() - lastCleanup >= TimeSpan.FromHours(1))
                     {
                         await planning.RemoveOldDraftsAsync(stoppingToken).ConfigureAwait(false);
+
+                        // Phase 22: the reconnect change log keeps 24 hours.
+                        await scope.ServiceProvider.GetRequiredService<Application.Realtime.ChangeFeedService>().PurgeAsync(stoppingToken).ConfigureAwait(false);
                         lastCleanup = time.GetUtcNow();
                     }
                 }

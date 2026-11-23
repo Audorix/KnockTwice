@@ -19,11 +19,19 @@ export class FakeHub {
   off = () => undefined;
   invoke = vi.fn(async (name: string) => (name === 'GetPresence' ? [] : undefined));
   onreconnecting = () => undefined;
-  onreconnected = () => undefined;
+  private reconnected: (() => void) | undefined;
+  onreconnected = (handler: () => void) => {
+    this.reconnected = handler;
+  };
   onclose = () => undefined;
 
   emit(name: string, payload: unknown) {
     this.handlers.get(name)?.(payload);
+  }
+
+  /** Simulates SignalR's automatic reconnect completing. */
+  reconnect() {
+    this.reconnected?.();
   }
 
   asHub(): HubLike {

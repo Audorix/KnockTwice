@@ -315,7 +315,7 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 
 ### ADR-022: Durable ordering and reconnect recovery
 
-**Status:** Accepted — 2026-11-22, by the project owner, for Phase 5 (extends ADR-017 without changing its source record). Phase 5 implements the per-conversation sequence (`conversations.last_sequence` protected by a concurrency token, unique `(conversation_id, sequence)` on history entries) for history cursors and unread counts; the durable change sequence and change feed arrive with Phase 6 messaging.
+**Status:** Accepted — 2026-11-22, by the project owner, for Phase 5 (extends ADR-017 without changing its source record). Phase 5 implements the per-conversation sequence (`conversations.last_sequence` protected by a concurrency token, unique `(conversation_id, sequence)` on history entries) for history cursors and unread counts; the durable change sequence and change feed were completed in Phase 22 (ADR-036).
 
 **Context:** Timestamp/ID ordering gives stable history, but it does not alone recover missed edits, deletions, receipts or out-of-order realtime notifications.
 
@@ -520,6 +520,24 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 
 **Consequences:** Running several instances needs Redis and a load balancer with WebSocket support (sticky sessions are not required for the backplane, but long-polling clients need them). The Redis code is exercised in tests through an in-memory stand-in, not a real Redis.
 
+### ADR-036: Reconnect catch-up, capacity targets and the web bundle budget
+
+**Status:** Accepted — 2026-11-23, by the project owner, for Phase 22 (performance). Completes the change feed of ADR-022 and resolves the "performance and capacity targets" question in the register below.
+
+**Context:** After a dropped connection the web app reloaded the open conversation's latest page, so edits, deletions and reactions to older messages were missed until a full reload. There were no agreed capacity targets and no way to measure them, the first page load downloaded every page of the app, and the conversation list was returned whole.
+
+**Decision:**
+
+- *Change feed.* Every new or changed history entry, and every entry whose reactions changed, adds a row to `change_log` (identity id, conversation, entry, time) in the same transaction as the change (`ChatXDbContext`, like the search and push queues). `GET /api/v1/changes/cursor` returns an opaque cursor for "now"; `GET /api/v1/changes?since=` returns the current state of every changed entry the caller may still see (membership and visible-from position re-checked), the ids of conversations touched, and a new cursor.
+  - *Limits (owner decision):* more than **500** changes, or a cursor older than the **24-hour** retention, returns `reset: true` and the client reloads; the purge runs with the hourly planning cleanup.
+  - *Ordering:* identity values can commit out of order, so the returned cursor only advances past changes older than 5 seconds; clients may receive a recent change twice and deduplicate by entry id and version.
+- *Capacity targets (owner decision, "mid-size", one server):* 2,000 connected people, 100 messages a second, p95 send under 300 ms, p95 history page under 200 ms, no errors. `tools/Audorix.ChatX.LoadTest` measures them against any installation through the public API (it needs a test installation in development mode); it also reports delivery latency to each recipient (target p95 under 1 s).
+- *Web bundle.* Pages other than the conversations, home and sign-in pages are loaded on demand (`React.lazy`), the SignalR client is loaded when realtime starts, and `scripts/check-bundle.mjs` fails CI when the first download exceeds 180 kB gzip or any chunk 80 kB.
+- *Presence audience (owner decision, after the first baseline).* Presence goes to contacts and to people sharing an active direct chat or group, minus blocks, instead of everyone sharing an organization. Channels and website chats do not count (their size is unbounded; groups are capped by `Conversations:MaxGroupParticipants`). The audience was the whole organization, so connecting everyone in a 2,000-person organization meant about 4 million announcements; it is now bounded by a person's chats.
+- *Conversation list pages.* `GET /api/v1/conversations/page?limit=&after=` returns the list in the same order 50 at a time (at most 200); the existing unpaged endpoint stays for other callers. The page boundary is (activity time, id), so a conversation that becomes active moves to the top and arrives through realtime updates rather than being repeated.
+
+**Consequences:** The change log grows with message volume (one small row per change) and is pruned after a day. The feed covers history entries and reactions; receipts, membership and conversation settings are refreshed by reloading the conversation and list, as before. The list endpoint still reads all of a person's memberships and pages after sorting, which keeps the response and profile lookups small but not the query; a database-side page is a later step if lists of thousands of conversations appear. **The targets are not met yet:** the first baseline ([Phase 22 record](releases/phase-22-performance.md)) sustained about 25 messages a second with 2,000 people on a shared workstation. It also showed that presence announcements grew with the square of an organization's size, which the presence decision above removes; throughput remains follow-up work. People who only share an organization no longer see each other online; they see each other once they talk.
+
 ## Decision register requiring product input
 
 | Decision | Current source / uncertainty | Recommended point of resolution |
@@ -532,7 +550,7 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 | Edit and delete policy | **Resolved** (owner, 2026-11-22): authors edit their own messages for 15 minutes (`Messaging:EditWindow`) and delete them any time; deleted messages leave a tombstone; group owners and administrators may delete others' messages. Plain text up to 4000 characters with replies. | Done (Phase 6) |
 | Idempotency retention | **Resolved** (owner, 2026-11-22): client message ids are unique per conversation and sender for ever (no expiry); a retry returns the original, a different body is a conflict. | Done (Phase 6) |
 | Public user discovery | **Resolved** (owner, 2026-11-23): the Phase 3 default is kept — exact-email lookup for any signed-in user; name search only among people sharing an active organization; emails never returned; both switchable in the administration. | Done (Phase 13) |
-| Presence visibility | **Resolved** (owner, 2026-11-23): the Phase 4 default is kept — presence is visible to contacts and people sharing an active organization, never across a block; no "appear offline" option. | Done (Phase 13) |
+| Presence visibility | **Resolved** (owner, 2026-11-23): the Phase 4 default was kept in Phase 13, then **changed in Phase 22** (owner, 2026-11-23, ADR-036) — presence is visible to contacts and people sharing an active direct chat or group (not a channel or website chat), never across a block; organization membership alone no longer shows presence; no "appear offline" option. | Done (Phase 22) |
 | Installation setup | Owner-requested setup wizard (2026-11-22): protected by a setup code from the server log; writes a settings file below environment variables; offers a development mode without email confirmation. Unattended installs may preset `Setup:Token` or configure everything by environment. | Done (revisit with Phase 9 administration) |
 | Attachment limits | **Resolved** (owner, 2026-11-22): 25 MB per file, 10 per message, 1 GB per person (all configurable); allow-list of images, PDF, Office, text/CSV and ZIP with content-signature checks; pluggable ClamAV scanning, off by default (quarantine until clean when on); unsent uploads removed after 24 hours; deleting a message deletes its files. | Done (Phase 7) |
 | Private chats | **Resolved** (owner, 2026-11-22): ADR-025 accepted — one-to-one by accepted invitation, in memory only, living as long as the initiator's sign-in session, files in memory and wiped at the end. | Done (Phase 7) |
@@ -541,6 +559,6 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 | Installation administration | **Resolved** (owner, 2026-11-23): feature switches, limits and languages are live database settings; providers are validated and saved to the settings file (restart required, secrets write-only); administrators manage accounts (disable, sign out, confirm, roles) without content access; a read-only Auditor role; audit log of administrative and security events kept 365 days. | Done (Phase 9) |
 | Widget isolation and identity flow | **Resolved** (owner, 2026-11-23): ADR-024 accepted — iframe and loader; HS256 identity tokens signed by the host server with the widget secret; chosen organization members answer; balanced limits (anonymous sessions 30 days sliding, one conversation per visitor, 20 messages/minute, 5 anonymous sessions/hour per address, attachments for identified visitors only). | Done (Phase 10) |
 | Channel access, guest history, team inheritance | **Resolved** (owner, 2026-11-23): ADR-026 accepted — public/private channels with history from the join; channel-scoped guests (history from their join, switchable per organization); teams as member groups, administration inheriting from organization to workspace to channel; Support Agent role with inbox, assignment and open/closed status. | Done (Phase 11) |
-| Performance and capacity targets | No measured or agreed workload in the source | Before load-test acceptance |
+| Performance and capacity targets | **Resolved** (owner, 2026-11-23): ADR-036 — one server for 2,000 connected people and 100 messages a second, p95 send under 300 ms and history page under 200 ms, no errors; reconnect catch-up up to 500 changes or 24 hours, otherwise reload. | Done (Phase 22) |
 
 These questions do not block creating the Phase 1 foundation. Resolve each before implementing the behavior it governs.

@@ -12,9 +12,8 @@ import { useRealtime } from '../realtime/RealtimeContext';
 import * as api from './businessApi';
 
 /** Organizations whose support inbox the user works: support agents and owners/administrators. */
-export function supportOrganizations(organizations: OrganizationResponse[]): OrganizationResponse[] {
-  return organizations.filter((o) => o.supportAgent || o.myPermissions.includes('organization.manage'));
-}
+export { supportOrganizations } from '../../app/navigationRules';
+import { supportOrganizations } from '../../app/navigationRules';
 
 /** The support inbox (Phase 11): website conversations with status, assignee, claim and close. */
 export function SupportPage() {

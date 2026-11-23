@@ -133,6 +133,9 @@ public sealed record MarkConversationDeliveredRequest(long Sequence);
 
 public sealed record ConversationDeliveredResponse(long LastDeliveredSequence);
 
+/// <summary>A page of the conversation list (Phase 22), most recent activity first. Pass <paramref name="NextCursor"/> as <c>after</c> for the next page.</summary>
+public sealed record ConversationListPageResponse(IReadOnlyList<ConversationSummaryResponse> Items, string? NextCursor, bool HasMore);
+
 /// <summary>A page of history in ascending order. Pass <paramref name="NextCursor"/> as <c>before</c> to load older entries.</summary>
 public sealed record ConversationHistoryResponse(IReadOnlyList<ConversationEntryResponse> Items, string? NextCursor, bool HasMore);
 

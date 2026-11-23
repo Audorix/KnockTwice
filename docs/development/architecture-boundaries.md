@@ -180,8 +180,9 @@ write the settings file atomically and restart the process in normal mode.
   `conversation:{id}` and are delivery destinations, not security boundaries: joining and every
   typing signal re-check `IConversationAccess`; a failed check removes all of the user's
   connections from the destination.
-- Presence audience = contacts ∪ people sharing an active organization, minus blocks (either
-  direction). It is symmetric, so it also limits whose presence a user may read.
+- Presence audience = contacts ∪ people sharing an active direct chat or group (not channels or
+  website chats), minus blocks (either direction); Phase 22, ADR-036 (it was everyone sharing an
+  active organization). It is symmetric, so it also limits whose presence a user may read.
 - Until Phase 5, `NoConversationAccess` denies every conversation in production; the integration
   tests use a protected fixture implementation.
 

@@ -519,6 +519,24 @@ Acceptance criteria:
 - Ended sessions older than the retention period are deleted; active ones are untouched.
 - CI runs the same checks as `scripts/validate.ps1`.
 
+### Phase 22 — Performance
+
+Added by the project owner on 2026-11-23 (ADR-036).
+
+Deliverables:
+
+- Reconnect catch-up: a change log written with every history change, `GET /api/v1/changes` with a cursor, and the web app applying the changes after a reconnect (reload over 500 changes or after 24 hours).
+- Route-level code splitting of the web app and a bundle budget checked in CI.
+- A paged conversation list (`GET /api/v1/conversations/page`) used by the web app with "Show more conversations".
+- `tools/Audorix.ChatX.LoadTest`, a repeatable load test with the agreed targets, and a measured baseline.
+
+Acceptance criteria:
+
+- After a reconnect, edits, deletions and reactions made while offline appear without a reload; people see only changes in conversations they may still see; more than 500 changes ask for a reload.
+- The first download of the web app stays within its budget, enforced in CI.
+- Pages of the conversation list together equal the full list, in order.
+- The load test runs at the targets (2,000 connected people, 100 messages a second, p95 send < 300 ms, p95 history < 200 ms, no errors) and its results are recorded.
+
 ## 4. Initial API contracts
 
 Base path:

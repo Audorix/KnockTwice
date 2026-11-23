@@ -111,11 +111,38 @@ PostgreSQL service container.
 with `CHATX_TEST_POSTGRES` and the PostgreSQL client tools) and checks sign-in, contacts, history
 and attachment content after the restore. See [backup-restore.md](../backup-restore.md#practising-a-restore).
 
+## Load test
+
+`tools/Audorix.ChatX.LoadTest` (Phase 22, ADR-036) measures an installation against the agreed
+targets for one server: 2,000 connected people, 100 messages a second, p95 send under 300 ms, p95
+history page under 200 ms, delivery to each recipient p95 under 1 s, and no errors. It uses only the
+public API and the hub, creating its own people (`lt<run>-<n>@loadtest.example.org`), one
+organization and groups of 50, so it can be pointed at any **test** installation. Never run it
+against a production server: it creates thousands of accounts.
+
+The installation must be in development mode with registration open: `Identity:AutoConfirmEmail=true`,
+`Captcha:Provider=None`, and `RateLimiting:AuthPermitLimit` raised for the setup (for example
+`100000`). For a realistic number, run the server in Release with `Production` logging, on its own
+database, and the tool on a different machine if you can.
+
+```powershell
+dotnet run -c Release --project tools/Audorix.ChatX.LoadTest -- --url http://localhost:5190 --out results.json
+```
+
+Options change the scale and the targets (`--users`, `--group-size`, `--rate`, `--history-rate`,
+`--duration`, `--warmup`, `--send-p95`, `--history-p95`, `--delivery-p95`; `--help` lists them).
+The tool prints p50/p95/p99/max per operation and a PASS/MISS line per target, and exits `0` when
+every target is met, `2` when one is missed and `1` when the run could not complete. The measured
+baseline is in the [Phase 22 delivery record](../releases/phase-22-performance.md).
+
 ## PostgreSQL integration tests
 
 They run only when `CHATX_TEST_POSTGRES` holds a connection string for a login that may
 `CREATE DATABASE`. Each test creates a database named `chatx_test_<guid>` and drops it
-afterwards (`DROP DATABASE ... WITH (FORCE)`); no other database is touched. Without the
+afterwards (`DROP DATABASE ... WITH (FORCE)`); no other database is touched. Each test database
+uses a small connection pool (at most 4), so parallel tests stay well under PostgreSQL's default
+limit of 100 connections; keep other heavy users of the same server (such as a load-test
+instance) stopped while the tests run. Without the
 variable these tests are reported as **skipped**, never as passed.
 
 A dedicated test login is recommended, for example (run as a PostgreSQL superuser):
@@ -137,7 +164,14 @@ npm ci
 npm run typecheck
 npm test
 npm run build
+npm run check:bundle
 ```
+
+`check:bundle` (Phase 22, also in CI) measures the built app: the first download (entry script and
+the chunks `index.html` preloads) must stay under 180 kB gzip and every chunk under 80 kB. Pages
+other than conversations, home and sign-in are loaded on demand; when the check fails, look for a
+page imported directly instead of through `lazy` in `AppShell.tsx`, or a small helper imported from
+a big page module.
 
 Vitest covers the CSRF-aware API client (token reuse, one refresh on `csrf_token_invalid`, field
 errors), sign-in and registration behaviour (localized errors, unconfirmed-email path, account

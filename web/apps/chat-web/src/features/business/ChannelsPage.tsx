@@ -7,6 +7,7 @@ import { errorMessage } from '../auth/errors';
 import { RequireUser } from '../auth/RequireUser';
 import { listOrganizations, listWorkspaces } from '../organizations/organizationsApi';
 import * as api from './businessApi';
+import { ChannelMark } from './ChannelMark';
 
 /**
  * Channels (Phase 11): pick an organization and workspace, browse its public channels and your
@@ -142,21 +143,6 @@ function Channels() {
         </section>
       )}
     </>
-  );
-}
-
-export function ChannelMark({ visibility }: { visibility: ChannelVisibility | null | undefined }) {
-  const { t } = useTranslation();
-  // Not the padlock: that sign is reserved for private chats that are never saved (Phase 7).
-  return visibility === 'private' ? (
-    <span className="cx-channel-mark" title={t('channels.visibility.private')} aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="14" height="14" focusable="false">
-        <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" fill="none" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M4 20 20 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    </span>
-  ) : (
-    <span className="cx-channel-mark" aria-hidden="true">#</span>
   );
 }
 

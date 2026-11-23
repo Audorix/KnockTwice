@@ -2178,6 +2178,39 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Audorix.ChatX.Infrastructure.Persistence.ChangeLogItem", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<Guid>("EntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("entry_id");
+
+                    b.Property<long>("RecordedTicks")
+                        .HasColumnType("bigint")
+                        .HasColumnName("recorded_ticks");
+
+                    b.HasKey("Id")
+                        .HasName("pk_change_log");
+
+                    b.HasIndex("RecordedTicks")
+                        .HasDatabaseName("ix_change_log_recorded_ticks");
+
+                    b.HasIndex("ConversationId", "Id")
+                        .HasDatabaseName("ix_change_log_conversation_id_id");
+
+                    b.ToTable("change_log", (string)null);
+                });
+
             modelBuilder.Entity("Audorix.ChatX.Infrastructure.Search.MessageSearchRow", b =>
                 {
                     b.Property<Guid>("EntryId")

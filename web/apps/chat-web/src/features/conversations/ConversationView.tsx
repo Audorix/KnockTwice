@@ -41,7 +41,7 @@ import * as api from './conversationsApi';
 import { describeEntry, GroupDetails } from './conversationParts';
 import { ReactionBar, ReactionPicker, ThreadPanel, ThreadSummary, upsertEntry, withReactions } from './reactionsAndThreads';
 import * as business from '../business/businessApi';
-import { ChannelMark } from '../business/ChannelsPage';
+import { ChannelMark } from '../business/ChannelMark';
 
 /** Matches the server default (Messaging:EditWindow); the server enforces the real value. */
 const editWindowMs = 15 * 60 * 1000;
@@ -178,6 +178,47 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     }
   }, [conversationId, markRead]);
 
+  // Phase 22: a cursor taken after loading; after a reconnect only what changed is fetched.
+  const changeCursor = useRef<{ cursor: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!detail || changeCursor.current) return;
+    api.getChangeCursor().then((cursor) => {
+      changeCursor.current ??= { cursor, at: Date.now() };
+    }, () => undefined);
+  }, [detail]);
+
+  const catchUp = useCallback(async () => {
+    const saved = changeCursor.current;
+    // Changes are kept 24 hours on the server; older cursors (or none) reload.
+    if (!saved || Date.now() - saved.at > 24 * 60 * 60 * 1000) {
+      changeCursor.current = null;
+      await load();
+      return;
+    }
+    try {
+      const set = await api.getChanges(saved.cursor);
+      changeCursor.current = { cursor: set.cursor, at: Date.now() };
+      if (set.reset) {
+        await load();
+        return;
+      }
+      const mine = set.entries.filter((e) => e.conversationId === conversationId).map((e) => e.entry);
+      if (mine.length > 0) {
+        // Thread replies kept in their thread stay out; their first message arrives with its new count.
+        setEntries((current) => mine.filter(inMainTimeline).reduce(upsert, current));
+      }
+      if (set.conversationIds.includes(conversationId)) {
+        const d = await api.getConversation(conversationId);
+        setDetail(d);
+        if (d.conversation.lastSequence > d.conversation.lastReadSequence && document.visibilityState === 'visible') {
+          await markRead(d.conversation.lastSequence);
+        }
+      }
+    } catch {
+      await load();
+    }
+  }, [conversationId, load, markRead]);
+
   // Phase 18: open at a message (from mentions, search, saved messages or pins).
   useEffect(() => {
     if (targetThread) setThreadRoot(targetThread);
@@ -237,7 +278,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     const offUpdate = client.onConversationUpdated((event) => {
       if (event.conversationId === conversationId && event.change !== 'removed' && event.change !== 'read') void load();
     });
-    const offReconnect = client.onReconnected(() => void load());
+    const offReconnect = client.onReconnected(() => void catchUp());
     return () => {
       offMessage();
       offReaction();
@@ -248,7 +289,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
       void client.sendTyping(conversationId, false).catch(() => undefined);
       void client.leaveConversation(conversationId).catch(() => undefined);
     };
-  }, [client, conversationId, load, markRead, me, countReply]);
+  }, [client, conversationId, load, markRead, me, countReply, catchUp]);
 
   // Typing indicators expire on their own; drop stale ones locally too.
   useEffect(() => {

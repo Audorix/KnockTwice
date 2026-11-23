@@ -39,6 +39,7 @@ const group = {
 };
 
 const csrf = () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' });
+const page = (items: unknown[], nextCursor: string | null = null) => ({ items, nextCursor, hasMore: nextCursor !== null });
 
 describe('ConversationsPage', () => {
   beforeAll(async () => {
@@ -57,7 +58,7 @@ describe('ConversationsPage', () => {
       'GET /api/v1/auth/config': () => json(200, authConfig),
       'GET /api/v1/users/me': () => json(200, me),
       'GET /api/v1/auth/csrf': csrf,
-      'GET /api/v1/conversations': () => json(200, [group]),
+      'GET /api/v1/conversations/page?limit=50': () => json(200, page([group])),
       'GET /api/v1/conversations/c-team': () =>
         json(200, { conversation: group, description: null, participants: [{ user: { ...me, avatar: me.avatar }, role: 'owner', joinedAtUtc: '2026-11-22T09:00:00Z' }] }),
       'GET /api/v1/conversations/c-team/history': () =>
@@ -90,6 +91,31 @@ describe('ConversationsPage', () => {
     expect(reads).toEqual([{ sequence: 3 }]);
   });
 
+  it('loads the list a page at a time', async () => {
+    window.history.replaceState(null, '', '/conversations');
+    const older = { ...group, id: 'c-old', title: 'Old friends', unreadCount: 0 };
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': csrf,
+      'GET /api/v1/drafts': () => json(200, []),
+      'GET /api/v1/conversations/page?limit=50': () => json(200, page([group], 'next-1')),
+      'GET /api/v1/conversations/page?limit=50&after=next-1': () => json(200, page([older])),
+    });
+    const user = userEvent.setup();
+    render(
+      <AuthProvider>
+        <ConversationsPage />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: /Team/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Old friends/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Show more conversations' }));
+    expect(await screen.findByRole('button', { name: /Old friends/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show more conversations' })).not.toBeInTheDocument();
+  });
+
   it('creates a group from contacts', async () => {
     window.history.replaceState(null, '', '/conversations');
     let created: unknown = null;
@@ -97,7 +123,7 @@ describe('ConversationsPage', () => {
       'GET /api/v1/auth/config': () => json(200, authConfig),
       'GET /api/v1/users/me': () => json(200, me),
       'GET /api/v1/auth/csrf': csrf,
-      'GET /api/v1/conversations': () => json(200, []),
+      'GET /api/v1/conversations/page?limit=50': () => json(200, page([])),
       'GET /api/v1/organizations': () => json(200, []),
       'GET /api/v1/contacts': () => json(200, [{ user: ben, sinceUtc: '2026-11-01T00:00:00Z' }, { user: dana, sinceUtc: '2026-11-01T00:00:00Z' }]),
       'POST /api/v1/conversations/groups': (init) => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from './router';
 import { useAuth } from '../features/auth/AuthContext';
@@ -13,26 +13,34 @@ import {
   SignInPage,
   VerifyEmailPage,
 } from '../features/auth/AuthPages';
-import { AccountPage } from '../features/account/AccountPage';
 import { Avatar } from '../shared/components/Avatar';
-import { ContactsPage } from '../features/contacts/ContactsPage';
-import { OrganizationsPage } from '../features/organizations/OrganizationsPage';
-import { OrganizationPage } from '../features/organizations/OrganizationPage';
 import { RealtimeIndicator } from '../features/realtime/RealtimeIndicator';
 import { ConversationsPage } from '../features/conversations/ConversationsPage';
-import { PrivateChatPage } from '../features/private/PrivateChatPage';
-import { AdminPage, canAdminister } from '../features/admin/AdminPage';
 import { PrivateChatInvites } from '../features/private/PrivateChatInvites';
 import { NotificationToasts, useNotifications } from '../features/notifications/NotificationsContext';
 import { NavIcon, type NavIconName } from '../shared/components/NavIcon';
-import { ChannelsPage } from '../features/business/ChannelsPage';
-import { ChannelPage } from '../features/business/ChannelPage';
-import { SupportPage, supportOrganizations } from '../features/business/SupportPage';
 import { listOrganizations } from '../features/organizations/organizationsApi';
-import { SearchPage } from '../features/search/SearchPage';
-import { MentionsPage } from '../features/mentions/MentionsPage';
+import { canAdminister, supportOrganizations } from './navigationRules';
 
-const routes: Record<string, () => React.JSX.Element> = {
+/**
+ * Phase 22: pages other than the chat and the sign-in flow are loaded on demand, so the first
+ * download stays small (see scripts/check-bundle.mjs for the budget).
+ */
+const page = <K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) =>
+  lazy(async () => ({ default: (await load())[name] }));
+const AccountPage = page(() => import('../features/account/AccountPage'), 'AccountPage');
+const ContactsPage = page(() => import('../features/contacts/ContactsPage'), 'ContactsPage');
+const OrganizationsPage = page(() => import('../features/organizations/OrganizationsPage'), 'OrganizationsPage');
+const OrganizationPage = page(() => import('../features/organizations/OrganizationPage'), 'OrganizationPage');
+const PrivateChatPage = page(() => import('../features/private/PrivateChatPage'), 'PrivateChatPage');
+const AdminPage = page(() => import('../features/admin/AdminPage'), 'AdminPage');
+const ChannelsPage = page(() => import('../features/business/ChannelsPage'), 'ChannelsPage');
+const ChannelPage = page(() => import('../features/business/ChannelPage'), 'ChannelPage');
+const SupportPage = page(() => import('../features/business/SupportPage'), 'SupportPage');
+const SearchPage = page(() => import('../features/search/SearchPage'), 'SearchPage');
+const MentionsPage = page(() => import('../features/mentions/MentionsPage'), 'MentionsPage');
+
+const routes: Record<string, ComponentType> = {
   '/': HomePage,
   '/sign-in': SignInPage,
   '/register': RegisterPage,
@@ -87,7 +95,9 @@ export function AppShell() {
         {skip}
         <AppNavigation />
         <main id="main" ref={main} className={`cx-app-main${pathname === '/conversations' || pathname === '/private' ? ' is-chat' : ''}`} tabIndex={-1}>
-          <Page />
+          <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
+            <Page />
+          </Suspense>
         </main>
         <NotificationToasts />
         <PrivateChatInvites />
@@ -129,7 +139,9 @@ export function AppShell() {
         </nav>
 
         <main id="main" ref={main} className="cx-content" tabIndex={-1}>
-          <Page />
+          <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
+            <Page />
+          </Suspense>
         </main>
       </div>
     </div>
