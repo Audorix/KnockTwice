@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Greeting" xml:space="preserve"><value>Hola, {0}:</value></data>
+  <data name="ConfirmSubject" xml:space="preserve"><value>Confirme su dirección de correo de Audorix.ChatX</value></data>
+  <data name="ConfirmBody" xml:space="preserve"><value>Confirme su dirección de correo electrónico para terminar de configurar su cuenta de Audorix.ChatX.</value></data>
+  <data name="ConfirmAction" xml:space="preserve"><value>Confirmar dirección de correo</value></data>
+  <data name="ResetSubject" xml:space="preserve"><value>Restablezca su contraseña de Audorix.ChatX</value></data>
+  <data name="ResetBody" xml:space="preserve"><value>Hemos recibido una solicitud para restablecer la contraseña de su cuenta de Audorix.ChatX. Use el siguiente enlace para elegir una contraseña nueva. Al restablecerla se cerrará la sesión en todos sus dispositivos.</value></data>
+  <data name="ResetAction" xml:space="preserve"><value>Elegir una contraseña nueva</value></data>
+  <data name="ExistingSubject" xml:space="preserve"><value>Su cuenta de Audorix.ChatX</value></data>
+  <data name="ExistingBody" xml:space="preserve"><value>Alguien intentó crear una cuenta de Audorix.ChatX con esta dirección de correo, pero usted ya tiene una. No se ha creado ninguna cuenta nueva.</value></data>
+  <data name="ExistingAction" xml:space="preserve"><value>Iniciar sesión</value></data>
+  <data name="ExistingReset" xml:space="preserve"><value>Si olvidó su contraseña, puede restablecerla aquí: {0}</value></data>
+  <data name="LinkExpiry" xml:space="preserve"><value>Este enlace caduca en {0} horas y solo puede usarse una vez.</value></data>
+  <data name="IgnoreNotice" xml:space="preserve"><value>Si no lo ha solicitado, puede ignorar este correo.</value></data>
+  <data name="Signature" xml:space="preserve"><value>— Audorix.ChatX</value></data>
+</root>

@@ -10,9 +10,14 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <InvariantGlobalization>false</InvariantGlobalization>
     <SatelliteResourceLanguages>en;es</SatelliteResourceLanguages>
+    <Version>0.1.0</Version>
     <Authors>Audorix.ChatX contributors</Authors>
+    <Company>Audorix</Company>
+    <Copyright>Copyright (c) 2026 Audorix</Copyright>
     <Product>Audorix.ChatX</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/audorix/Audorix.ChatX</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <!-- CA1848/CA1873: LoggerMessage source generators are not required for the foundation's few log sites. -->
     <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>
   </PropertyGroup>

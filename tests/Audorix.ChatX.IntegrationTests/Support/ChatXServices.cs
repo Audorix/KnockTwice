@@ -34,6 +34,8 @@ internal static class ChatXServices
         services.AddChatXInfrastructure();
         services.AddSingleton<IDatabaseProvider>(new SqliteDatabaseProvider(AppContext.BaseDirectory));
         services.AddSingleton<IDatabaseProvider, PostgreSqlDatabaseProvider>();
-        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        // Account services (Identity, localization) are not registered in this persistence-only
+        // container, so validation is limited to scopes; the API tests cover the full graph.
+        return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = false });
     }
 }

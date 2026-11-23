@@ -47,6 +47,42 @@ public sealed class SqliteDatabaseProvider(string baseDirectory) : IDatabaseProv
             sqlite => sqlite.MigrationsAssembly(typeof(SqliteDatabaseProvider).Assembly.GetName().Name));
     }
 
+    public string BuildConnectionString(DatabaseConnectionParameters parameters)
+    {
+        ArgumentNullException.ThrowIfNull(parameters);
+        return new SqliteConnectionStringBuilder { DataSource = parameters.Path?.Trim() ?? string.Empty }.ToString();
+    }
+
+    public async Task<DatabaseProbeResult> ProbeAsync(string connectionString, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var resolved = new SqliteConnectionStringBuilder(ResolveConnectionString(connectionString)) { Pooling = false };
+            var existed = File.Exists(resolved.DataSource);
+            await using (var connection = new SqliteConnection(resolved.ToString()))
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                await using var command = connection.CreateCommand();
+                command.CommandText = "SELECT count(*) FROM sqlite_master";
+                await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            if (existed)
+            {
+                return DatabaseProbeResult.Connected;
+            }
+
+            // The probe proved the location is writable; leave no empty file behind.
+            File.Delete(resolved.DataSource);
+            return DatabaseProbeResult.DatabaseMissing;
+        }
+        catch (Exception ex) when (ex is SqliteException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            // Not a database file, a locked file, or a directory that cannot be created.
+            return DatabaseProbeResult.Failed;
+        }
+    }
+
     internal string ResolveConnectionString(string connectionString)
     {
         var builder = new SqliteConnectionStringBuilder(connectionString);

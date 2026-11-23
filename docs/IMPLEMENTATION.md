@@ -365,6 +365,160 @@ Acceptance criteria:
 - No secrets are included in the repository.
 - Dependency licenses are reviewed.
 
+### Phase 13 — 1.0 hardening
+
+Added by the project owner on 2026-11-23 after release 0.1.0, to close what the release left open
+(ADR-027).
+
+Deliverables:
+
+- Account deletion by the person and by installation administrators.
+- Organization deletion by owners and installation administrators.
+- Data retention: inactive anonymous visitors, never confirmed accounts, optional message retention.
+- Owner decisions on the remaining "before public release" items (ADR-020, discovery, presence).
+- Backup and restore procedure with a repeatable restore drill on both databases.
+- Publish-ready React package for the website chat.
+
+Acceptance criteria:
+
+- Deleting an account erases personal data while conversations keep their history.
+- Sole organization owners and the last administrator cannot leave the installation ownerless.
+- Retention removes only what its settings select, on SQLite and PostgreSQL.
+- A backup restores accounts, messages and referenced attachments coherently.
+
+### Phase 14 — Message search
+
+Added by the project owner on 2026-11-23 (ADR-028); "advanced search" leaves the deferred list
+(§9) in this form.
+
+Deliverables:
+
+- Provider-based search: database full-text (SQLite, PostgreSQL) by default, OpenSearch optional.
+- Search API with filters (conversation, sender, dates, files) and cursor paging.
+- Indexing queue and background indexer; index rebuild for administrators.
+- Search page in the web app with highlighted results and a conversation quick jump.
+
+Acceptance criteria:
+
+- People find only messages they can read, from their join, never deleted ones.
+- Edits, deletions and retention reach the index.
+- Both database providers behave the same; OpenSearch is configurable and testable from the administration.
+
+### Phase 15 — Notifications
+
+Added by the project owner on 2026-11-23 (ADR-029); push integrations leave the deferred list (§9)
+in this form. Before this phase the demo data was enlarged on request (see the Phase 14 record).
+
+Deliverables:
+
+- Email notifications for unread messages: batched (default), daily or off per person.
+- Web Push with VAPID and encrypted payloads; a service worker; subscriptions per browser and sign-in.
+- Preferences in the web app; live switches for administrators.
+
+Acceptance criteria:
+
+- Unread messages are emailed once, batched, honouring the person's choice and the preview setting.
+- Push reaches subscribed browsers only while the person is not connected, and stops when they sign out.
+- Muted conversations, deleted and demo accounts, and people without access are never notified.
+
+### Phase 16 — Reactions and threads
+
+Added by the project owner on 2026-11-23 (ADR-030). Before this phase the demo data gained 500
+channels on request (see the Phase 16 record).
+
+Deliverables:
+
+- Emoji reactions on messages (any emoji, at most 20 different per message), live for everyone in the conversation.
+- Threads on messages: a side panel, optional echo to the conversation, follow / stop following, own unread count.
+- Thread followers notified about replies; quote replies unchanged.
+
+Acceptance criteria:
+
+- Reactions toggle per person, are validated and limited, and reach others in real time.
+- Thread replies stay out of the main timeline and its unread count unless echoed; the first message shows the reply count and the caller's unread replies.
+- Both database providers behave the same; website chats have neither reactions nor threads.
+
+### Phase 17 — Mentions
+
+Added by the project owner on 2026-11-23 (ADR-031).
+
+Deliverables:
+
+- `@name` mentions with suggestions in the composer (conversation and thread), plus `@everyone` / `@here`.
+- Per-conversation notification levels: all messages, only mentions, nothing (replaces mute).
+- A Mentions view with unread state and a navigation badge.
+
+Acceptance criteria:
+
+- Only participants can be mentioned; `@everyone` / `@here` follow the size and role rule.
+- Push and email follow the level: mentions reach people on "only mentions", nobody on "nothing".
+- The Mentions view lists only messages the person can still read, with correct unread state, on both database providers.
+
+### Phase 18 — Message tools
+
+Added by the project owner on 2026-11-23 (ADR-032).
+
+Deliverables:
+
+- Pinned messages per conversation with a "pinned" history entry and a pins list.
+- Saved messages (private bookmarks) in a tab next to mentions.
+- Forwarding a copy (text and files, credited) with an optional comment.
+- Opening mentions, search results, saved and pinned messages at the message itself.
+
+Acceptance criteria:
+
+- Pins follow the roles and the limit; deleted messages lose their pin.
+- Saved messages are private and disappear when the message can no longer be read.
+- Forwarded copies carry the original author, have their own files, and never expose the source conversation; both database providers behave the same.
+
+### Phase 19 — Rich text
+
+Added by the project owner on 2026-11-23 (ADR-033).
+
+Deliverables:
+
+- Markdown-style formatting rendered safely in messages, threads and the visitor widget, with highlighted mentions.
+- A formatting toolbar and keyboard shortcuts in the composers.
+- Plain text (no markers) in emails, push notifications, reply previews and lists.
+
+Acceptance criteria:
+
+- No HTML from a message is ever interpreted; only http, https and mailto links are clickable.
+- Ordinary text (underscores in names, arithmetic) is not mistaken for formatting.
+- Email and push show the words without markers.
+
+### Phase 20 — Drafts, scheduled messages and reminders
+
+Added by the project owner on 2026-11-23 (ADR-034).
+
+Deliverables:
+
+- Drafts synced across devices per conversation and thread, marked in the conversation list.
+- "Send later" with quick times and a custom time; a Scheduled list to edit, cancel or remove.
+- "Remind me" on messages; a Reminders list; due reminders in the app, by push and by email.
+
+Acceptance criteria:
+
+- Scheduled messages go out with the normal rules at their time; refused ones stay listed with the reason.
+- Files of waiting scheduled messages are not cleaned up.
+- Reminders come due once, notify as chosen, and disappear when marked done; both database providers behave the same.
+
+### Phase 21 — Release readiness
+
+Added by the project owner on 2026-11-23 after the status audit (ADR-035).
+
+Deliverables:
+
+- A GitHub Actions CI workflow (.NET with SQLite and PostgreSQL, web type-check, tests and build).
+- Purging of ended sign-in sessions (and their push subscriptions) in the retention job.
+- Optional Redis scale-out: SignalR backplane, shared presence and shared rate limits.
+
+Acceptance criteria:
+
+- Without Redis nothing changes; with Redis two instances agree on presence and share sign-in limits.
+- Ended sessions older than the retention period are deleted; active ones are untouched.
+- CI runs the same checks as `scripts/validate.ps1`.
+
 ## 4. Initial API contracts
 
 Base path:
@@ -651,12 +805,12 @@ The following are outside the initial MVP:
 - Screen sharing.
 - AI assistants.
 - AI message translation.
-- Advanced search.
+- Advanced search (basic message search arrived in Phase 14; relevance ranking, typo tolerance and file contents remain deferred).
 - Advanced analytics.
 - Bots.
 - Workflow automation.
 - Advanced customer support ticketing.
-- Push notification integrations.
+- Push notification integrations (Web Push and notification emails arrived in Phase 15; native mobile push remains deferred).
 - Advanced retention and compliance policies.
 
 The architecture must allow these features to be introduced without replacing the messaging engine.

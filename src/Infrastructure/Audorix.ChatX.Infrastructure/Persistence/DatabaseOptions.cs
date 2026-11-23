@@ -14,6 +14,12 @@ public sealed class DatabaseOptions
 
     public string? ConnectionString { get; set; }
 
+    /// <summary>
+    /// Apply pending migrations when the API starts. Off by default: production applies schema
+    /// changes with the explicit <c>migrate</c> command. <c>appsettings.Development.json</c> turns it on.
+    /// </summary>
+    public bool MigrateOnStartup { get; set; }
+
     /// <summary>The parsed provider. Only valid after options validation succeeded.</summary>
     public DatabaseProviderKind ProviderKind =>
         DatabaseProviderKinds.TryParse(Provider, out var kind)

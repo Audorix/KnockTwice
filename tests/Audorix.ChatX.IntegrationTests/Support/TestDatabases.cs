@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Npgsql;
 
 namespace Audorix.ChatX.IntegrationTests.Support;
@@ -40,11 +41,17 @@ public sealed class SqliteTestDatabase : TestDatabase
 
     public override string Provider => "Sqlite";
 
-    // Pooling=False so the file handle is released when the test disposes its providers.
-    public override string ConnectionString => $"Data Source={FilePath};Pooling=False";
+    // Pooled like production. Without pooling every operation opens and closes the WAL-mode
+    // file, and with concurrent hub polling and background sweeps SQLite can then answer
+    // "database is locked" immediately. The pool is cleared on dispose to release the file.
+    public override string ConnectionString => $"Data Source={FilePath}";
 
     public override ValueTask DisposeAsync()
     {
+        // The provider rewrites the connection string (absolute path), so clear every idle pooled
+        // connection rather than one pool key; connections in use elsewhere are unaffected.
+        SqliteConnection.ClearAllPools();
+
         try
         {
             Directory.Delete(_directory, recursive: true);

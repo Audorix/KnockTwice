@@ -16,4 +16,143 @@
   <data name="invalid_language_code" xml:space="preserve"><value>El código de idioma no es válido.</value></data>
   <data name="unsupported_language" xml:space="preserve"><value>Esta instalación no admite el idioma indicado.</value></data>
   <data name="installation_not_initialized" xml:space="preserve"><value>La instalación no se ha inicializado.</value></data>
+  <data name="unauthorized" xml:space="preserve"><value>Debe iniciar sesión.</value></data>
+  <data name="forbidden" xml:space="preserve"><value>No tiene permiso para realizar esta acción.</value></data>
+  <data name="too_many_requests" xml:space="preserve"><value>Demasiadas solicitudes. Espere un momento y vuelva a intentarlo.</value></data>
+  <data name="csrf_token_invalid" xml:space="preserve"><value>Falta el token de seguridad o no es válido. Recargue la página y vuelva a intentarlo.</value></data>
+  <data name="invalid_credentials" xml:space="preserve"><value>La dirección de correo o la contraseña no son correctas.</value></data>
+  <data name="email_not_confirmed" xml:space="preserve"><value>Confirme su dirección de correo antes de iniciar sesión.</value></data>
+  <data name="invalid_or_expired_token" xml:space="preserve"><value>El enlace no es válido o ha caducado.</value></data>
+  <data name="registration_disabled" xml:space="preserve"><value>El registro está desactivado en esta instalación.</value></data>
+  <data name="captcha_failed" xml:space="preserve"><value>La verificación humana ha fallado. Vuelva a intentarlo.</value></data>
+  <data name="captcha_unavailable" xml:space="preserve"><value>La verificación humana no está disponible temporalmente. Inténtelo más tarde.</value></data>
+  <data name="email_unavailable" xml:space="preserve"><value>No se pudo enviar el correo en este momento. Inténtelo más tarde.</value></data>
+  <data name="external_provider_not_enabled" xml:space="preserve"><value>Este proveedor de inicio de sesión no está habilitado.</value></data>
+  <data name="session_not_found" xml:space="preserve"><value>No se encontró la sesión.</value></data>
+  <data name="user_not_found" xml:space="preserve"><value>No se encontró el usuario.</value></data>
+  <data name="display_name_required" xml:space="preserve"><value>El nombre visible es obligatorio.</value></data>
+  <data name="display_name_too_long" xml:space="preserve"><value>El nombre visible es demasiado largo.</value></data>
+  <data name="display_name_invalid" xml:space="preserve"><value>El nombre visible contiene caracteres no válidos.</value></data>
+  <data name="organization_not_found" xml:space="preserve"><value>No se encontró la organización.</value></data>
+  <data name="workspace_not_found" xml:space="preserve"><value>No se encontró el espacio de trabajo.</value></data>
+  <data name="member_not_found" xml:space="preserve"><value>No se encontró el miembro.</value></data>
+  <data name="invitation_not_found" xml:space="preserve"><value>No se encontró la invitación o ya no está abierta.</value></data>
+  <data name="invitation_pending" xml:space="preserve"><value>Ya hay una invitación pendiente para esta dirección de correo.</value></data>
+  <data name="invitation_not_open" xml:space="preserve"><value>La invitación ya no está abierta.</value></data>
+  <data name="last_owner" xml:space="preserve"><value>Una organización debe conservar al menos un propietario.</value></data>
+  <data name="already_member" xml:space="preserve"><value>El usuario ya es miembro.</value></data>
+  <data name="not_organization_member" xml:space="preserve"><value>Solo los miembros de la organización pueden unirse a sus espacios de trabajo.</value></data>
+  <data name="organization_creation_disabled" xml:space="preserve"><value>La creación de organizaciones está desactivada en esta instalación.</value></data>
+  <data name="contact_not_found" xml:space="preserve"><value>No se encontró el contacto.</value></data>
+  <data name="contact_request_not_found" xml:space="preserve"><value>No se encontró la solicitud de contacto.</value></data>
+  <data name="contact_request_not_pending" xml:space="preserve"><value>La solicitud de contacto ya no está pendiente.</value></data>
+  <data name="already_contacts" xml:space="preserve"><value>Ya son contactos.</value></data>
+  <data name="user_blocked" xml:space="preserve"><value>Ha bloqueado a este usuario. Desbloquéelo primero.</value></data>
+  <data name="cannot_target_self" xml:space="preserve"><value>No puede hacer esto con su propia cuenta.</value></data>
+  <data name="setup_required" xml:space="preserve"><value>Esta instalación aún no está configurada. Complete primero el asistente de instalación.</value></data>
+  <data name="setup_token_invalid" xml:space="preserve"><value>Falta el código de instalación o no es correcto.</value></data>
+  <data name="setup_already_completed" xml:space="preserve"><value>La instalación ya se completó.</value></data>
+  <data name="setup_administrator_exists" xml:space="preserve"><value>Esta base de datos ya tiene un administrador de la instalación.</value></data>
+  <data name="setup_settings_invalid" xml:space="preserve"><value>Uno o más ajustes no son válidos.</value></data>
+  <data name="setup_database_unavailable" xml:space="preserve"><value>No se pudo usar la base de datos con estos ajustes.</value></data>
+  <data name="setup_in_progress" xml:space="preserve"><value>La instalación ya está en curso. Espere a que termine.</value></data>
+  <data name="already_participant" xml:space="preserve"><value>La persona ya participa en esta conversación.</value></data>
+  <data name="conversation_description_too_long" xml:space="preserve"><value>La descripción es demasiado larga.</value></data>
+  <data name="conversation_not_found" xml:space="preserve"><value>No se encontró la conversación.</value></data>
+  <data name="conversation_scope_invalid" xml:space="preserve"><value>El ámbito de la conversación no es válido.</value></data>
+  <data name="conversation_title_invalid" xml:space="preserve"><value>El nombre del grupo contiene caracteres no válidos.</value></data>
+  <data name="conversation_title_required" xml:space="preserve"><value>Se requiere un nombre de grupo.</value></data>
+  <data name="conversation_title_too_long" xml:space="preserve"><value>El nombre del grupo es demasiado largo.</value></data>
+  <data name="not_a_group" xml:space="preserve"><value>Esto solo es posible en conversaciones de grupo.</value></data>
+  <data name="participant_not_found" xml:space="preserve"><value>No se encontró al participante.</value></data>
+  <data name="demo_data_disabled" xml:space="preserve"><value>Los datos de demostración no están habilitados en esta instalación.</value></data>
+  <data name="client_message_id_invalid" xml:space="preserve"><value>Falta el identificador de cliente del mensaje o no es válido.</value></data>
+  <data name="idempotency_conflict" xml:space="preserve"><value>Ya se envió un mensaje distinto con este identificador de cliente.</value></data>
+  <data name="message_body_invalid" xml:space="preserve"><value>El mensaje contiene caracteres no válidos.</value></data>
+  <data name="message_body_required" xml:space="preserve"><value>El mensaje necesita algo de texto.</value></data>
+  <data name="message_body_too_long" xml:space="preserve"><value>El mensaje es demasiado largo.</value></data>
+  <data name="message_edit_window_expired" xml:space="preserve"><value>El mensaje ya no se puede editar.</value></data>
+  <data name="message_not_editable" xml:space="preserve"><value>Solo el autor puede editar un mensaje.</value></data>
+  <data name="message_not_found" xml:space="preserve"><value>No se encontró el mensaje.</value></data>
+  <data name="messaging_blocked" xml:space="preserve"><value>No puede enviar mensajes en esta conversación.</value></data>
+  <data name="reply_target_invalid" xml:space="preserve"><value>Las respuestas deben referirse a un mensaje de la misma conversación.</value></data>
+  <data name="attachment_not_found" xml:space="preserve"><value>No se encontró el archivo adjunto.</value></data>
+  <data name="attachment_type_not_allowed" xml:space="preserve"><value>Este tipo de archivo no está permitido.</value></data>
+  <data name="attachment_type_mismatch" xml:space="preserve"><value>El tipo de archivo no coincide con su nombre.</value></data>
+  <data name="attachment_signature_mismatch" xml:space="preserve"><value>El contenido del archivo no coincide con su tipo.</value></data>
+  <data name="attachment_too_large" xml:space="preserve"><value>El archivo es demasiado grande.</value></data>
+  <data name="attachment_quota_exceeded" xml:space="preserve"><value>Ha agotado su cuota de almacenamiento para adjuntos.</value></data>
+  <data name="attachment_empty" xml:space="preserve"><value>El archivo está vacío.</value></data>
+  <data name="attachment_name_invalid" xml:space="preserve"><value>El archivo necesita un nombre válido.</value></data>
+  <data name="attachment_not_available" xml:space="preserve"><value>El adjunto no se puede usar en este mensaje.</value></data>
+  <data name="attachment_not_ready" xml:space="preserve"><value>El adjunto todavía se está comprobando.</value></data>
+  <data name="attachment_duplicate" xml:space="preserve"><value>El mismo adjunto se añadió dos veces.</value></data>
+  <data name="too_many_attachments" xml:space="preserve"><value>Demasiados adjuntos para un mensaje.</value></data>
+  <data name="too_many_scheduled" xml:space="preserve"><value>Ya tiene el máximo de mensajes programados (50).</value></data>
+  <data name="send_at_invalid" xml:space="preserve"><value>Elija un momento dentro de los próximos 30 días.</value></data>
+  <data name="scheduled_not_pending" xml:space="preserve"><value>Este mensaje ya no está esperando a enviarse.</value></data>
+  <data name="scheduled_not_found" xml:space="preserve"><value>Este mensaje programado ya no existe.</value></data>
+  <data name="too_many_reminders" xml:space="preserve"><value>Ya tiene el máximo de recordatorios (100).</value></data>
+  <data name="remind_at_invalid" xml:space="preserve"><value>Elija un momento dentro del próximo año.</value></data>
+  <data name="reminder_not_found" xml:space="preserve"><value>Este recordatorio ya no existe.</value></data>
+  <data name="pins_unavailable" xml:space="preserve"><value>No se pueden fijar mensajes en esta conversación.</value></data>
+  <data name="too_many_pins" xml:space="preserve"><value>Esta conversación ya tiene el máximo de mensajes fijados. Quite uno primero.</value></data>
+  <data name="too_many_saved" xml:space="preserve"><value>Ha guardado el máximo de mensajes permitido. Quite algunos primero.</value></data>
+  <data name="forward_unavailable" xml:space="preserve"><value>No se pueden reenviar mensajes desde o hacia chats del sitio web.</value></data>
+  <data name="mentions_unavailable" xml:space="preserve"><value>Las menciones no están disponibles en esta conversación.</value></data>
+  <data name="mention_invalid" xml:space="preserve"><value>Solo puede mencionar a quienes participan en esta conversación.</value></data>
+  <data name="too_many_mentions" xml:space="preserve"><value>Este mensaje menciona a demasiadas personas.</value></data>
+  <data name="mention_everyone_forbidden" xml:space="preserve"><value>En conversaciones de este tamaño, solo propietarios y administradores pueden usar @everyone o @here.</value></data>
+  <data name="notification_level_invalid" xml:space="preserve"><value>Elija todo, menciones o nada.</value></data>
+  <data name="threads_unavailable" xml:space="preserve"><value>Los hilos no están disponibles en esta conversación.</value></data>
+  <data name="reactions_unavailable" xml:space="preserve"><value>Las reacciones no están disponibles en esta conversación.</value></data>
+  <data name="reaction_invalid" xml:space="preserve"><value>Una reacción es un solo emoji.</value></data>
+  <data name="too_many_reactions" xml:space="preserve"><value>Este mensaje ya tiene el máximo de reacciones distintas.</value></data>
+  <data name="attachment_in_use" xml:space="preserve"><value>El adjunto ya se envió; elimine su mensaje.</value></data>
+  <data name="attachment_infected" xml:space="preserve"><value>El analizador antimalware rechazó el archivo.</value></data>
+  <data name="attachment_rejected" xml:space="preserve"><value>El archivo fue rechazado.</value></data>
+  <data name="attachment_not_pending" xml:space="preserve"><value>El adjunto no está en el estado esperado.</value></data>
+  <data name="attachment_storage_unavailable" xml:space="preserve"><value>El almacenamiento de archivos no está disponible. Inténtelo más tarde.</value></data>
+  <data name="attachment_scan_unavailable" xml:space="preserve"><value>El analizador antimalware no está disponible. Inténtelo más tarde.</value></data>
+  <data name="multipart_required" xml:space="preserve"><value>Envíe el archivo como multipart/form-data en un campo llamado &quot;file&quot;.</value></data>
+  <data name="private_chat_not_found" xml:space="preserve"><value>El chat privado no existe o ha terminado.</value></data>
+  <data name="private_chat_exists" xml:space="preserve"><value>Ya hay un chat privado en curso con esta persona.</value></data>
+  <data name="private_chat_limit" xml:space="preserve"><value>Hay demasiados chats privados en curso a la vez.</value></data>
+  <data name="private_chat_not_active" xml:space="preserve"><value>El chat privado todavía no se ha aceptado.</value></data>
+  <data name="private_chat_initiator_only" xml:space="preserve"><value>Solo quien inició el chat privado puede terminarlo.</value></data>
+  <data name="private_chat_storage_full" xml:space="preserve"><value>Este chat privado no tiene espacio para más archivos.</value></data>
+  <data name="private_chats_disabled" xml:space="preserve"><value>Los chats privados están desactivados en esta instalación.</value></data>
+  <data name="cannot_disable_self" xml:space="preserve"><value>No puede desactivar su propia cuenta.</value></data>
+  <data name="last_administrator" xml:space="preserve"><value>La instalación necesita al menos un administrador activo.</value></data>
+  <data name="sole_owner" xml:space="preserve"><value>Primero transfiera o elimine las organizaciones de las que es el único propietario.</value></data>
+  <data name="cannot_delete_self" xml:space="preserve"><value>Elimine su propia cuenta desde los ajustes de su cuenta.</value></data>
+  <data name="recipient_deleted" xml:space="preserve"><value>Esta persona eliminó su cuenta.</value></data>
+  <data name="push_disabled" xml:space="preserve"><value>Las notificaciones push están desactivadas en esta instalación.</value></data>
+  <data name="search_disabled" xml:space="preserve"><value>La búsqueda está desactivada en esta instalación.</value></data>
+  <data name="search_unavailable" xml:space="preserve"><value>La búsqueda no está disponible ahora. Inténtelo más tarde.</value></data>
+  <data name="settings_invalid" xml:space="preserve"><value>Estos ajustes no son compatibles entre sí.</value></data>
+  <data name="registration_invitation_required" xml:space="preserve"><value>El registro requiere una invitación de una organización para esta dirección.</value></data>
+  <data name="attachments_disabled" xml:space="preserve"><value>Los archivos adjuntos están desactivados en esta instalación.</value></data>
+  <data name="email_already_confirmed" xml:space="preserve"><value>La dirección de correo ya está confirmada.</value></data>
+  <data name="provider_not_found" xml:space="preserve"><value>Proveedor desconocido.</value></data>
+  <data name="role_not_active" xml:space="preserve"><value>Este rol no se puede asignar.</value></data>
+  <data name="setting_locked" xml:space="preserve"><value>Este ajuste lo fija el entorno y no se puede cambiar aquí.</value></data>
+  <data name="setting_unknown" xml:space="preserve"><value>Este ajuste no se puede cambiar aquí.</value></data>
+  <data name="channel_not_found" xml:space="preserve"><value>El canal no existe o no puedes verlo.</value></data>
+  <data name="channel_name_taken" xml:space="preserve"><value>Ya existe un canal con este nombre en el espacio de trabajo.</value></data>
+  <data name="channel_name_required" xml:space="preserve"><value>El canal necesita un nombre.</value></data>
+  <data name="channel_name_too_long" xml:space="preserve"><value>El nombre del canal es demasiado largo.</value></data>
+  <data name="channel_name_invalid" xml:space="preserve"><value>El nombre del canal contiene caracteres no válidos.</value></data>
+  <data name="channel_creation_restricted" xml:space="preserve"><value>En esta organización solo los administradores pueden crear canales.</value></data>
+  <data name="not_a_channel" xml:space="preserve"><value>Esta operación solo está disponible para canales.</value></data>
+  <data name="not_workspace_member" xml:space="preserve"><value>Solo los miembros del espacio de trabajo pueden hacer esto.</value></data>
+  <data name="team_not_found" xml:space="preserve"><value>El equipo no existe.</value></data>
+  <data name="team_name_required" xml:space="preserve"><value>El equipo necesita un nombre.</value></data>
+  <data name="team_name_too_long" xml:space="preserve"><value>El nombre del equipo es demasiado largo.</value></data>
+  <data name="team_description_too_long" xml:space="preserve"><value>La descripción del equipo es demasiado larga.</value></data>
+  <data name="guests_disabled" xml:space="preserve"><value>Esta organización no admite invitados.</value></data>
+  <data name="guest_not_found" xml:space="preserve"><value>El invitado no existe.</value></data>
+  <data name="guest_role_fixed" xml:space="preserve"><value>Los invitados no pueden administrar conversaciones.</value></data>
+  <data name="assignee_not_agent" xml:space="preserve"><value>Solo se puede asignar a agentes de soporte, administradores o participantes.</value></data>
+  <data name="not_a_support_conversation" xml:space="preserve"><value>Esta operación solo está disponible para conversaciones del sitio web.</value></data>
 </root>

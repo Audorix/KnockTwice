@@ -64,7 +64,7 @@ public sealed class DependencyRuleTests
     [InlineData(Domain, new[] { "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Microsoft.Extensions", "Npgsql", "Microsoft.Data.Sqlite", "Audorix.ChatX" })]
     [InlineData(Contracts, new[] { "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Npgsql", "Microsoft.Data.Sqlite", "Audorix.ChatX" })]
     [InlineData(Application, new[] { "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Npgsql", "Microsoft.Data.Sqlite", Infrastructure, Sqlite, PostgreSql, Api })]
-    [InlineData(Infrastructure, new[] { "Microsoft.AspNetCore", "Npgsql", "Microsoft.Data.Sqlite", "Microsoft.EntityFrameworkCore.Sqlite", Sqlite, PostgreSql, Api })]
+    [InlineData(Infrastructure, new[] { "Microsoft.AspNetCore.Http", "Microsoft.AspNetCore.Mvc", "Microsoft.AspNetCore.Routing", "Microsoft.AspNetCore.Authentication", "Microsoft.AspNetCore.Hosting", "Microsoft.AspNetCore.SignalR", "Npgsql", "Microsoft.Data.Sqlite", "Microsoft.EntityFrameworkCore.Sqlite", Sqlite, PostgreSql, Api })]
     [InlineData(Sqlite, new[] { "Npgsql", "Microsoft.AspNetCore", PostgreSql, Api })]
     [InlineData(PostgreSql, new[] { "Microsoft.Data.Sqlite", "Microsoft.EntityFrameworkCore.Sqlite", "Microsoft.AspNetCore", Sqlite, Api })]
     public void Compiled_assembly_does_not_reference_forbidden_assemblies(string assemblyName, string[] forbiddenPrefixes)
@@ -79,6 +79,40 @@ public sealed class DependencyRuleTests
             .ToList();
 
         Assert.True(violations.Count == 0, $"{assemblyName} references forbidden assemblies: {string.Join(", ", violations)}");
+    }
+
+    /// <summary>
+    /// Infrastructure may use ASP.NET Core only for EF-backed persistence of Identity and Data
+    /// Protection keys (plus their own abstractions), never HTTP pipeline types.
+    /// </summary>
+    [Fact]
+    public void Infrastructure_uses_only_persistence_parts_of_AspNetCore()
+    {
+        string[] allowed =
+        [
+            "Microsoft.AspNetCore.Identity.EntityFrameworkCore",
+            "Microsoft.AspNetCore.DataProtection",
+            "Microsoft.AspNetCore.DataProtection.Abstractions",
+            "Microsoft.AspNetCore.DataProtection.EntityFrameworkCore",
+            "Microsoft.AspNetCore.Cryptography.Internal",
+        ];
+        var aspNetCore = Assembly.Load(Infrastructure).GetReferencedAssemblies()
+            .Select(r => r.Name!)
+            .Where(n => n.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal))
+            .ToList();
+        Assert.All(aspNetCore, name => Assert.Contains(name, allowed));
+        Assert.All(ReadProject(Infrastructure).PackageReferences.Where(p => p.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal)),
+            package => Assert.Contains(package, allowed));
+    }
+
+    [Fact]
+    public void Domain_and_Application_do_not_reference_Identity()
+    {
+        foreach (var name in new[] { Domain, Application })
+        {
+            var references = Assembly.Load(name).GetReferencedAssemblies().Select(r => r.Name!).ToList();
+            Assert.DoesNotContain(references, r => r.Contains("Identity", StringComparison.Ordinal));
+        }
     }
 
     [Fact]

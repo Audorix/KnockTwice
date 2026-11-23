@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="SubjectOne" xml:space="preserve"><value>1 unread message in Audorix.ChatX</value></data>
+  <data name="SubjectMany" xml:space="preserve"><value>{0} unread messages in Audorix.ChatX</value></data>
+  <data name="Greeting" xml:space="preserve"><value>Hello {0},</value></data>
+  <data name="Intro" xml:space="preserve"><value>These messages are waiting for you:</value></data>
+  <data name="ItemOne" xml:space="preserve"><value>{0}: 1 new message from {1}</value></data>
+  <data name="ItemMany" xml:space="preserve"><value>{0}: {1} new messages, the latest from {2}</value></data>
+  <data name="More" xml:space="preserve"><value>…and {0} more conversations.</value></data>
+  <data name="Action" xml:space="preserve"><value>Open your conversations</value></data>
+  <data name="Footer" xml:space="preserve"><value>You get these emails because email notifications are on. Choose daily emails or switch them off in your account settings: {0}</value></data>
+  <data name="Signature" xml:space="preserve"><value>— Audorix.ChatX</value></data>
+  <data name="ReminderSubject" xml:space="preserve"><value>Reminder: a message in {0}</value></data>
+  <data name="ReminderIntro" xml:space="preserve"><value>You asked to be reminded about this message from {0} in {1}.</value></data>
+  <data name="ReminderAction" xml:space="preserve"><value>Open the message</value></data>
+</root>

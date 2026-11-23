@@ -12,6 +12,12 @@ x-api-image: &api-image
 
 x-api-environment: &api-environment
   ASPNETCORE_ENVIRONMENT: ${CHATX_ENVIRONMENT:-Development}
+  # The setup wizard (http://localhost:8080 on first start) writes the web address, email
+  # and captcha settings to this file in the data volume. The database below is fixed by
+  # this profile, so the wizard shows it as locked. Use SMTP host "mailpit", port 1025.
+  Setup__SettingsPath: /app/data/chatx.settings.json
+  # Attachments are stored privately in the data volume (Storage__Provider=S3 for object storage).
+  Storage__Local__Path: /app/data/attachments
   Database__Provider: Sqlite
   Database__ConnectionString: Data Source=/app/data/chatx.db
 
@@ -35,6 +41,16 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
+    restart: unless-stopped
+
+  # Local SMTP server for development email (verification, password reset).
+  # Web UI: http://localhost:${CHATX_MAILPIT_PORT:-8025}. Messages are kept in memory only.
+  mailpit:
+    image: axllent/mailpit:v1.34
+    ports:
+      - "127.0.0.1:${CHATX_MAILPIT_PORT:-8025}:8025"
     restart: unless-stopped
 
   web:

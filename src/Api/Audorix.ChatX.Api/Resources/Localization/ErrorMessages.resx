@@ -16,4 +16,143 @@
   <data name="invalid_language_code" xml:space="preserve"><value>The language code is not valid.</value></data>
   <data name="unsupported_language" xml:space="preserve"><value>The language is not supported by this installation.</value></data>
   <data name="installation_not_initialized" xml:space="preserve"><value>The installation has not been initialized.</value></data>
+  <data name="unauthorized" xml:space="preserve"><value>Authentication is required.</value></data>
+  <data name="forbidden" xml:space="preserve"><value>You do not have permission to perform this action.</value></data>
+  <data name="too_many_requests" xml:space="preserve"><value>Too many requests. Please wait and try again.</value></data>
+  <data name="csrf_token_invalid" xml:space="preserve"><value>The security token is missing or invalid. Reload the page and try again.</value></data>
+  <data name="invalid_credentials" xml:space="preserve"><value>The email address or password is incorrect.</value></data>
+  <data name="email_not_confirmed" xml:space="preserve"><value>Confirm your email address before signing in.</value></data>
+  <data name="invalid_or_expired_token" xml:space="preserve"><value>The link is invalid or has expired.</value></data>
+  <data name="registration_disabled" xml:space="preserve"><value>Registration is disabled on this installation.</value></data>
+  <data name="captcha_failed" xml:space="preserve"><value>Human verification failed. Please try again.</value></data>
+  <data name="captcha_unavailable" xml:space="preserve"><value>Human verification is temporarily unavailable. Please try again later.</value></data>
+  <data name="email_unavailable" xml:space="preserve"><value>Email could not be sent right now. Please try again later.</value></data>
+  <data name="external_provider_not_enabled" xml:space="preserve"><value>This sign-in provider is not enabled.</value></data>
+  <data name="session_not_found" xml:space="preserve"><value>The session was not found.</value></data>
+  <data name="user_not_found" xml:space="preserve"><value>The user was not found.</value></data>
+  <data name="display_name_required" xml:space="preserve"><value>A display name is required.</value></data>
+  <data name="display_name_too_long" xml:space="preserve"><value>The display name is too long.</value></data>
+  <data name="display_name_invalid" xml:space="preserve"><value>The display name contains invalid characters.</value></data>
+  <data name="organization_not_found" xml:space="preserve"><value>The organization was not found.</value></data>
+  <data name="workspace_not_found" xml:space="preserve"><value>The workspace was not found.</value></data>
+  <data name="member_not_found" xml:space="preserve"><value>The member was not found.</value></data>
+  <data name="invitation_not_found" xml:space="preserve"><value>The invitation was not found or is no longer open.</value></data>
+  <data name="invitation_pending" xml:space="preserve"><value>An invitation for this email address is already pending.</value></data>
+  <data name="invitation_not_open" xml:space="preserve"><value>The invitation is no longer open.</value></data>
+  <data name="last_owner" xml:space="preserve"><value>An organization must keep at least one owner.</value></data>
+  <data name="already_member" xml:space="preserve"><value>The user is already a member.</value></data>
+  <data name="not_organization_member" xml:space="preserve"><value>Only members of the organization can join its workspaces.</value></data>
+  <data name="organization_creation_disabled" xml:space="preserve"><value>Creating organizations is disabled on this installation.</value></data>
+  <data name="contact_not_found" xml:space="preserve"><value>The contact was not found.</value></data>
+  <data name="contact_request_not_found" xml:space="preserve"><value>The contact request was not found.</value></data>
+  <data name="contact_request_not_pending" xml:space="preserve"><value>The contact request is no longer pending.</value></data>
+  <data name="already_contacts" xml:space="preserve"><value>You are already contacts.</value></data>
+  <data name="user_blocked" xml:space="preserve"><value>You have blocked this user. Unblock them first.</value></data>
+  <data name="cannot_target_self" xml:space="preserve"><value>You cannot do this with your own account.</value></data>
+  <data name="setup_required" xml:space="preserve"><value>This installation has not been set up yet. Complete the setup wizard first.</value></data>
+  <data name="setup_token_invalid" xml:space="preserve"><value>The setup code is missing or incorrect.</value></data>
+  <data name="setup_already_completed" xml:space="preserve"><value>Setup has already been completed.</value></data>
+  <data name="setup_administrator_exists" xml:space="preserve"><value>This database already has an installation administrator.</value></data>
+  <data name="setup_settings_invalid" xml:space="preserve"><value>One or more settings are not valid.</value></data>
+  <data name="setup_database_unavailable" xml:space="preserve"><value>The database could not be used with these settings.</value></data>
+  <data name="setup_in_progress" xml:space="preserve"><value>Setup is already running. Wait for it to finish.</value></data>
+  <data name="already_participant" xml:space="preserve"><value>The person already takes part in this conversation.</value></data>
+  <data name="conversation_description_too_long" xml:space="preserve"><value>The description is too long.</value></data>
+  <data name="conversation_not_found" xml:space="preserve"><value>The conversation was not found.</value></data>
+  <data name="conversation_scope_invalid" xml:space="preserve"><value>The conversation scope is not valid.</value></data>
+  <data name="conversation_title_invalid" xml:space="preserve"><value>The group name contains invalid characters.</value></data>
+  <data name="conversation_title_required" xml:space="preserve"><value>A group name is required.</value></data>
+  <data name="conversation_title_too_long" xml:space="preserve"><value>The group name is too long.</value></data>
+  <data name="not_a_group" xml:space="preserve"><value>This is only possible in group conversations.</value></data>
+  <data name="participant_not_found" xml:space="preserve"><value>The participant was not found.</value></data>
+  <data name="demo_data_disabled" xml:space="preserve"><value>Demo data is not enabled on this installation.</value></data>
+  <data name="client_message_id_invalid" xml:space="preserve"><value>The client message id is missing or invalid.</value></data>
+  <data name="idempotency_conflict" xml:space="preserve"><value>A different message was already sent with this client message id.</value></data>
+  <data name="message_body_invalid" xml:space="preserve"><value>The message contains invalid characters.</value></data>
+  <data name="message_body_required" xml:space="preserve"><value>A message needs some text.</value></data>
+  <data name="message_body_too_long" xml:space="preserve"><value>The message is too long.</value></data>
+  <data name="message_edit_window_expired" xml:space="preserve"><value>The message can no longer be edited.</value></data>
+  <data name="message_not_editable" xml:space="preserve"><value>Only the author can edit a message.</value></data>
+  <data name="message_not_found" xml:space="preserve"><value>The message was not found.</value></data>
+  <data name="messaging_blocked" xml:space="preserve"><value>You cannot send messages in this conversation.</value></data>
+  <data name="reply_target_invalid" xml:space="preserve"><value>Replies must refer to a message of the same conversation.</value></data>
+  <data name="attachment_not_found" xml:space="preserve"><value>The attachment was not found.</value></data>
+  <data name="attachment_type_not_allowed" xml:space="preserve"><value>This type of file is not allowed.</value></data>
+  <data name="attachment_type_mismatch" xml:space="preserve"><value>The file type does not match its name.</value></data>
+  <data name="attachment_signature_mismatch" xml:space="preserve"><value>The file content does not match its type.</value></data>
+  <data name="attachment_too_large" xml:space="preserve"><value>The file is too large.</value></data>
+  <data name="attachment_quota_exceeded" xml:space="preserve"><value>Your storage quota for attachments is used up.</value></data>
+  <data name="attachment_empty" xml:space="preserve"><value>The file is empty.</value></data>
+  <data name="attachment_name_invalid" xml:space="preserve"><value>The file needs a valid name.</value></data>
+  <data name="attachment_not_available" xml:space="preserve"><value>The attachment cannot be used in this message.</value></data>
+  <data name="attachment_not_ready" xml:space="preserve"><value>The attachment is still being checked.</value></data>
+  <data name="attachment_duplicate" xml:space="preserve"><value>The same attachment was added twice.</value></data>
+  <data name="too_many_attachments" xml:space="preserve"><value>Too many attachments for one message.</value></data>
+  <data name="too_many_scheduled" xml:space="preserve"><value>You already have the most scheduled messages allowed (50).</value></data>
+  <data name="send_at_invalid" xml:space="preserve"><value>Choose a time in the next 30 days.</value></data>
+  <data name="scheduled_not_pending" xml:space="preserve"><value>This message is no longer waiting to be sent.</value></data>
+  <data name="scheduled_not_found" xml:space="preserve"><value>This scheduled message no longer exists.</value></data>
+  <data name="too_many_reminders" xml:space="preserve"><value>You already have the most reminders allowed (100).</value></data>
+  <data name="remind_at_invalid" xml:space="preserve"><value>Choose a time in the next year.</value></data>
+  <data name="reminder_not_found" xml:space="preserve"><value>This reminder no longer exists.</value></data>
+  <data name="pins_unavailable" xml:space="preserve"><value>Messages cannot be pinned in this conversation.</value></data>
+  <data name="too_many_pins" xml:space="preserve"><value>This conversation already has the most pinned messages allowed. Unpin one first.</value></data>
+  <data name="too_many_saved" xml:space="preserve"><value>You have saved the most messages allowed. Remove some first.</value></data>
+  <data name="forward_unavailable" xml:space="preserve"><value>Messages cannot be forwarded from or to website chats.</value></data>
+  <data name="mentions_unavailable" xml:space="preserve"><value>Mentions are not available in this conversation.</value></data>
+  <data name="mention_invalid" xml:space="preserve"><value>You can only mention people taking part in this conversation.</value></data>
+  <data name="too_many_mentions" xml:space="preserve"><value>This message mentions too many people.</value></data>
+  <data name="mention_everyone_forbidden" xml:space="preserve"><value>In conversations this large, only owners and administrators can use @everyone or @here.</value></data>
+  <data name="notification_level_invalid" xml:space="preserve"><value>Choose all, mentions or nothing.</value></data>
+  <data name="threads_unavailable" xml:space="preserve"><value>Threads are not available in this conversation.</value></data>
+  <data name="reactions_unavailable" xml:space="preserve"><value>Reactions are not available in this conversation.</value></data>
+  <data name="reaction_invalid" xml:space="preserve"><value>A reaction is one emoji.</value></data>
+  <data name="too_many_reactions" xml:space="preserve"><value>This message already has the most different reactions allowed.</value></data>
+  <data name="attachment_in_use" xml:space="preserve"><value>The attachment was sent; delete its message instead.</value></data>
+  <data name="attachment_infected" xml:space="preserve"><value>The file was rejected by the malware scanner.</value></data>
+  <data name="attachment_rejected" xml:space="preserve"><value>The file was rejected.</value></data>
+  <data name="attachment_not_pending" xml:space="preserve"><value>The attachment is not in the expected state.</value></data>
+  <data name="attachment_storage_unavailable" xml:space="preserve"><value>File storage is unavailable. Try again later.</value></data>
+  <data name="attachment_scan_unavailable" xml:space="preserve"><value>The malware scanner is unavailable. Try again later.</value></data>
+  <data name="multipart_required" xml:space="preserve"><value>Send the file as multipart/form-data in a field named &quot;file&quot;.</value></data>
+  <data name="private_chat_not_found" xml:space="preserve"><value>The private chat was not found or has ended.</value></data>
+  <data name="private_chat_exists" xml:space="preserve"><value>A private chat with this person is already running.</value></data>
+  <data name="private_chat_limit" xml:space="preserve"><value>Too many private chats are running at the same time.</value></data>
+  <data name="private_chat_not_active" xml:space="preserve"><value>The private chat has not been accepted yet.</value></data>
+  <data name="private_chat_initiator_only" xml:space="preserve"><value>Only the person who started the private chat can end it.</value></data>
+  <data name="private_chat_storage_full" xml:space="preserve"><value>This private chat has no room for more files.</value></data>
+  <data name="private_chats_disabled" xml:space="preserve"><value>Private chats are disabled on this installation.</value></data>
+  <data name="cannot_disable_self" xml:space="preserve"><value>You cannot disable your own account.</value></data>
+  <data name="last_administrator" xml:space="preserve"><value>The installation needs at least one enabled administrator.</value></data>
+  <data name="sole_owner" xml:space="preserve"><value>Hand over or delete the organizations you are the only owner of first.</value></data>
+  <data name="cannot_delete_self" xml:space="preserve"><value>Delete your own account from your account settings.</value></data>
+  <data name="recipient_deleted" xml:space="preserve"><value>This person deleted their account.</value></data>
+  <data name="push_disabled" xml:space="preserve"><value>Push notifications are switched off on this installation.</value></data>
+  <data name="search_disabled" xml:space="preserve"><value>Search is switched off on this installation.</value></data>
+  <data name="search_unavailable" xml:space="preserve"><value>Search is unavailable right now. Try again later.</value></data>
+  <data name="settings_invalid" xml:space="preserve"><value>These settings do not fit together.</value></data>
+  <data name="registration_invitation_required" xml:space="preserve"><value>Registration needs an organization invitation for this address.</value></data>
+  <data name="attachments_disabled" xml:space="preserve"><value>File attachments are switched off on this installation.</value></data>
+  <data name="email_already_confirmed" xml:space="preserve"><value>The email address is already confirmed.</value></data>
+  <data name="provider_not_found" xml:space="preserve"><value>Unknown provider.</value></data>
+  <data name="role_not_active" xml:space="preserve"><value>This role cannot be assigned.</value></data>
+  <data name="setting_locked" xml:space="preserve"><value>This setting is set by the environment and cannot be changed here.</value></data>
+  <data name="setting_unknown" xml:space="preserve"><value>This setting cannot be changed here.</value></data>
+  <data name="channel_not_found" xml:space="preserve"><value>The channel does not exist or you cannot see it.</value></data>
+  <data name="channel_name_taken" xml:space="preserve"><value>A channel with this name already exists in the workspace.</value></data>
+  <data name="channel_name_required" xml:space="preserve"><value>A channel name is required.</value></data>
+  <data name="channel_name_too_long" xml:space="preserve"><value>The channel name is too long.</value></data>
+  <data name="channel_name_invalid" xml:space="preserve"><value>The channel name contains invalid characters.</value></data>
+  <data name="channel_creation_restricted" xml:space="preserve"><value>Only administrators can create channels in this organization.</value></data>
+  <data name="not_a_channel" xml:space="preserve"><value>This operation is only available for channels.</value></data>
+  <data name="not_workspace_member" xml:space="preserve"><value>Only members of the workspace can do this.</value></data>
+  <data name="team_not_found" xml:space="preserve"><value>The team does not exist.</value></data>
+  <data name="team_name_required" xml:space="preserve"><value>A team name is required.</value></data>
+  <data name="team_name_too_long" xml:space="preserve"><value>The team name is too long.</value></data>
+  <data name="team_description_too_long" xml:space="preserve"><value>The team description is too long.</value></data>
+  <data name="guests_disabled" xml:space="preserve"><value>This organization does not allow guests.</value></data>
+  <data name="guest_not_found" xml:space="preserve"><value>The guest does not exist.</value></data>
+  <data name="guest_role_fixed" xml:space="preserve"><value>Guests cannot manage conversations.</value></data>
+  <data name="assignee_not_agent" xml:space="preserve"><value>Conversations can only be assigned to support agents, administrators or people taking part.</value></data>
+  <data name="not_a_support_conversation" xml:space="preserve"><value>This operation is only available for website conversations.</value></data>
 </root>

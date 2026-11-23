@@ -20,43 +20,34 @@ dotnet tool restore
 dotnet build Audorix.ChatX.slnx
 ```
 
-## 2a. SQLite profile
-
-`appsettings.Development.json` already selects SQLite with the file
-`src/Api/Audorix.ChatX.Api/App_Data/chatx-dev.db` (git-ignored).
-
-Create or update the schema (explicit step; the API never migrates on startup):
+## 2. Start the API
 
 ```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile sqlite -- migrate
+dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx
 ```
 
-Start the API:
+On the first start there is no completed setup, so the API runs in **setup mode** and prints a
+setup code in its console, in the log and as a banner:
 
-```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile sqlite
+```text
+================================================================
+  Audorix.ChatX setup code:  K7QM-2XRA-9PDN
+  Open http://localhost:5173 to complete setup.
+  The code is also saved to ...\src\Api\Audorix.ChatX.Api\App_Data\setup-code.txt
+================================================================
 ```
 
-## 2b. PostgreSQL profile
+The code changes at every start. It is also saved to `App_Data/setup-code.txt` (next to the
+settings file), which is removed when setup completes or the API stops.
 
-Create an empty database and a login for it first (any administration tool). Then supply the
-connection string through user secrets so it never lands in a file in the repository:
+In setup mode the API serves only `/health/*` and the setup API (`/api/v1/setup/*`); every other
+API path answers 503 `setup_required`. The `chatx` launch profile opens Swagger UI
+(`http://localhost:5080/swagger`) in Development, in setup mode as well as in normal mode; in setup
+mode it lists only the setup API.
 
-```powershell
-dotnet user-secrets --project src/Api/Audorix.ChatX.Api set "Database:ConnectionString" "Host=localhost;Port=5432;Database=chatx_dev;Username=chatx;Password=<your password>"
-```
+## 3. Web application and the setup wizard
 
-The `postgresql` launch profile sets `Database__Provider=PostgreSql`:
-
-```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile postgresql -- migrate
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile postgresql
-```
-
-Running `migrate` again is safe: it applies only pending migrations and never creates a second
-installation record.
-
-## 3. Web application
+In a second terminal:
 
 ```powershell
 cd web
@@ -64,7 +55,50 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:5173>. Vite forwards `/api`, `/health` and `/openapi` to the API (set
+Open <http://localhost:5173>. While setup is required the web app shows the **setup wizard**
+instead of the application:
+
+1. **Setup code** — copy it from the API console. It proves you operate this server.
+2. **Database** — SQLite (a file, default `App_Data/chatx.db`) or PostgreSQL (server, port,
+   database, user, password, SSL). *Test connection* checks it; a missing PostgreSQL database is
+   created during setup if the account may create databases.
+3. **Email** — SMTP (defaults: `localhost:1025`, no security, for a local catcher such as Mailpit)
+   or Postmark. *Send test email* tries the settings.
+4. **Administrator** — name, email and password of the first installation administrator. The
+   address is confirmed automatically.
+5. **Options** — **development mode** (new accounts are confirmed immediately and no
+   confirmation email is sent; preselected in the Development environment), the web app address,
+   default language and human verification (Cloudflare Turnstile keys, or off).
+6. **Review** — *Install* migrates the database, creates the administrator, writes
+   `src/Api/Audorix.ChatX.Api/App_Data/chatx.settings.json` (git-ignored; it contains your
+   database and SMTP passwords) and restarts the API in normal mode. Then sign in.
+
+Nothing is written before *Install*. To run setup again, stop the API and delete the settings file
+(and the database if you want a fresh one; see "Stopping and resetting").
+
+Without an SMTP server, emails (confirmation outside development mode, password reset) fail with
+"could not send the email" (503). Captcha uses Cloudflare's public **test keys** in Development;
+they always pass but need internet access to `challenges.cloudflare.com`. Choose "Off" in the
+wizard when working offline.
+
+Further administrators are assigned from the command line after they registered:
+
+```powershell
+dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- grant-role you@example.org InstallationAdministrator
+```
+
+Schema updates after pulling new code are applied automatically when the API starts in
+Development (`Database:MigrateOnStartup` in `appsettings.Development.json`). Elsewhere they are an
+explicit step (the API logs the pending migrations and reports "not ready" until then); running it
+again is safe:
+
+```powershell
+dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- migrate
+```
+
+### Web application details
+
+Vite forwards `/api`, `/hubs`, `/health` and `/openapi` to the API (set
 `CHATX_DEV_API_URL` to use another API address). The status card shows **API ready** when the
 API is running and migrated, **API not ready** when it runs but the database is unavailable or
 not migrated, and **API unavailable** when it cannot be reached.
@@ -85,22 +119,24 @@ including TypeScript Native Preview, because the project compiles with TypeScrip
 | `http://localhost:5080/openapi/v1.json` | OpenAPI document (Development only, see `OpenApi:Enabled`). |
 | `http://localhost:5080/swagger` | Swagger UI for that document (Development only; also via `http://localhost:5173/swagger`). |
 | `http://localhost:5080/api/v1/meta` | Public API description (no build or infrastructure details). |
+| `ws://localhost:5080/hubs/chat` | Realtime hub (SignalR; requires the sign-in cookie). |
 
 ## Stopping and resetting
 
 Stop either process with `Ctrl+C`; data is kept.
 
-**Destructive — deletes the local SQLite development database:**
+**Destructive — forgets the setup and deletes the local SQLite development database** (stop the
+API first; the next start shows the setup wizard again):
 
 ```powershell
-Remove-Item src/Api/Audorix.ChatX.Api/App_Data/chatx-dev.db*
+Remove-Item src/Api/Audorix.ChatX.Api/App_Data/chatx.settings.json, src/Api/Audorix.ChatX.Api/App_Data/chatx.db*
 ```
 
 **Destructive — deletes a PostgreSQL development database** (only run against a database you
-created for development):
+created for development; the wizard recreates it):
 
 ```powershell
-psql -h localhost -U postgres -c "DROP DATABASE chatx_dev WITH (FORCE);" -c "CREATE DATABASE chatx_dev OWNER chatx;"
+psql -h localhost -U postgres -c "DROP DATABASE chatx WITH (FORCE);"
 ```
 
 ## Migrations
@@ -118,4 +154,5 @@ before deploying the new API version, or hand a DBA an idempotent SQL script:
 dotnet ef migrations script --idempotent --project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql --startup-project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql --output chatx-postgresql.sql
 ```
 
-Next: [Docker profiles](docker.md) · [Configuration](configuration.md) · [Testing](testing.md).
+Next: [Docker profiles](docker.md) · [Configuration](configuration.md) · [Testing](testing.md) ·
+[Installing on a server](../installation.md) · [Contributing](../../CONTRIBUTING.md).

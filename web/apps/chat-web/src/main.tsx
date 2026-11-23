@@ -3,13 +3,15 @@ import { createRoot } from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/theme.css';
 import { initI18n } from './i18n/i18n';
-import { FoundationPage } from './features/foundation/FoundationPage';
+import { AuthProvider } from './features/auth/AuthContext';
+import { AppShell } from './app/AppShell';
+import { SetupGate } from './features/setup/SetupGate';
+import { RealtimeProvider } from './features/realtime/RealtimeContext';
+import { NotificationsProvider } from './features/notifications/NotificationsContext';
+import { initTheme } from './shared/theme';
 
-// Follow the operating system colour scheme using Bootstrap's built-in dark mode.
-const scheme = window.matchMedia('(prefers-color-scheme: dark)');
-const applyScheme = () => document.documentElement.setAttribute('data-bs-theme', scheme.matches ? 'dark' : 'light');
-applyScheme();
-scheme.addEventListener('change', applyScheme);
+// Follow the operating system colour scheme until the signed-in user's saved theme is known.
+initTheme();
 
 await initI18n();
 
@@ -18,6 +20,14 @@ if (!container) throw new Error('Root element #root is missing.');
 
 createRoot(container).render(
   <StrictMode>
-    <FoundationPage />
+    <SetupGate>
+      <AuthProvider>
+        <RealtimeProvider>
+          <NotificationsProvider>
+            <AppShell />
+          </NotificationsProvider>
+        </RealtimeProvider>
+      </AuthProvider>
+    </SetupGate>
   </StrictMode>,
 );

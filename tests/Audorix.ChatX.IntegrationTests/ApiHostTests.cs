@@ -124,7 +124,22 @@ public sealed class ApiHostTests
 
         Assert.Equal(new[] { "en", "es" }, meta!.SupportedLanguages);
         Assert.Equal("v1", meta.ApiVersion);
-        Assert.Equal("foundation", meta.Stage);
+        Assert.Equal("preview", meta.Stage);
+    }
+
+    [Fact]
+    public async Task MigrateOnStartup_brings_a_new_database_up_to_date_before_serving()
+    {
+        await using var database = new SqliteTestDatabase();
+        var settings = new Dictionary<string, string?>(Settings("Sqlite", database.ConnectionString)) { ["Database:MigrateOnStartup"] = "true" };
+        await using var factory = new ChatXApiFactory(settings);
+        using var client = factory.CreateClient();
+
+        var ready = await client.GetAsync(new Uri("/health/ready", UriKind.Relative), Ct);
+
+        Assert.Equal(HttpStatusCode.OK, ready.StatusCode);
+        await using var scope = factory.Services.CreateAsyncScope();
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<Infrastructure.Persistence.DatabaseMigrator>().GetPendingMigrationsAsync(Ct));
     }
 
     [Fact]

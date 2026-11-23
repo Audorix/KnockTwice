@@ -1,13 +1,19 @@
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { currentLanguage, isSupportedLanguage, selectLanguage, supportedLanguages } from '../../i18n/i18n';
+import { useOptionalAuth } from '../auth/AuthContext';
+import { updatePreferences } from '../auth/authApi';
 
 /**
  * Native <select>: keyboard and screen-reader behaviour come from the platform.
  * Language names are shown in their own language so they are recognizable in either UI.
+ * Signed-in users' choice is also saved to their account preferences.
  */
 export function LanguageSelector() {
   const { t } = useTranslation();
+  const auth = useOptionalAuth();
+  const user = auth?.user ?? null;
+  const setUser = auth?.setUser ?? (() => undefined);
   const id = useId();
 
   return (
@@ -21,7 +27,13 @@ export function LanguageSelector() {
         value={currentLanguage()}
         onChange={(event) => {
           const value = event.target.value;
-          if (isSupportedLanguage(value)) void selectLanguage(value);
+          if (!isSupportedLanguage(value)) return;
+          void selectLanguage(value);
+          if (user && user.preferences.uiLanguage !== value) {
+            updatePreferences(value).then(setUser, () => {
+              // The local choice still applies; the account preference is retried on the next change.
+            });
+          }
         }}
       >
         {supportedLanguages.map((language) => (

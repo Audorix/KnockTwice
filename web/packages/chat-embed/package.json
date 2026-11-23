@@ -1,0 +1,43 @@
+{
+  "name": "@audorix/chatx-embed",
+  "version": "0.1.0",
+  "description": "React integration for the Audorix.ChatX website chat (loads your installation's widget.js).",
+  "license": "MIT",
+  "author": "Audorix",
+  "keywords": ["audorix", "chatx", "chat", "live-chat", "widget", "react"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/audorix/Audorix.ChatX.git",
+    "directory": "web/packages/chat-embed"
+  },
+  "homepage": "https://github.com/audorix/Audorix.ChatX/tree/main/web/packages/chat-embed",
+  "bugs": "https://github.com/audorix/Audorix.ChatX/issues",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "7.0.2"
+  }
+}

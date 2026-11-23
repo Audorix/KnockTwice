@@ -45,7 +45,10 @@ internal static class ProblemDetailsSetup
     private static string CodeForStatus(int status) => status switch
     {
         StatusCodes.Status400BadRequest => ErrorCodes.BadRequest,
+        StatusCodes.Status401Unauthorized => ErrorCodes.Unauthorized,
+        StatusCodes.Status403Forbidden => ErrorCodes.Forbidden,
         StatusCodes.Status404NotFound => ErrorCodes.NotFound,
+        StatusCodes.Status429TooManyRequests => ErrorCodes.TooManyRequests,
         StatusCodes.Status405MethodNotAllowed => ErrorCodes.MethodNotAllowed,
         StatusCodes.Status409Conflict => ErrorCodes.Conflict,
         StatusCodes.Status415UnsupportedMediaType => ErrorCodes.UnsupportedMediaType,

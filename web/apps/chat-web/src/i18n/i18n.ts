@@ -3,6 +3,7 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
 import es from './locales/es.json';
+import { setDeletedUserLabelProvider, setLanguageProvider } from '../shared/api/httpClient';
 
 export const supportedLanguages = ['en', 'es'] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
@@ -43,6 +44,8 @@ function syncDocument(language: string): void {
 export async function initI18n(): Promise<typeof i18n> {
   if (i18n.isInitialized) return i18n;
 
+  setLanguageProvider(currentLanguage);
+  setDeletedUserLabelProvider(() => (i18n.isInitialized ? i18n.t('users.deleted') : undefined));
   i18n.on('languageChanged', syncDocument);
   await i18n
     .use(LanguageDetector)

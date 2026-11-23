@@ -13,6 +13,9 @@ public sealed class DatabaseMigrator(
     InstallationService installations,
     ILogger<DatabaseMigrator> logger)
 {
+    public async Task<IReadOnlyList<string>> GetPendingMigrationsAsync(CancellationToken cancellationToken) =>
+        (await db.Database.GetPendingMigrationsAsync(cancellationToken).ConfigureAwait(false)).ToList();
+
     public async Task<DatabaseMigrationResult> MigrateAsync(CancellationToken cancellationToken)
     {
         var pending = (await db.Database.GetPendingMigrationsAsync(cancellationToken).ConfigureAwait(false)).ToList();

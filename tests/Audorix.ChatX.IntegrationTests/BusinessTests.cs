@@ -1,0 +1,294 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Audorix.ChatX.IntegrationTests.Support;
+using static Audorix.ChatX.IntegrationTests.Support.ApiSession;
+using static Audorix.ChatX.IntegrationTests.Support.TestUsers;
+
+namespace Audorix.ChatX.IntegrationTests;
+
+/// <summary>
+/// Business communication (Phase 11, owner decisions of 2026-11-23): public and private channels in
+/// workspaces with history from the join; teams as member groups; channel-scoped guests; support
+/// agents with an inbox of website conversations; organization-specific configuration.
+/// </summary>
+public sealed class BusinessTests
+{
+    public static TheoryData<string> Providers => ["Sqlite", "PostgreSql"];
+
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Channels_follow_workspace_membership_and_visibility(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, _) = await SignedInAsync(api, "carl@example.org", "Carl");
+        var (dan, danId) = await SignedInAsync(api, "dan@example.org", "Dan");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        using var _4 = dan;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"), (carl, "carl@example.org"), (dan, "dan@example.org"));
+        var ws = await DefaultWorkspaceAsync(ana, org);
+        await AddToWorkspaceAsync(ana, org, ws, benId, danId);
+        var channels = $"/api/v1/organizations/{org}/workspaces/{ws}/channels";
+
+        // A workspace member creates a public channel and posts before Dan joins.
+        var sales = await CreateChannelAsync(ben, channels, new { name = "sales", visibility = "public" });
+        var salesId = sales.GetProperty("channel").GetProperty("id").GetGuid();
+        Assert.Equal(("manager", true), (sales.GetProperty("channel").GetProperty("myRole").GetString(), sales.GetProperty("channel").GetProperty("canManage").GetBoolean()));
+        AssertStatus(HttpStatusCode.Created, await ben.PostAsync($"/api/v1/conversations/{salesId}/messages", new { clientMessageId = "b1", body = "Before Dan" }));
+        Assert.Equal("channel_name_taken", await ErrorCodeAsync(await ben.PostAsync(channels, new { name = "Sales" })));
+
+        // Carl is in the organization but not the workspace: no channels at all.
+        Assert.Equal("workspace_not_found", await ErrorCodeAsync(await carl.GetAsync(channels)));
+        Assert.Equal("channel_not_found", await ErrorCodeAsync(await carl.GetAsync($"/api/v1/channels/{salesId}")));
+        Assert.Equal("channel_not_found", await ErrorCodeAsync(await carl.PostAsync($"/api/v1/channels/{salesId}/join")));
+
+        // A private channel is invisible to workspace members outside it, but organization owners see it.
+        var leads = await CreateChannelAsync(ana, channels, new { name = "leads", visibility = "private", userIds = new[] { benId } });
+        var leadsId = leads.GetProperty("channel").GetProperty("id").GetGuid();
+        Assert.Equal(["leads", "sales"], (await JsonAsync(await ana.GetAsync(channels))).EnumerateArray().Select(c => c.GetProperty("name").GetString()));
+        Assert.Equal(["sales"], (await JsonAsync(await dan.GetAsync(channels))).EnumerateArray().Select(c => c.GetProperty("name").GetString()));
+        Assert.Equal("channel_not_found", await ErrorCodeAsync(await dan.GetAsync($"/api/v1/channels/{leadsId}")));
+        Assert.Equal("channel_not_found", await ErrorCodeAsync(await dan.PostAsync($"/api/v1/channels/{leadsId}/join")));
+
+        // Dan joins the public channel; history starts at his join.
+        var joined = await JsonAsync(await dan.PostAsync($"/api/v1/channels/{salesId}/join"));
+        Assert.Equal(("member", 2), (joined.GetProperty("channel").GetProperty("myRole").GetString(), joined.GetProperty("channel").GetProperty("memberCount").GetInt32()));
+        var history = await JsonAsync(await dan.GetAsync($"/api/v1/conversations/{salesId}/history"));
+        Assert.DoesNotContain(history.GetProperty("items").EnumerateArray(), i => i.GetProperty("body").ValueKind == JsonValueKind.String && i.GetProperty("body").GetString() == "Before Dan");
+        var summary = (await JsonAsync(await dan.GetAsync("/api/v1/conversations"))).EnumerateArray().Single();
+        Assert.Equal(("channel", "public", ws), (summary.GetProperty("type").GetString(), summary.GetProperty("visibility").GetString(), summary.GetProperty("workspaceId").GetGuid()));
+
+        // Members cannot manage; the channel manager moderates messages.
+        Assert.Equal(HttpStatusCode.Forbidden, (await dan.SendAsync(HttpMethod.Put, $"/api/v1/channels/{salesId}", new { name = "mine" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await dan.PostAsync($"/api/v1/channels/{salesId}/members", new { userIds = new[] { benId } })).StatusCode);
+        var danMessage = await JsonAsync(await dan.PostAsync($"/api/v1/conversations/{salesId}/messages", new { clientMessageId = "d1", body = "Spam" }));
+        AssertStatus(HttpStatusCode.NoContent, await ben.SendAsync(HttpMethod.Delete, $"/api/v1/conversations/{salesId}/messages/{danMessage.GetProperty("id").GetGuid()}"));
+
+        // Workspace administrators manage every channel, even private ones they are not in.
+        var renamed = await JsonAsync(await ana.SendAsync(HttpMethod.Put, $"/api/v1/channels/{salesId}", new { name = "sales-emea", visibility = "private" }));
+        Assert.Equal(("sales-emea", "private"), (renamed.GetProperty("channel").GetProperty("name").GetString(), renamed.GetProperty("channel").GetProperty("visibility").GetString()));
+
+        // Leaving the workspace ends its channels.
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/organizations/{org}/workspaces/{ws}/members/{danId}"));
+        Assert.Equal("conversation_not_found", await ErrorCodeAsync(await dan.GetAsync($"/api/v1/conversations/{salesId}/history")));
+        Assert.Empty((await JsonAsync(await dan.GetAsync("/api/v1/conversations"))).EnumerateArray());
+
+        // Organization configuration applies to its own organization only.
+        var settings = await JsonAsync(await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/settings", new { channelCreation = "administrators" }));
+        Assert.Equal("administrators", settings.GetProperty("channelCreation").GetString());
+        Assert.Equal("channel_creation_restricted", await ErrorCodeAsync(await ben.PostAsync(channels, new { name = "ideas" })));
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/settings", new { channelCreation = "members" })).StatusCode);
+        var benOrg = (await JsonAsync(await ben.PostAsync("/api/v1/organizations", new { name = "Ben Co" }))).GetProperty("id").GetGuid();
+        var benWs = await DefaultWorkspaceAsync(ben, benOrg);
+        Assert.Equal("members", (await JsonAsync(await ben.GetAsync($"/api/v1/organizations/{benOrg}"))).GetProperty("channelCreation").GetString());
+        await CreateChannelAsync(ben, $"/api/v1/organizations/{benOrg}/workspaces/{benWs}/channels", new { name = "ideas" });
+    }
+
+    [Fact]
+    public async Task Teams_bring_their_members_into_linked_channels_but_grant_no_administration()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (dan, danId) = await SignedInAsync(api, "dan@example.org", "Dan");
+        var (eve, eveId) = await SignedInAsync(api, "eve@example.org", "Eve");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = dan;
+        using var _4 = eve;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"), (dan, "dan@example.org"), (eve, "eve@example.org"));
+        var ws = await DefaultWorkspaceAsync(ana, org);
+        await AddToWorkspaceAsync(ana, org, ws, benId, danId);
+        var teams = $"/api/v1/organizations/{org}/workspaces/{ws}/teams";
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.PostAsync(teams, new { name = "Support" })).StatusCode);
+        var team = await JsonAsync(await ana.PostAsync(teams, new { name = "Support", description = "First line" }));
+        var teamId = team.GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{teams}/{teamId}/members", new { userId = benId, role = "manager" }));
+
+        // The team manager manages the team's members; only workspace members can join.
+        AssertStatus(HttpStatusCode.OK, await ben.PostAsync($"{teams}/{teamId}/members", new { userId = danId }));
+        Assert.Contains("not_workspace_member", await (await ben.PostAsync($"{teams}/{teamId}/members", new { userId = eveId })).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        // A channel created with the team gets its members; later team members follow.
+        var help = await CreateChannelAsync(ana, $"/api/v1/organizations/{org}/workspaces/{ws}/channels",
+            new { name = "help", visibility = "private", teamIds = new[] { teamId } });
+        var helpId = help.GetProperty("channel").GetProperty("id").GetGuid();
+        Assert.Equal(["Support"], help.GetProperty("channel").GetProperty("teams").EnumerateArray().Select(t => t.GetProperty("name").GetString()));
+        Assert.Equal(3, help.GetProperty("channel").GetProperty("memberCount").GetInt32());
+
+        await AddToWorkspaceAsync(ana, org, ws, eveId);
+        AssertStatus(HttpStatusCode.OK, await ben.PostAsync($"{teams}/{teamId}/members", new { userId = eveId }));
+        var detail = await JsonAsync(await eve.GetAsync($"/api/v1/channels/{helpId}"));
+        Assert.Equal("member", detail.GetProperty("channel").GetProperty("myRole").GetString());
+
+        // Managing a team does not make Ben a channel manager.
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.SendAsync(HttpMethod.Put, $"/api/v1/channels/{helpId}", new { name = "ours" })).StatusCode);
+
+        // Leaving the team keeps the channel; unlinking stops new members from joining.
+        AssertStatus(HttpStatusCode.NoContent, await dan.SendAsync(HttpMethod.Delete, $"{teams}/{teamId}/members/{danId}"));
+        AssertStatus(HttpStatusCode.OK, await dan.GetAsync($"/api/v1/conversations/{helpId}/history"));
+        var unlinked = await JsonAsync(await ana.SendAsync(HttpMethod.Delete, $"/api/v1/channels/{helpId}/teams/{teamId}"));
+        Assert.Empty(unlinked.GetProperty("channel").GetProperty("teams").EnumerateArray());
+        AssertStatus(HttpStatusCode.OK, await ben.PostAsync($"{teams}/{teamId}/members", new { userId = danId }));
+        Assert.Equal(4, (await JsonAsync(await ana.GetAsync($"/api/v1/channels/{helpId}"))).GetProperty("channel").GetProperty("memberCount").GetInt32());
+    }
+
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Guests_see_only_the_channels_they_were_invited_to(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (gina, _) = await SignedInAsync(api, "gina@partner.example", "Gina");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = gina;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"));
+        var ws = await DefaultWorkspaceAsync(ana, org);
+        await AddToWorkspaceAsync(ana, org, ws, benId);
+        var channels = $"/api/v1/organizations/{org}/workspaces/{ws}/channels";
+        var partners = (await CreateChannelAsync(ana, channels, new { name = "partners", visibility = "private", userIds = new[] { benId } }))
+            .GetProperty("channel").GetProperty("id").GetGuid();
+        var general = (await CreateChannelAsync(ana, channels, new { name = "general", visibility = "public" })).GetProperty("channel").GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync($"/api/v1/conversations/{partners}/messages", new { clientMessageId = "a0", body = "Internal note" }));
+
+        // Only those who manage members invite; the invitee accepts.
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.PostAsync($"/api/v1/organizations/{org}/guests/invitations", new { channelId = partners, email = "gina@partner.example" })).StatusCode);
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync($"/api/v1/organizations/{org}/guests/invitations", new { channelId = partners, email = "gina@partner.example" }));
+        var mine = (await JsonAsync(await gina.GetAsync("/api/v1/guest-invitations"))).EnumerateArray().Single();
+        Assert.Equal(("Acme", "partners"), (mine.GetProperty("organizationName").GetString(), mine.GetProperty("channelName").GetString()));
+        var accepted = await JsonAsync(await gina.PostAsync($"/api/v1/guest-invitations/{mine.GetProperty("id").GetGuid()}/accept"));
+        Assert.Equal(partners, accepted.GetProperty("conversationId").GetGuid());
+
+        // The guest takes part in that channel (history from the join) ...
+        var list = (await JsonAsync(await gina.GetAsync("/api/v1/conversations"))).EnumerateArray().Single();
+        Assert.Equal(("channel", "guest", "Acme"), (list.GetProperty("type").GetString(), list.GetProperty("myRole").GetString(), list.GetProperty("organizationName").GetString()));
+        Assert.DoesNotContain("Internal note", await (await gina.GetAsync($"/api/v1/conversations/{partners}/history")).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        AssertStatus(HttpStatusCode.Created, await gina.PostAsync($"/api/v1/conversations/{partners}/messages", new { clientMessageId = "g1", body = "Hello from Partner" }));
+        var members = await JsonAsync(await ana.GetAsync($"/api/v1/channels/{partners}"));
+        Assert.Contains(members.GetProperty("members").EnumerateArray(), m => m.GetProperty("user").GetProperty("displayName").GetString() == "Gina" && m.GetProperty("role").GetString() == "guest");
+
+        // ... and nothing else of the organization.
+        Assert.Equal("organization_not_found", await ErrorCodeAsync(await gina.GetAsync($"/api/v1/organizations/{org}/members")));
+        Assert.Equal("workspace_not_found", await ErrorCodeAsync(await gina.GetAsync(channels)));
+        Assert.Equal("channel_not_found", await ErrorCodeAsync(await gina.GetAsync($"/api/v1/channels/{general}")));
+        Assert.Equal("organization_not_found", await ErrorCodeAsync(await gina.PostAsync("/api/v1/conversations/direct", new { userId = anaId, organizationId = org })));
+        Assert.Equal(HttpStatusCode.Forbidden, (await gina.PostAsync($"/api/v1/channels/{partners}/members", new { userIds = new[] { benId } })).StatusCode);
+        Assert.DoesNotContain("Gina", await (await ana.GetAsync($"/api/v1/organizations/{org}/members")).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        // Switching guests off suspends them; switching back restores access.
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/settings", new { guestsEnabled = false }));
+        Assert.Equal("conversation_not_found", await ErrorCodeAsync(await gina.GetAsync($"/api/v1/conversations/{partners}/history")));
+        Assert.Empty((await JsonAsync(await gina.GetAsync("/api/v1/conversations"))).EnumerateArray());
+        Assert.Equal("guests_disabled", await ErrorCodeAsync(await ana.PostAsync($"/api/v1/organizations/{org}/guests/invitations", new { channelId = partners, email = "x@partner.example" })));
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/settings", new { guestsEnabled = true }));
+        AssertStatus(HttpStatusCode.OK, await gina.GetAsync($"/api/v1/conversations/{partners}/history"));
+
+        // Members join as members, not guests.
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync($"/api/v1/organizations/{org}/guests/invitations", new { channelId = general, email = "ben@example.org" }));
+        var benInvite = (await JsonAsync(await ben.GetAsync("/api/v1/guest-invitations"))).EnumerateArray().Single().GetProperty("id").GetGuid();
+        Assert.Equal("already_member", await ErrorCodeAsync(await ben.PostAsync($"/api/v1/guest-invitations/{benInvite}/accept")));
+
+        // Removing the guest ends their channels.
+        var guests = (await JsonAsync(await ana.GetAsync($"/api/v1/organizations/{org}/guests"))).EnumerateArray().Single();
+        Assert.Equal(["partners"], guests.GetProperty("channels").EnumerateArray().Select(c => c.GetProperty("name").GetString()));
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/organizations/{org}/guests/{guests.GetProperty("user").GetProperty("id").GetGuid()}"));
+        Assert.Equal("conversation_not_found", await ErrorCodeAsync(await gina.GetAsync($"/api/v1/conversations/{partners}/history")));
+    }
+
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Support_agents_work_the_website_inbox(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
+        var (dan, danId) = await SignedInAsync(api, "dan@example.org", "Dan");
+        var (zed, _) = await SignedInAsync(api, "zed@example.org", "Zed");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        using var _4 = dan;
+        using var _5 = zed;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"), (carl, "carl@example.org"), (dan, "dan@example.org"));
+
+        // A widget answered by Ben; a visitor writes.
+        var widget = (await JsonAsync(await ana.PostAsync($"/api/v1/organizations/{org}/widgets", new { name = "Shop" }))).GetProperty("widget").GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/widgets/{widget}",
+            new { allowedOrigins = new[] { "https://shop.example.org" }, responderIds = new[] { benId }, enabled = true }));
+        using var visitor = api.CreateHttpsClient();
+        var session = await JsonAsync(await visitor.PostAsJsonAsync($"/api/v1/widget/{widget}/sessions", new { parentOrigin = "https://shop.example.org" }, Ct));
+        visitor.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.GetProperty("token").GetString());
+        AssertStatus(HttpStatusCode.Created, await visitor.PostAsJsonAsync("/api/v1/widget/visitor/messages", new { clientMessageId = "v1", body = "Where is my order?" }, Ct));
+
+        var inbox = $"/api/v1/organizations/{org}/support";
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/members/{carlId}/support-agent", new { supportAgent = true }));
+        var item = (await JsonAsync(await carl.GetAsync(inbox))).EnumerateArray().Single();
+        var conversationId = item.GetProperty("conversationId").GetGuid();
+        Assert.Equal(("open", false, "Shop"), (item.GetProperty("status").GetString(), item.GetProperty("participating").GetBoolean(), item.GetProperty("widgetName").GetString()));
+        Assert.True((await JsonAsync(await carl.GetAsync($"/api/v1/organizations/{org}"))).GetProperty("supportAgent").GetBoolean());
+
+        // Responders see their own conversations; other members see none; outsiders nothing.
+        Assert.Single((await JsonAsync(await ben.GetAsync(inbox))).EnumerateArray());
+        Assert.Empty((await JsonAsync(await dan.GetAsync(inbox))).EnumerateArray());
+        Assert.Equal("organization_not_found", await ErrorCodeAsync(await zed.GetAsync(inbox)));
+
+        // Claiming joins with the whole history.
+        var claimed = await JsonAsync(await carl.PostAsync($"/api/v1/support/conversations/{conversationId}/claim"));
+        Assert.Equal(("Carl", true), (claimed.GetProperty("assignedTo").GetProperty("displayName").GetString(), claimed.GetProperty("participating").GetBoolean()));
+        Assert.Contains("Where is my order?", await (await carl.GetAsync($"/api/v1/conversations/{conversationId}/history")).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.Single((await JsonAsync(await carl.GetAsync($"{inbox}?mine=true"))).EnumerateArray());
+
+        // Responders cannot assign others; nobody can assign to someone who is not support staff.
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.SendAsync(HttpMethod.Put, $"/api/v1/support/conversations/{conversationId}/assignee", new { assigneeId = carlId })).StatusCode);
+        Assert.Contains("assignee_not_agent",
+            await (await carl.SendAsync(HttpMethod.Put, $"/api/v1/support/conversations/{conversationId}/assignee", new { assigneeId = danId })).Content.ReadAsStringAsync(Ct),
+            StringComparison.Ordinal);
+
+        // Closing hides it from the open inbox; the visitor writing again reopens it.
+        var closed = await JsonAsync(await ben.SendAsync(HttpMethod.Put, $"/api/v1/support/conversations/{conversationId}/status", new { status = "closed" }));
+        Assert.Equal("closed", closed.GetProperty("status").GetString());
+        Assert.Empty((await JsonAsync(await carl.GetAsync($"{inbox}?status=open"))).EnumerateArray());
+        Assert.Equal("closed", (await JsonAsync(await ben.GetAsync("/api/v1/conversations"))).EnumerateArray().Single().GetProperty("supportStatus").GetString());
+        AssertStatus(HttpStatusCode.Created, await visitor.PostAsJsonAsync("/api/v1/widget/visitor/messages", new { clientMessageId = "v2", body = "Hello again" }, Ct));
+        Assert.Single((await JsonAsync(await carl.GetAsync($"{inbox}?status=open"))).EnumerateArray());
+
+        // Status and assignment are recorded in the history the team sees, not in the visitor's.
+        var kinds = (await JsonAsync(await carl.GetAsync($"/api/v1/conversations/{conversationId}/history"))).GetProperty("items").EnumerateArray()
+            .Select(i => i.GetProperty("kind").GetString()).ToList();
+        Assert.Contains("assigned", kinds);
+        Assert.Equal(2, kinds.Count(k => k == "status_changed"));
+    }
+
+    private static async Task<Guid> DefaultWorkspaceAsync(ApiSession owner, Guid organizationId) =>
+        (await JsonAsync(await owner.GetAsync($"/api/v1/organizations/{organizationId}/workspaces"))).EnumerateArray().First().GetProperty("id").GetGuid();
+
+    private static async Task AddToWorkspaceAsync(ApiSession admin, Guid organizationId, Guid workspaceId, params Guid[] userIds)
+    {
+        foreach (var userId in userIds)
+        {
+            AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/members", new { userId }));
+        }
+    }
+
+    private static async Task<JsonElement> CreateChannelAsync(ApiSession session, string path, object body)
+    {
+        var response = await session.PostAsync(path, body);
+        AssertStatus(HttpStatusCode.Created, response, await response.Content.ReadAsStringAsync(Ct));
+        return await JsonAsync(response);
+    }
+}
