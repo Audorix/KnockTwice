@@ -140,6 +140,7 @@
   <data name="setting_unknown" xml:space="preserve"><value>This setting cannot be changed here.</value></data>
   <data name="channel_not_found" xml:space="preserve"><value>The channel does not exist or you cannot see it.</value></data>
   <data name="channel_name_taken" xml:space="preserve"><value>A channel with this name already exists in the workspace.</value></data>
+  <data name="channel_archived" xml:space="preserve"><value>This channel is archived and read-only.</value></data>
   <data name="channel_name_required" xml:space="preserve"><value>A channel name is required.</value></data>
   <data name="channel_name_too_long" xml:space="preserve"><value>The channel name is too long.</value></data>
   <data name="channel_name_invalid" xml:space="preserve"><value>The channel name contains invalid characters.</value></data>

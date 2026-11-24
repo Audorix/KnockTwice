@@ -875,6 +875,10 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
         <p className="cx-composer-closed cx-muted" role="status">
           {t('conversations.counterpartDeleted')}
         </p>
+      ) : c.archivedAtUtc ? (
+        <p className="cx-composer-closed cx-muted" role="status">
+          {t('channels.archivedNotice')}
+        </p>
       ) : (
       <form className="cx-composer" onSubmit={(e) => void submit(e)}>
         {(replyTo || editing) && (

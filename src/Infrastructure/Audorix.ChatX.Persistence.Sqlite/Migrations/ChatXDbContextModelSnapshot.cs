@@ -376,6 +376,10 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("ArchivedAtUtc")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("archived_at_utc");
+
                     b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("TEXT")
                         .HasColumnName("assigned_to_user_id");

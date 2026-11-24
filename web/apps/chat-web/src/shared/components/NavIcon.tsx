@@ -3,7 +3,7 @@ export type NavIconName =
   | 'reply' | 'smile' | 'thread' | 'dots' | 'edit' | 'trash' | 'clip' | 'send'
   | 'settings' | 'user' | 'block' | 'plus' | 'message' | 'chevron-left' | 'chevron-right' | 'close'
   | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external'
-  | 'file' | 'info';
+  | 'file' | 'info' | 'archive' | 'leave';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -20,6 +20,18 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
         <>
           <path {...common} d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
           <path {...common} d="M14 3v5h5" />
+        </>
+      )}
+      {name === 'archive' && (
+        <>
+          <rect {...common} x="3" y="4" width="18" height="4.5" rx="1" />
+          <path {...common} d="M5 8.5V18a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.5M10 12.5h4" />
+        </>
+      )}
+      {name === 'leave' && (
+        <>
+          <path {...common} d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+          <path {...common} d="M10 16l-4-4 4-4M6 12h10" />
         </>
       )}
       {name === 'info' && (

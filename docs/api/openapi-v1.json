@@ -4507,6 +4507,47 @@
         }
       }
     },
+    "/api/v1/channels/{channelId}/archived": {
+      "put": {
+        "tags": [
+          "Channels"
+        ],
+        "summary": "Archives a channel (read-only: history stays, nobody can post, react, join or be added) or restores it (managers).",
+        "parameters": [
+          {
+            "name": "channelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetChannelArchivedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChannelDetailResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/channels/{channelId}/join": {
       "post": {
         "tags": [
@@ -7500,6 +7541,13 @@
           "lastActivityAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "archivedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -8089,6 +8137,13 @@
                 "$ref": "#/components/schemas/ConversationLastMessageResponse"
               }
             ]
+          },
+          "archivedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
           }
         }
       },
@@ -10232,6 +10287,17 @@
             "type": "boolean"
           },
           "current": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetChannelArchivedRequest": {
+        "required": [
+          "archived"
+        ],
+        "type": "object",
+        "properties": {
+          "archived": {
             "type": "boolean"
           }
         }

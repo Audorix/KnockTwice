@@ -23,7 +23,11 @@ public sealed record ChannelResponse(
     bool CanManage,
     IReadOnlyList<TeamSummaryResponse> Teams,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset LastActivityAtUtc);
+    DateTimeOffset LastActivityAtUtc,
+    DateTimeOffset? ArchivedAtUtc = null);
+
+/// <summary>Archives (read-only) or restores a channel (managers; redesign 2026-11).</summary>
+public sealed record SetChannelArchivedRequest(bool Archived);
 
 /// <param name="Role"><c>manager</c>, <c>member</c> or <c>guest</c>.</param>
 public sealed record ChannelMemberResponse(UserSummaryResponse User, string Role, DateTimeOffset JoinedAtUtc);

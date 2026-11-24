@@ -45,6 +45,15 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   mentions grouped by day with search, All/Unread, a conversation filter and order, "Mark as read"
   per mention and "Mark all as read"; a "Coming up" column with the next reminders and scheduled
   messages.
+- **Channels page:** organization and workspace bar; **All channels · Joined · Discover · Archived**
+  tabs with counts; search, visibility filter and sorting (recently active, name, most members); a
+  table with channel icon, Joined/Not joined/Private tags, description, members, last activity,
+  Open or Join channel and a "…" menu (manage, archive or restore, leave); "New channel" in a side
+  panel. Compact rows on phones.
+- **Channel archiving:** managers archive a channel (read-only: history stays, no posting,
+  editing, reacting, joining or adding people) and restore it. `PUT /api/v1/channels/{id}/archived`,
+  `archivedAtUtc` on channels and conversation summaries, an `archived` history entry, error
+  `channel_archived`; database migration `AddChannelArchiving`.
 - **Demo data:** 300 more channels (800 in all; everyone is in at least 10) and activity: mentions,
   saved messages, reminders and scheduled messages, 500 items for the administrator who loads it and
   50–100 for every demo person, with recent mentions unread. Loading again extends an existing demo

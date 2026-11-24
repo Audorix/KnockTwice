@@ -140,6 +140,7 @@
   <data name="setting_unknown" xml:space="preserve"><value>Este ajuste no se puede cambiar aquí.</value></data>
   <data name="channel_not_found" xml:space="preserve"><value>El canal no existe o no puedes verlo.</value></data>
   <data name="channel_name_taken" xml:space="preserve"><value>Ya existe un canal con este nombre en el espacio de trabajo.</value></data>
+  <data name="channel_archived" xml:space="preserve"><value>Este canal está archivado y es de solo lectura.</value></data>
   <data name="channel_name_required" xml:space="preserve"><value>El canal necesita un nombre.</value></data>
   <data name="channel_name_too_long" xml:space="preserve"><value>El nombre del canal es demasiado largo.</value></data>
   <data name="channel_name_invalid" xml:space="preserve"><value>El nombre del canal contiene caracteres no válidos.</value></data>

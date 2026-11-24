@@ -216,6 +216,8 @@ export function describeEntry(entry: ConversationEntryResponse, type: 'direct' |
       return entry.text === 'closed' ? t('conversations.entries.closed', { actor }) : t('conversations.entries.reopened', { actor });
     case 'visibility_changed':
       return entry.text === 'private' ? t('conversations.entries.madePrivate', { actor }) : t('conversations.entries.madePublic', { actor });
+    case 'archived':
+      return entry.text === 'restored' ? t('conversations.entries.restored', { actor }) : t('conversations.entries.archived', { actor });
     case 'pinned':
       return entry.replyTo?.deleted || !entry.replyTo
         ? t('conversations.entries.pinnedDeleted', { actor })

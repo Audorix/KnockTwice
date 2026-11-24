@@ -48,6 +48,9 @@ internal static class BusinessEndpoints
             TypedResults.Ok(ToResponse(await service.UpdateChannelAsync(http.User.RequireUserId(), channelId, request.Name, request.Description,
                 ParseVisibility(request.Visibility), ct))))
             .WithSummary("Renames, describes or changes the visibility of a channel (managers).");
+        channels.MapPut("/archived", async (Guid channelId, SetChannelArchivedRequest request, HttpContext http, ConversationService service, CancellationToken ct) =>
+            TypedResults.Ok(ToResponse(await service.SetChannelArchivedAsync(http.User.RequireUserId(), channelId, request.Archived, ct))))
+            .WithSummary("Archives a channel (read-only: history stays, nobody can post, react, join or be added) or restores it (managers).");
         channels.MapPost("/join", async (Guid channelId, HttpContext http, ConversationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.JoinChannelAsync(http.User.RequireUserId(), channelId, ct))))
             .WithSummary("Joins a public channel (workspace members). History starts now.");
@@ -186,7 +189,7 @@ internal static class BusinessEndpoints
         var c = view.Channel;
         return new ChannelResponse(c.Id, c.OrganizationId!.Value, c.WorkspaceId!.Value, view.WorkspaceName, c.Title ?? string.Empty, c.Description,
             c.Visibility == ChannelVisibility.Private ? "private" : "public", view.MemberCount, view.Me is not null, ChannelRole(view.Me), view.CanManage,
-            view.Teams.Select(t => new TeamSummaryResponse(t.Id, t.Name)).ToList(), c.CreatedAtUtc, c.LastActivityAtUtc);
+            view.Teams.Select(t => new TeamSummaryResponse(t.Id, t.Name)).ToList(), c.CreatedAtUtc, c.LastActivityAtUtc, c.ArchivedAtUtc);
     }
 
     private static ChannelDetailResponse ToResponse(ChannelDetailView view) => new(

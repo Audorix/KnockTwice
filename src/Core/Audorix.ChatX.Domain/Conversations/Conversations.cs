@@ -83,6 +83,9 @@ public enum ConversationEventKind
 
     /// <summary>Phase 18: a message was pinned (the entry refers to it like a reply).</summary>
     Pinned = 12,
+
+    /// <summary>A channel was archived or restored (text "archived"/"restored"; redesign 2026-11).</summary>
+    Archived = 13,
 }
 
 #pragma warning disable CA1711 // "Permission" is the domain term, as for OrganizationPermission.
@@ -164,6 +167,26 @@ public sealed class Conversation
     public string? ChannelKey { get; private set; }
 
     public bool IsChannel => Type == ConversationType.Channel;
+
+    /// <summary>
+    /// When the channel was archived (redesign 2026-11): its history stays readable, but nobody can
+    /// post, edit, react, join or be added until a manager restores it.
+    /// </summary>
+    public DateTimeOffset? ArchivedAtUtc { get; private set; }
+
+    public bool IsArchived => ArchivedAtUtc is not null;
+
+    public void Archive(DateTimeOffset nowUtc)
+    {
+        RequireChannel();
+        ArchivedAtUtc ??= Require.Utc(nowUtc);
+    }
+
+    public void Restore()
+    {
+        RequireChannel();
+        ArchivedAtUtc = null;
+    }
 
     // ---- Support (Phase 11, website conversations) ------------------------------------------
 

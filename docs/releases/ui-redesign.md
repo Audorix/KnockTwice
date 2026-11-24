@@ -97,6 +97,28 @@ last message, deleted last message, pinning, shared-files paging and deletion); 
 type check clean; bundle 172.5 kB of 180 kB (largest chunk 63.7 kB). Checked in the browser in dark
 and light at 1500 px and on a phone (375 px, no sideways scrolling).
 
+## Channels page (from the owner's mockup, 2026-11-24)
+
+Owner decisions: add channel archiving (the mockup's Archived tab); "New channel" in a side panel.
+
+| Area | What |
+| --- | --- |
+| Header | Breadcrumb, title, subtitle and **New channel** (disabled until you belong to the workspace). Guest invitations stay on top. |
+| Scope bar | Organization and Workspace selects in one card with "Channels you can access in this workspace". |
+| Tabs | **All channels · Joined · Discover · Archived** with counts (Archived shows its count only when there is one). Arrow keys move between tabs. |
+| Tools | "Find a channel…" (name and description), Visibility (all/public/private), sort (recently active, name, most members). |
+| Table | Icon tile (# or lock; grey when archived), name with Joined / Not joined / Private / Archived tags, description, members, last activity ("5 minutes ago", "Yesterday", a date), **Open** or **Join channel**, and a "…" menu (open or join, manage, archive or restore, leave). Footer: "Showing N channels" and the private-channel note. Phones: compact two-line rows. |
+| New channel | A side panel (modal, Escape closes, focus returns): name, description, public/private as cards, teams. Opens the new channel. |
+| Archiving | Managers archive and restore channels. Archived channels are read-only for everyone (history stays; no posting, editing, reacting, joining or adding people); the conversation shows a notice instead of the composer; the history shows "… archived the channel" / "… restored the channel". |
+| API | `PUT /api/v1/channels/{id}/archived { archived }`; `archivedAtUtc` on channels and conversation summaries; history kind `archived` (text `archived`/`restored`); `409 channel_archived`. Migration `AddChannelArchiving` (SQLite and PostgreSQL). OpenAPI re-exported. |
+| Shared | The "…" row menu moved to `shared/components/RowMenu.tsx` (contacts and channels); new `archive` and `leave` icons. |
+
+Validation: `BusinessTests` on SQLite and PostgreSQL (new: archiving rights, read-only rules, restore),
+`PersistenceTests` (no model drift) and `MessagingTests` pass; web tests 85/85 (new: tabs, search,
+visibility filter, restore from the menu, the create panel); type check clean; bundle 174.5 kB of
+180 kB. Checked in the browser with the demo data in dark and light at 1500 px and on a phone
+(375 px, no sideways scrolling).
+
 ## Open items
 
 - Administration, channels, search and the support inbox were restyled only through the shared

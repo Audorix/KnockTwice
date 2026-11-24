@@ -48,6 +48,11 @@ export async function joinChannel(channelId: string): Promise<ChannelDetailRespo
 
 export const leaveChannel = (channelId: string) => sendJson('POST', `/api/v1/channels/${id(channelId)}/leave`);
 
+/** Archives (read-only) or restores a channel (managers; redesign 2026-11). */
+export async function setChannelArchived(channelId: string, archived: boolean): Promise<ChannelDetailResponse> {
+  return (await sendJson<ChannelDetailResponse>('PUT', `/api/v1/channels/${id(channelId)}/archived`, { archived }))!;
+}
+
 export async function addChannelMembers(channelId: string, body: { userIds?: string[]; teamIds?: string[] }): Promise<ChannelDetailResponse> {
   return (await sendJson<ChannelDetailResponse>('POST', `/api/v1/channels/${id(channelId)}/members`, body))!;
 }

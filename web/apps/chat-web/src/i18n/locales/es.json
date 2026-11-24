@@ -349,7 +349,8 @@
     "scheduled_not_found": "Este mensaje programado ya no existe.",
     "too_many_reminders": "Ya tiene el máximo de recordatorios (100).",
     "remind_at_invalid": "Elija un momento dentro del próximo año.",
-    "reminder_not_found": "Este recordatorio ya no existe."
+    "reminder_not_found": "Este recordatorio ya no existe.",
+    "channel_archived": "Este canal está archivado y es de solo lectura."
   },
   "fieldErrors": {
     "invalid": "Este valor no es válido.",
@@ -611,7 +612,9 @@
       "madePrivate": "{{actor}} hizo privado el canal",
       "madePublic": "{{actor}} hizo público el canal",
       "pinned": "{{actor}} fijó un mensaje: {{excerpt}}",
-      "pinnedDeleted": "{{actor}} fijó un mensaje que luego se eliminó"
+      "pinnedDeleted": "{{actor}} fijó un mensaje que luego se eliminó",
+      "archived": "{{actor}} archivó el canal",
+      "restored": "{{actor}} restauró el canal"
     },
     "backToList": "Volver a las conversaciones",
     "websiteHint": "Un visitante escribió desde el chat de tu sitio web. Solo ve esta conversación.",
@@ -1324,8 +1327,8 @@
     },
     "visibilityLabel": "Quién puede encontrarlo",
     "visibilityHint": {
-      "public": "cualquiera del espacio de trabajo puede encontrarlo y unirse",
-      "private": "solo las personas añadidas"
+      "public": "Cualquiera del espacio de trabajo puede encontrarlo y unirse.",
+      "private": "Solo las personas añadidas."
     },
     "members_one": "{{count}} miembro",
     "members_other": "{{count}} miembros",
@@ -1364,7 +1367,61 @@
     "acceptGuest": "Aceptar",
     "declineGuest": "Rechazar",
     "guestHint": "Como invitado solo ves los canales a los que te invitan.",
-    "guestNotice": "Aquí eres invitado: solo ves este canal."
+    "guestNotice": "Aquí eres invitado: solo ves este canal.",
+    "subtitle": "Mantén las conversaciones organizadas por equipos y temas.",
+    "scope": "Organización y espacio de trabajo",
+    "scopeHint": "Canales a los que puedes acceder en este espacio",
+    "tabsLabel": "Listas de canales",
+    "tabs": {
+      "all": "Todos los canales",
+      "joined": "Unido",
+      "discover": "Descubrir",
+      "archived": "Archivados"
+    },
+    "findLabel": "Buscar un canal",
+    "findPlaceholder": "Buscar un canal…",
+    "visibilityFilter": {
+      "label": "Visibilidad",
+      "all": "Visibilidad: todos",
+      "public": "Visibilidad: públicos",
+      "private": "Visibilidad: privados"
+    },
+    "sort": {
+      "label": "Orden",
+      "recent": "Actividad reciente",
+      "name": "Nombre (A–Z)",
+      "members": "Más miembros"
+    },
+    "empty": {
+      "all": "Todavía no hay canales visibles en este espacio.",
+      "joined": "No te has unido a ningún canal de este espacio.",
+      "discover": "Ya estás en todos los canales a los que puedes unirte aquí.",
+      "archived": "No hay canales archivados."
+    },
+    "noMatches": "Ningún canal coincide con estos filtros.",
+    "columns": {
+      "channel": "Canal",
+      "members": "Miembros",
+      "lastActivity": "Última actividad",
+      "actions": "Acciones"
+    },
+    "joined": "Unido",
+    "notJoined": "Sin unirse",
+    "archived": "Archivado",
+    "openNamed": "Abrir {{name}}",
+    "joinChannel": "Unirse al canal",
+    "moreFor": "Más acciones para {{name}}",
+    "showing_one": "Mostrando {{count}} canal",
+    "showing_other": "Mostrando {{count}} canales",
+    "privacyNote": "Los canales privados solo los ven sus miembros.",
+    "archive": "Archivar canal",
+    "restore": "Restaurar canal",
+    "archiveConfirm": "¿Archivar {{name}}? Quedará de solo lectura para todos hasta que un responsable lo restaure.",
+    "leaveChannel": "Salir del canal",
+    "justNow": "Ahora mismo",
+    "closePanel": "Cerrar",
+    "newIn": "En el espacio de trabajo {{workspace}}.",
+    "archivedNotice": "Este canal está archivado: el historial sigue disponible, pero nadie puede escribir hasta que un responsable lo restaure."
   },
   "support": {
     "title": "Bandeja de soporte",

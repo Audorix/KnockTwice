@@ -231,6 +231,8 @@ export interface ConversationSummaryResponse {
   pinned?: boolean;
   /** Redesign 2026-11: the newest message you may see (list endpoints only). */
   lastMessage?: ConversationLastMessage | null;
+  /** Redesign 2026-11: an archived channel is read-only. */
+  archivedAtUtc?: string | null;
 }
 
 /** Excerpt is plain text; empty for a message with only files; null when deleted. */
@@ -285,6 +287,7 @@ export type ConversationEntryKind =
   | 'assigned'
   | 'status_changed'
   | 'visibility_changed'
+  | 'archived'
   | 'pinned';
 
 export interface ConversationEntryResponse {
@@ -664,6 +667,8 @@ export interface ChannelResponse {
   teams: TeamSummary[];
   createdAtUtc: string;
   lastActivityAtUtc: string;
+  /** Redesign 2026-11: set while the channel is archived (read-only). */
+  archivedAtUtc?: string | null;
 }
 
 export interface ChannelMemberResponse {

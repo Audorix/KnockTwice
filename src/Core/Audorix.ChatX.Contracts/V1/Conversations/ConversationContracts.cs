@@ -29,7 +29,8 @@ public sealed record ConversationSummaryResponse(
     UserSummaryResponse? AssignedTo = null,
     string NotificationLevel = "all",
     bool Pinned = false,
-    ConversationLastMessageResponse? LastMessage = null);
+    ConversationLastMessageResponse? LastMessage = null,
+    DateTimeOffset? ArchivedAtUtc = null);
 
 /// <summary>
 /// The newest message of the conversation's main timeline the caller may see (list endpoints only;

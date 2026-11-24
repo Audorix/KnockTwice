@@ -262,7 +262,8 @@ internal static class ConversationEndpoints
                     last.Entry.IsDeleted ? null : MessageText.Excerpt(last.Entry.Body ?? string.Empty) ?? string.Empty,
                     last.Entry.IsDeleted,
                     last.Entry.CreatedAtUtc)
-                : null);
+                : null,
+            ArchivedAtUtc: c.ArchivedAtUtc);
     }
 
     internal static string LevelName(NotificationLevel level) => level switch
@@ -351,6 +352,7 @@ internal static class ConversationEndpoints
         ConversationEventKind.StatusChanged => "status_changed",
         ConversationEventKind.VisibilityChanged => "visibility_changed",
         ConversationEventKind.Pinned => "pinned",
+        ConversationEventKind.Archived => "archived",
         _ => "unknown",
     };
 

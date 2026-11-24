@@ -123,6 +123,7 @@ public sealed partial class ConversationService
             throw new ForbiddenException("not_workspace_member");
         }
 
+        RequireNotArchived(access.Channel);
         if (access.Channel.Visibility != ChannelVisibility.Public && !access.CanManage)
         {
             throw new ResourceNotFoundException(ChannelNotFound);
@@ -200,12 +201,61 @@ public sealed partial class ConversationService
         return await GetChannelAsync(userId, channelId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Archives a channel (read-only: history stays, nobody posts, edits, reacts, joins or is added)
+    /// or restores it (managers; redesign 2026-11). Repeating the current state changes nothing.
+    /// </summary>
+    public async Task<ChannelDetailView> SetChannelArchivedAsync(Guid userId, Guid channelId, bool archived, CancellationToken cancellationToken)
+    {
+        await RequireManagedChannelAsync(userId, channelId, cancellationToken).ConfigureAwait(false);
+        Conversation? updated = null;
+        await MutateAsync(async () =>
+        {
+            var channel = await RequireChannelEntityAsync(channelId, cancellationToken).ConfigureAwait(false);
+            if (channel.IsArchived == archived)
+            {
+                return;
+            }
+
+            var now = time.GetUtcNow();
+            if (archived)
+            {
+                channel.Archive(now);
+            }
+            else
+            {
+                channel.Restore();
+            }
+
+            store.Add(ConversationEvent.Record(Guid.CreateVersion7(now), channel, ConversationEventKind.Archived, userId, null, archived ? "archived" : "restored", now));
+            updated = channel;
+        }, cancellationToken).ConfigureAwait(false);
+
+        if (updated is not null)
+        {
+            await NotifyParticipantsAsync(updated, "updated", [], cancellationToken).ConfigureAwait(false);
+        }
+
+        return await GetChannelAsync(userId, channelId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Refuses changes to an archived channel's conversation (409 <c>channel_archived</c>).</summary>
+    public static void RequireNotArchived(Conversation conversation)
+    {
+        ArgumentNullException.ThrowIfNull(conversation);
+        if (conversation.IsArchived)
+        {
+            throw new ConflictException("channel_archived");
+        }
+    }
+
     /// <summary>Adds workspace members and whole teams (linking them, so later team members follow). Already present people are skipped.</summary>
     public async Task<ChannelDetailView> AddChannelMembersAsync(
         Guid userId, Guid channelId, IReadOnlyCollection<Guid>? userIds, IReadOnlyCollection<Guid>? teamIds, CancellationToken cancellationToken)
     {
         var access = await RequireManagedChannelAsync(userId, channelId, cancellationToken).ConfigureAwait(false);
         var channel = access.Channel;
+        RequireNotArchived(channel);
         if ((userIds?.Count ?? 0) + (teamIds?.Count ?? 0) == 0)
         {
             throw new RequestValidationException("userIds", "required");
@@ -309,7 +359,7 @@ public sealed partial class ConversationService
             await MutateAsync(async () =>
             {
                 var channel = await store.FindAsync(link.ConversationId, cancellationToken).ConfigureAwait(false);
-                if (channel is not null && await AddChannelParticipantAsync(channel, actorUserId, userId, asGuest: false, cancellationToken).ConfigureAwait(false))
+                if (channel is { IsArchived: false } && await AddChannelParticipantAsync(channel, actorUserId, userId, asGuest: false, cancellationToken).ConfigureAwait(false))
                 {
                     updated = channel;
                 }

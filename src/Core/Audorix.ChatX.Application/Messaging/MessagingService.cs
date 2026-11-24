@@ -170,6 +170,7 @@ public sealed class MessagingService(
             }
 
             await RequireNotBlockedAsync(userId, conversation, cancellationToken).ConfigureAwait(false);
+            ConversationService.RequireNotArchived(conversation);
             var replyTo = replyToId is { } target ? await RequireVisibleMessageAsync(userId, conversationId, target, cancellationToken).ConfigureAwait(false) : null;
             if (files.Count > 0)
             {
@@ -329,7 +330,8 @@ public sealed class MessagingService(
 
     public async Task<HistoryEntryView> EditAsync(Guid userId, Guid conversationId, Guid messageId, string? body, CancellationToken cancellationToken)
     {
-        await conversations.RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var (conversation, _) = await conversations.RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        ConversationService.RequireNotArchived(conversation);
         var entry = await RequireMessageAsync(userId, conversationId, messageId, cancellationToken).ConfigureAwait(false);
         var before = entry.Version;
         var now = time.GetUtcNow();
@@ -494,6 +496,7 @@ public sealed class MessagingService(
         Guid userId, Guid conversationId, Guid messageId, string? emoji, bool reacted, CancellationToken cancellationToken)
     {
         var (conversation, _) = await conversations.RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        ConversationService.RequireNotArchived(conversation);
         if (conversation.Type == ConversationType.Website)
         {
             throw new RequestValidationException("emoji", "reactions_unavailable");

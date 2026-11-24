@@ -349,7 +349,8 @@
     "scheduled_not_found": "This scheduled message no longer exists.",
     "too_many_reminders": "You already have the most reminders allowed (100).",
     "remind_at_invalid": "Choose a time in the next year.",
-    "reminder_not_found": "This reminder no longer exists."
+    "reminder_not_found": "This reminder no longer exists.",
+    "channel_archived": "This channel is archived and read-only."
   },
   "fieldErrors": {
     "invalid": "This value is not valid.",
@@ -611,7 +612,9 @@
       "madePrivate": "{{actor}} made the channel private",
       "madePublic": "{{actor}} made the channel public",
       "pinned": "{{actor}} pinned a message: {{excerpt}}",
-      "pinnedDeleted": "{{actor}} pinned a message that was later deleted"
+      "pinnedDeleted": "{{actor}} pinned a message that was later deleted",
+      "archived": "{{actor}} archived the channel",
+      "restored": "{{actor}} restored the channel"
     },
     "backToList": "Back to conversations",
     "websiteHint": "A visitor wrote through your website chat. They only see this conversation.",
@@ -1324,8 +1327,8 @@
     },
     "visibilityLabel": "Who can find it",
     "visibilityHint": {
-      "public": "anyone in the workspace can find and join it",
-      "private": "only people who are added"
+      "public": "Anyone in the workspace can find and join it.",
+      "private": "Only people who are added."
     },
     "members_one": "{{count}} member",
     "members_other": "{{count}} members",
@@ -1364,7 +1367,61 @@
     "acceptGuest": "Accept",
     "declineGuest": "Decline",
     "guestHint": "As a guest you only see the channels you are invited to.",
-    "guestNotice": "You are a guest here: you see this channel only."
+    "guestNotice": "You are a guest here: you see this channel only.",
+    "subtitle": "Keep conversations organized around your teams and topics.",
+    "scope": "Organization and workspace",
+    "scopeHint": "Channels you can access in this workspace",
+    "tabsLabel": "Channel lists",
+    "tabs": {
+      "all": "All channels",
+      "joined": "Joined",
+      "discover": "Discover",
+      "archived": "Archived"
+    },
+    "findLabel": "Find a channel",
+    "findPlaceholder": "Find a channel…",
+    "visibilityFilter": {
+      "label": "Visibility",
+      "all": "Visibility: All",
+      "public": "Visibility: Public",
+      "private": "Visibility: Private"
+    },
+    "sort": {
+      "label": "Sort",
+      "recent": "Recently active",
+      "name": "Name (A–Z)",
+      "members": "Most members"
+    },
+    "empty": {
+      "all": "No channels you can see in this workspace yet.",
+      "joined": "You have not joined any channel in this workspace.",
+      "discover": "You are in every channel you can join here.",
+      "archived": "No archived channels."
+    },
+    "noMatches": "No channels match these filters.",
+    "columns": {
+      "channel": "Channel",
+      "members": "Members",
+      "lastActivity": "Last activity",
+      "actions": "Actions"
+    },
+    "joined": "Joined",
+    "notJoined": "Not joined",
+    "archived": "Archived",
+    "openNamed": "Open {{name}}",
+    "joinChannel": "Join channel",
+    "moreFor": "More actions for {{name}}",
+    "showing_one": "Showing {{count}} channel",
+    "showing_other": "Showing {{count}} channels",
+    "privacyNote": "Private channels are visible only to their members.",
+    "archive": "Archive channel",
+    "restore": "Restore channel",
+    "archiveConfirm": "Archive {{name}}? It becomes read-only for everyone until a manager restores it.",
+    "leaveChannel": "Leave channel",
+    "justNow": "Just now",
+    "closePanel": "Close",
+    "newIn": "In the {{workspace}} workspace.",
+    "archivedNotice": "This channel is archived: its history stays readable, but nobody can post until a manager restores it."
   },
   "support": {
     "title": "Support inbox",

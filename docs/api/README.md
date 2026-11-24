@@ -98,6 +98,12 @@ Administration searches take `skip` and `take`.
 - Messages can be edited by their author within 15 minutes (configurable) and deleted at any time.
   Deletion leaves a tombstone. Every change increments `version`; keep the highest.
 
+Channels are archived and restored with `PUT /api/v1/channels/{id}/archived { archived }` (channel
+managers, workspace and organization administrators). An archived channel is read-only: its history
+stays, but posting, editing, reacting, joining and adding people answer `409 channel_archived`.
+Channels and conversation summaries carry `archivedAtUtc` (null when not archived), and the history
+gets an `archived` entry with text `archived` or `restored`.
+
 Channels, groups, direct and website conversations all use these same routes. Channels are managed
 under `/api/v1/channels/{id}`; organization, workspace, team, guest and support management under
 `/api/v1/organizations/{id}/…`.

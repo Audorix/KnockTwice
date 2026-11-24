@@ -92,6 +92,55 @@ public sealed class BusinessTests
         await CreateChannelAsync(ben, $"/api/v1/organizations/{benOrg}/workspaces/{benWs}/channels", new { name = "ideas" });
     }
 
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Managers_archive_a_channel_read_only_and_restore_it(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (dan, danId) = await SignedInAsync(api, "dan@example.org", "Dan");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = dan;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"), (dan, "dan@example.org"));
+        var ws = await DefaultWorkspaceAsync(ana, org);
+        await AddToWorkspaceAsync(ana, org, ws, benId, danId);
+        var channels = $"/api/v1/organizations/{org}/workspaces/{ws}/channels";
+        var id = (await CreateChannelAsync(ben, channels, new { name = "launch", visibility = "public" })).GetProperty("channel").GetProperty("id").GetGuid();
+        var message = await JsonAsync(await ben.PostAsync($"/api/v1/conversations/{id}/messages", new { clientMessageId = "b1", body = "Done!" }));
+        var messageId = message.GetProperty("id").GetGuid();
+
+        // Only managers archive.
+        Assert.Equal(HttpStatusCode.NotFound, (await dan.SendAsync(HttpMethod.Put, $"/api/v1/channels/{Guid.NewGuid()}/archived", new { archived = true })).StatusCode);
+        AssertStatus(HttpStatusCode.OK, await dan.PostAsync($"/api/v1/channels/{id}/join"));
+        Assert.Equal(HttpStatusCode.Forbidden, (await dan.SendAsync(HttpMethod.Put, $"/api/v1/channels/{id}/archived", new { archived = true })).StatusCode);
+        var archived = await JsonAsync(await ben.SendAsync(HttpMethod.Put, $"/api/v1/channels/{id}/archived", new { archived = true }));
+        Assert.Equal(JsonValueKind.String, archived.GetProperty("channel").GetProperty("archivedAtUtc").ValueKind);
+        AssertStatus(HttpStatusCode.OK, await ben.SendAsync(HttpMethod.Put, $"/api/v1/channels/{id}/archived", new { archived = true })); // no change
+
+        // Read-only: history stays, no posting, editing, reacting, joining or adding.
+        var history = (await JsonAsync(await dan.GetAsync($"/api/v1/conversations/{id}/history"))).GetProperty("items").EnumerateArray().ToList();
+        Assert.Contains(history, i => i.GetProperty("kind").GetString() == "archived" && i.GetProperty("text").GetString() == "archived");
+        Assert.Equal("channel_archived", await ErrorCodeAsync(await dan.PostAsync($"/api/v1/conversations/{id}/messages", new { clientMessageId = "d1", body = "Hi" })));
+        Assert.Equal("channel_archived", await ErrorCodeAsync(await ben.SendAsync(HttpMethod.Put, $"/api/v1/conversations/{id}/messages/{messageId}", new { body = "Edited" })));
+        Assert.Equal("channel_archived", await ErrorCodeAsync(await dan.SendAsync(HttpMethod.Put, $"/api/v1/conversations/{id}/messages/{messageId}/reactions", new { emoji = "👍", reacted = true })));
+        AssertStatus(HttpStatusCode.NoContent, await dan.PostAsync($"/api/v1/channels/{id}/leave"));
+        Assert.Equal("channel_archived", await ErrorCodeAsync(await dan.PostAsync($"/api/v1/channels/{id}/join")));
+        Assert.Equal("channel_archived", await ErrorCodeAsync(await ben.PostAsync($"/api/v1/channels/{id}/members", new { userIds = new[] { danId } })));
+        var listed = (await JsonAsync(await ana.GetAsync(channels))).EnumerateArray().Single();
+        Assert.Equal(JsonValueKind.String, listed.GetProperty("archivedAtUtc").ValueKind);
+        var summary = (await JsonAsync(await ben.GetAsync("/api/v1/conversations"))).EnumerateArray().Single(c => c.GetProperty("id").GetGuid() == id);
+        Assert.Equal(JsonValueKind.String, summary.GetProperty("archivedAtUtc").ValueKind);
+
+        // Restored: everything works again.
+        var restored = await JsonAsync(await ana.SendAsync(HttpMethod.Put, $"/api/v1/channels/{id}/archived", new { archived = false }));
+        Assert.Equal(JsonValueKind.Null, restored.GetProperty("channel").GetProperty("archivedAtUtc").ValueKind);
+        AssertStatus(HttpStatusCode.OK, await dan.PostAsync($"/api/v1/channels/{id}/join"));
+        AssertStatus(HttpStatusCode.Created, await dan.PostAsync($"/api/v1/conversations/{id}/messages", new { clientMessageId = "d2", body = "Back" }));
+    }
+
     [Fact]
     public async Task Teams_bring_their_members_into_linked_channels_but_grant_no_administration()
     {
