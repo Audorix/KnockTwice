@@ -112,7 +112,7 @@ internal static class UserEndpoints
         new(ProfileMediaService.PlatformName(link.Platform), link.Url, ProfileMediaService.VisibilityName(link.Visibility));
 
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
-        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support);
+        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support, counts.Photos);
 
     public static CurrentUserResponse ToResponse(CurrentUser user) => new(
         user.Account.Id,

@@ -16,6 +16,8 @@ interface DemoCounts {
   activity: number;
   /** Support conversations from demo customers (also counted in conversations). */
   support?: number;
+  /** Demo people with a profile photo from the demo avatars folder. */
+  photos?: number;
 }
 
 interface DemoDataResponse {
@@ -25,7 +27,7 @@ interface DemoDataResponse {
   password: string;
 }
 
-const sum = (c: DemoCounts) => c.users + c.organizations + c.contacts + c.conversations + c.messages + (c.activity ?? 0);
+const sum = (c: DemoCounts) => c.users + c.organizations + c.contacts + c.conversations + c.messages + (c.activity ?? 0) + (c.photos ?? 0);
 
 /**
  * Demo data for installation administrators where it is enabled (Development and development-mode
@@ -69,7 +71,7 @@ export function DemoDataCard() {
     setNotice(sum(created) === 0
       ? t('demo.upToDate')
       : t('demo.created', {
-        users: created.users, organizations: created.organizations, contacts: created.contacts, conversations: created.conversations, messages: created.messages, activity: created.activity, support: created.support ?? 0,
+        users: created.users, organizations: created.organizations, contacts: created.contacts, conversations: created.conversations, messages: created.messages, activity: created.activity, support: created.support ?? 0, photos: created.photos ?? 0,
       }));
     setAccounts(result);
     setExisting(result.total);

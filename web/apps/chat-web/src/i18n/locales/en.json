@@ -838,7 +838,7 @@
     "title": "Demo data",
     "intro": "Adds 300 demo people, 50 companies, contacts, 150 groups, 800 channels, direct conversations, about 24,000 messages, activity (mentions, saved messages, reminders and scheduled messages: 500 items for you, 50–100 for everyone else) and 500 support conversations with replies and internal notes, and includes you in part of it: you become a support agent in your demo companies. Safe to run again: only missing data is added. Loading can take a minute or two.",
     "populate": "Populate demo data",
-    "created": "Added {{users}} people, {{organizations}} companies, {{contacts}} contacts, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items and {{support}} support conversations.",
+    "created": "Added {{users}} people, {{organizations}} companies, {{contacts}} contacts, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items, {{support}} support conversations and {{photos}} profile photos.",
     "upToDate": "The demo data is already complete; nothing was added.",
     "signInAs": "Every demo account uses the password {{password}}. For example:",
     "clear": "Clear demo data",
@@ -1091,7 +1091,6 @@
     "decline": "Decline",
     "end": "End and erase",
     "cancelInvitation": "Cancel invitation",
-    "endConfirm": "End this private chat now? All messages and files are erased for both of you.",
     "bannerTitle": "Private chat.",
     "bannerText": "Messages and files are kept only in server memory and are erased when the chat ends. Nothing is saved to history.",
     "bannerMine": "Ends when you end it or your sign-in session ends",
@@ -1183,7 +1182,12 @@
     "closedText": "Your private chat invitation to {{name}} was cancelled. {{first}} can no longer accept it.",
     "noConversationStarted": "No conversation started. No messages or files were shared.",
     "newFromDirect": "You can send a new invitation from your direct conversation.",
-    "closeDialog": "Close"
+    "closeDialog": "Close",
+    "endConfirmTitle": "End this private chat?",
+    "endConfirmText": "All messages and files in this chat are erased for you and {{name}}.",
+    "endNothingKept": "Nothing from this chat is kept in history or on the server.",
+    "endCannotUndo": "This cannot be undone. You can start a new private chat later.",
+    "keepChatting": "Keep chatting"
   },
   "notifications": {
     "label": "Notifications",

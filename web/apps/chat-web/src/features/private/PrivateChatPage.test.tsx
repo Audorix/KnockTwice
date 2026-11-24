@@ -162,6 +162,41 @@ describe('PrivateChatPage', () => {
     expect(screen.getByRole('link', { name: 'Back to private chats' })).toHaveAttribute('href', '/private');
   });
 
+  it('asks in a dialog before the initiator ends an active chat', async () => {
+    let ended = false;
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, { ...me, ...ana, email: 'ana@example.org' }),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/attachments/limits': () => json(200, { maxFileSize: 1024, maxPerMessage: 10, userQuota: 0, allowedExtensions: ['png'], scanningEnabled: false }),
+      'GET /api/v1/private-chats/p1': () => json(200, { chat: { ...chat('active'), isInitiator: true, counterpart: ben }, messages: [] }),
+      'DELETE /api/v1/private-chats/p1': () => {
+        ended = true;
+        return new Response(null, { status: 204 });
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <AuthProvider>
+        <PrivateChatPage />
+      </AuthProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'End and erase' }));
+    let dialog = screen.getByRole('alertdialog', { name: 'End this private chat?' });
+    expect(within(dialog).getByText('All messages and files in this chat are erased for you and Ben.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Keep chatting' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(ended).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'End and erase' }));
+    dialog = screen.getByRole('alertdialog', { name: 'End this private chat?' });
+    await user.click(within(dialog).getByRole('button', { name: 'End and erase' }));
+    expect(await screen.findByText('This private chat has ended')).toBeInTheDocument();
+    expect(ended).toBe(true);
+  });
+
   it('explains private chats when none is active, and lists running ones', async () => {
     window.history.replaceState(null, '', '/private');
     let chats: unknown[] = [];

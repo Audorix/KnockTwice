@@ -8,7 +8,8 @@ public sealed record DemoDataResponse(DemoDataCountsResponse Created, DemoDataCo
 
 /// <param name="Activity">Mentions, saved messages, reminders and scheduled messages in demo conversations.</param>
 /// <param name="Support">Support conversations from demo customers (also counted in <paramref name="Conversations"/>).</param>
-public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity, int Support = 0);
+/// <param name="Photos">Demo people with a profile photo (from the configured demo avatars folder).</param>
+public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity, int Support = 0, int Photos = 0);
 
 /// <param name="Removed">The demo data that was removed.</param>
 public sealed record DemoDataClearedResponse(DemoDataCountsResponse Removed);

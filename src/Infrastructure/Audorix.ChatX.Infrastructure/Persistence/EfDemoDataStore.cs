@@ -539,15 +539,20 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             + await db.SavedMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false)
             + await db.Reminders.CountAsync(r => demoConversations.Contains(r.ConversationId), cancellationToken).ConfigureAwait(false)
             + await db.ScheduledMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false),
-            await db.Conversations.CountAsync(c => c.IsDemo && c.Type == ConversationType.Website, cancellationToken).ConfigureAwait(false));
+            await db.Conversations.CountAsync(c => c.IsDemo && c.Type == ConversationType.Website, cancellationToken).ConfigureAwait(false),
+            await db.UserProfiles.CountAsync(p => p.PhotoKey != null && demoUsers.Contains(p.UserId), cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<IReadOnlyList<string>> ListAttachmentKeysAsync(CancellationToken cancellationToken)
     {
         var (users, _, conversations) = Scope();
-        return await db.Attachments
+        var files = await db.Attachments
             .Where(a => !a.ContentRemoved && (conversations.Contains(a.ConversationId) || users.Contains(a.OwnerUserId)))
             .Select(a => a.StorageKey).ToListAsync(cancellationToken).ConfigureAwait(false);
+        // Demo people's profile photos go with them.
+        var photos = await db.UserProfiles.Where(p => p.PhotoKey != null && users.Contains(p.UserId))
+            .Select(p => p.PhotoKey!).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return [.. files, .. photos];
     }
 
     /// <summary>

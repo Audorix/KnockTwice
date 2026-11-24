@@ -71,10 +71,15 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   response" state, when the invitation expires, that nothing has been shared, and the rules as four
   cards. Cancelling asks in a dialog ("Cancel this invitation?", Keep waiting / Cancel invitation)
   instead of the browser's confirm box, then shows "This invitation is closed" with the way back to
-  conversations or private chats.
+  conversations or private chats. Ending an active private chat asks the same way ("End this
+  private chat?", Keep chatting / End and erase).
 - **Conversations:** "Private chat" in a conversation's "…" menu invites the other person to a
   private chat. In a group or channel it lists the other members to choose one, since a private chat
   is always between two people. Not offered in website chats.
+- **Demo profile photos:** loading demo data gives demo person N the picture `avatar-NNN.jpg` from
+  `DemoData:AvatarsPath` (in development, the git-ignored `demo/avatars`). It is idempotent and also
+  fills in photos on demo data loaded earlier; people who already have a photo keep it. Clearing demo
+  data removes the photos too. The counts gain `photos`.
 - **Profile sessions:** the list now reloads when the Sessions tab opens and when you return to the
   window, so a sign-in from another browser appears without reloading the page.
 - **Contacts:** "Start private chat" in a contact's "…" menu sends the private chat invitation

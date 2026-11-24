@@ -838,7 +838,7 @@
     "title": "Datos de demostración",
     "intro": "Añade 300 personas de demostración, 50 empresas, contactos, 150 grupos, 800 canales, conversaciones directas, unos 24.000 mensajes, actividad (menciones, mensajes guardados, recordatorios y mensajes programados: 500 elementos para usted, 50–100 para cada persona) y 500 conversaciones de soporte con respuestas y notas internas, y le incluye en parte de ello: pasa a ser agente de soporte en sus empresas de demostración. Puede repetirse: solo se añade lo que falta. La carga puede tardar uno o dos minutos.",
     "populate": "Cargar datos de demostración",
-    "created": "Se añadieron {{users}} personas, {{organizations}} empresas, {{contacts}} contactos, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad y {{support}} conversaciones de soporte.",
+    "created": "Se añadieron {{users}} personas, {{organizations}} empresas, {{contacts}} contactos, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad, {{support}} conversaciones de soporte y {{photos}} fotos de perfil.",
     "upToDate": "Los datos de demostración ya están completos; no se añadió nada.",
     "signInAs": "Todas las cuentas de demostración usan la contraseña {{password}}. Por ejemplo:",
     "clear": "Borrar los datos de demostración",
@@ -1091,7 +1091,6 @@
     "decline": "Rechazar",
     "end": "Terminar y borrar",
     "cancelInvitation": "Cancelar invitación",
-    "endConfirm": "¿Terminar ahora este chat privado? Se borrarán todos los mensajes y archivos para ambos.",
     "bannerTitle": "Chat privado.",
     "bannerText": "Los mensajes y archivos solo se guardan en la memoria del servidor y se borran cuando termina el chat. Nada pasa al historial.",
     "bannerMine": "Termina cuando usted lo termine o cuando acabe su sesión",
@@ -1183,7 +1182,12 @@
     "closedText": "Su invitación de chat privado a {{name}} se canceló. {{first}} ya no puede aceptarla.",
     "noConversationStarted": "No empezó ninguna conversación. No se compartió ningún mensaje ni archivo.",
     "newFromDirect": "Puede enviar una nueva invitación desde su conversación directa.",
-    "closeDialog": "Cerrar"
+    "closeDialog": "Cerrar",
+    "endConfirmTitle": "¿Terminar este chat privado?",
+    "endConfirmText": "Se borrarán todos los mensajes y archivos de este chat para usted y para {{name}}.",
+    "endNothingKept": "No se conserva nada de este chat en el historial ni en el servidor.",
+    "endCannotUndo": "Esto no se puede deshacer. Puede iniciar un nuevo chat privado más adelante.",
+    "keepChatting": "Seguir conversando"
   },
   "notifications": {
     "label": "Notificaciones",

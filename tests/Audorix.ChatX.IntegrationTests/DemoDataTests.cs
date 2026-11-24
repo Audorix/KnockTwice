@@ -26,7 +26,11 @@ public sealed class DemoDataTests
     public async Task Loading_is_idempotent_and_clearing_removes_only_demo_data(string provider)
     {
         await using var db = await TestDatabase.CreateAsync(provider);
-        await using var api = await StartAsync(db, new() { ["DemoData:Enabled"] = "true" });
+        // Profile pictures (2026-11-24): avatar-NNN goes to demo person N. Two now, a third after the first load.
+        var avatars = Directory.CreateTempSubdirectory("chatx-avatars-");
+        await File.WriteAllBytesAsync(Path.Combine(avatars.FullName, "avatar-001.jpg"), Jpeg, Ct);
+        await File.WriteAllBytesAsync(Path.Combine(avatars.FullName, "avatar-002.jpg"), Jpeg, Ct);
+        await using var api = await StartAsync(db, new() { ["DemoData:Enabled"] = "true", ["DemoData:AvatarsPath"] = avatars.FullName });
         var (admin, adminId) = await AdministratorAsync(api);
         var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
         using var _1 = admin;
@@ -55,6 +59,14 @@ public sealed class DemoDataTests
         Assert.Equal(800, await CountChannelsAsync(api));
         Assert.True(created.GetProperty("contacts").GetInt32() >= 900);
         Assert.Equal("Demo123!", loaded.GetProperty("password").GetString());
+
+        // The first two demo people have their pictures; the third keeps initials for now.
+        Assert.Equal((2, 2), (created.GetProperty("photos").GetInt32(), loaded.GetProperty("total").GetProperty("photos").GetInt32()));
+        var photo = await admin.GetAsync($"/api/v1/users/{plan.People[0].Id}/photo?v=1");
+        AssertStatus(HttpStatusCode.OK, photo);
+        Assert.Equal(Jpeg, await photo.Content.ReadAsByteArrayAsync(Ct));
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/v1/users/{plan.People[2].Id}/photo?v=1")).StatusCode);
+        await File.WriteAllBytesAsync(Path.Combine(avatars.FullName, "avatar-003.jpg"), Jpeg, Ct);
 
         // The administrator who loads it is part of it, with 500 activity items (some mentions unread).
         Assert.True((await JsonAsync(await admin.GetAsync("/api/v1/organizations"))).GetArrayLength() >= 10);
@@ -105,6 +117,11 @@ public sealed class DemoDataTests
             again.GetProperty("contacts").GetInt32(), again.GetProperty("conversations").GetInt32(), again.GetProperty("messages").GetInt32(),
             again.GetProperty("activity").GetInt32(), again.GetProperty("support").GetInt32()));
         Assert.Equal(afterLeave, await CountRowsAsync(api));
+        // Loaded data gets the new picture; the ones already set are not set again.
+        Assert.Equal(1, again.GetProperty("photos").GetInt32());
+        Assert.Equal(3, (await JsonAsync(await admin.GetAsync("/api/v1/admin/demo-data"))).GetProperty("photos").GetInt32());
+        var photoKeys = await PhotoKeysAsync(api);
+        Assert.Equal(3, photoKeys.Count);
 
         // Clearing removes the demo data and nothing else.
         var cleared = await JsonAsync(await admin.SendAsync(HttpMethod.Delete, "/api/v1/admin/demo-data"));
@@ -123,8 +140,30 @@ public sealed class DemoDataTests
         }
 
         var empty = await JsonAsync(await admin.GetAsync("/api/v1/admin/demo-data"));
-        Assert.Equal((0, 0), (empty.GetProperty("users").GetInt32(), empty.GetProperty("messages").GetInt32()));
+        Assert.Equal((0, 0, 0), (empty.GetProperty("users").GetInt32(), empty.GetProperty("messages").GetInt32(), empty.GetProperty("photos").GetInt32()));
         Assert.Equal(0, (await JsonAsync(await admin.SendAsync(HttpMethod.Delete, "/api/v1/admin/demo-data"))).GetProperty("removed").GetProperty("users").GetInt32());
+
+        // The demo photos' files went with the demo people.
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var storage = scope.ServiceProvider.GetRequiredService<Application.Attachments.IAttachmentStorage>();
+            foreach (var key in photoKeys)
+            {
+                Assert.Null(await storage.OpenReadAsync(key, Ct));
+            }
+        }
+
+        avatars.Delete(recursive: true);
+    }
+
+    /// <summary>The smallest data the server takes as a JPEG (it checks the signature only).</summary>
+    private static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0xFF, 0xD9];
+
+    private static async Task<List<string>> PhotoKeysAsync(ChatXApiFactory api)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().UserProfiles
+            .Where(p => p.PhotoKey != null).Select(p => p.PhotoKey!).ToListAsync(Ct);
     }
 
     [Fact]

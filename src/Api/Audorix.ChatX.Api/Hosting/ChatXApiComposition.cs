@@ -104,7 +104,14 @@ public static class ChatXApiComposition
             .Validate(s => s.MaxGroupParticipants is >= 2 and <= 10000, "Conversations:MaxGroupParticipants must be between 2 and 10000.")
             .ValidateOnStart();
 
-        services.AddOptions<Application.Demo.DemoDataSettings>().BindConfiguration(Application.Demo.DemoDataSettings.SectionName);
+        services.AddOptions<Application.Demo.DemoDataSettings>().BindConfiguration(Application.Demo.DemoDataSettings.SectionName)
+            .PostConfigure<Microsoft.Extensions.Hosting.IHostEnvironment>((s, env) =>
+            {
+                if (!string.IsNullOrWhiteSpace(s.AvatarsPath))
+                {
+                    s.AvatarsPath = Path.GetFullPath(s.AvatarsPath, env.ContentRootPath);
+                }
+            });
         services.AddOptions<Application.Messaging.MessagingSettings>()
             .BindConfiguration(Application.Messaging.MessagingSettings.SectionName)
             .ValidateOnStart();

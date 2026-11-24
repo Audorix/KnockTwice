@@ -1,5 +1,6 @@
 using Audorix.ChatX.Application.Attachments;
 using Audorix.ChatX.Application.Common;
+using Audorix.ChatX.Application.Users;
 using Microsoft.Extensions.Options;
 
 namespace Audorix.ChatX.Application.Demo;
@@ -13,6 +14,13 @@ public sealed class DemoDataSettings
     public const string SectionName = "DemoData";
 
     public bool Enabled { get; set; }
+
+    /// <summary>
+    /// Folder of profile pictures for demo people (owner request 2026-11-24): <c>avatar-001.jpg</c>
+    /// goes to the first demo person, up to <c>avatar-300.jpg</c>. Relative paths are resolved from the
+    /// API's content root. Empty or missing: demo people keep their initials.
+    /// </summary>
+    public string? AvatarsPath { get; set; }
 }
 
 /// <param name="Created">What this run added; all zeros when everything already existed.</param>
@@ -21,7 +29,8 @@ public sealed record DemoDataResult(DemoDataCounts Created, DemoDataCounts Total
 
 /// <param name="Activity">Mentions, saved messages, reminders and scheduled messages in demo conversations (2026-11-24).</param>
 /// <param name="Support">Support conversations from demo customers (2026-11-24); also counted in <paramref name="Conversations"/>.</param>
-public sealed record DemoDataCounts(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity = 0, int Support = 0);
+/// <param name="Photos">Demo people with a profile photo (2026-11-24).</param>
+public sealed record DemoDataCounts(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity = 0, int Support = 0, int Photos = 0);
 
 /// <summary>Writes and removes demo records in bulk (implemented by Infrastructure).</summary>
 public interface IDemoDataStore
@@ -55,7 +64,9 @@ public sealed class DemoDataService(
     IDemoDataStore store,
     IAttachmentStorage storage,
     TimeProvider time,
-    IOptions<DemoDataSettings> settings)
+    IOptions<DemoDataSettings> settings,
+    IUserProfileStore profiles,
+    ProfileMediaService media)
 {
     /// <summary>The shared password of every demo account (owner request: easy to test with).</summary>
     public const string Password = "Demo123!";
@@ -73,6 +84,7 @@ public sealed class DemoDataService(
 
         var plan = Plan.Value;
         var created = await store.PopulateAsync(plan, callerId, Password, time.GetUtcNow(), cancellationToken).ConfigureAwait(false);
+        created = created with { Photos = await AssignPhotosAsync(plan, cancellationToken).ConfigureAwait(false) };
         var total = await store.CountAsync(cancellationToken).ConfigureAwait(false);
         return new DemoDataResult(created, total, plan.People.Take(10).Select(p => p.Email).ToList(), Password);
     }
@@ -89,6 +101,54 @@ public sealed class DemoDataService(
     }
 
     public Task<DemoDataCounts> CountAsync(CancellationToken cancellationToken) => store.CountAsync(cancellationToken);
+
+    /// <summary>
+    /// Gives demo person N the picture <c>avatar-NNN.jpg</c> (or .png/.webp) from
+    /// <see cref="DemoDataSettings.AvatarsPath"/>. Idempotent: people who already have a photo (from
+    /// an earlier load, or one they chose) are left alone, and so are deleted accounts. Returns how
+    /// many photos were set.
+    /// </summary>
+    private async Task<int> AssignPhotosAsync(DemoDataPlan plan, CancellationToken cancellationToken)
+    {
+        var folder = settings.Value.AvatarsPath;
+        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
+            return 0;
+        }
+
+        var assigned = 0;
+        for (var i = 0; i < plan.People.Count; i++)
+        {
+            var file = AvatarFile(folder, i + 1);
+            if (file is null)
+            {
+                continue;
+            }
+
+            var profile = await profiles.FindAsync(plan.People[i].Id, cancellationToken).ConfigureAwait(false);
+            if (profile is null || profile.IsDeleted || profile.HasPhoto)
+            {
+                continue;
+            }
+
+            var stream = File.OpenRead(file);
+            await using (stream.ConfigureAwait(false))
+            {
+                await media.SetPhotoAsync(profile.UserId, stream, stream.Length, cancellationToken).ConfigureAwait(false);
+            }
+
+            assigned++;
+        }
+
+        return assigned;
+    }
+
+    private static readonly string[] AvatarExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+
+    private static string? AvatarFile(string folder, int number) =>
+        AvatarExtensions
+            .Select(extension => Path.Combine(folder, $"avatar-{number:000}{extension}"))
+            .FirstOrDefault(File.Exists);
 
     public static string Email(string key) => DemoDataPlan.Email(key);
 

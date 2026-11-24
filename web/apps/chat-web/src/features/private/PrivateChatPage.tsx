@@ -5,6 +5,7 @@ import type { AttachmentLimitsResponse, PrivateChatResponse, PrivateMessageRespo
 import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { ApiError } from '../../shared/api/httpClient';
 import { Avatar } from '../../shared/components/Avatar';
+import { ConfirmDialog } from '../../shared/components/ConfirmDialog';
 import { FormAlert } from '../../shared/components/Field';
 import { formatDateTime } from '../../shared/format';
 import { acceptFor, AttachButton, AttachmentList, DraftFileList, formatBytes, useDraftFiles } from '../attachments/Attachments';
@@ -218,36 +219,32 @@ function WaitingCard({ person, name, expiresAtUtc, error, onCancel }: {
 /** "Cancel this invitation?" (owner mockup): a dialog instead of the browser's confirm box. */
 function CancelInvitationDialog({ name, busy, onKeep, onCancel }: { name: string; busy: boolean; onKeep: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
-  const keep = useRef<HTMLButtonElement>(null);
-  const opener = useRef<Element | null>(null);
-  useEffect(() => {
-    opener.current = document.activeElement;
-    keep.current?.focus();
-    return () => (opener.current as HTMLElement | null)?.focus?.();
-  }, []);
   return (
-    <div className="cx-dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
-      <div className="cx-dialog cx-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cancel-invitation-title"
-        aria-describedby="cancel-invitation-text" onKeyDown={(e) => { if (e.key === 'Escape' && !busy) onKeep(); }}>
-        <button type="button" className="cx-tool cx-confirm-close" onClick={onKeep} aria-label={t('private.closeDialog')}>
-          <NavIcon name="close" size={20} />
-        </button>
-        <span className="cx-confirm-icon" aria-hidden="true"><NavIcon name="warning" size={28} /></span>
-        <h2 id="cancel-invitation-title" className="cx-confirm-title">{t('private.cancelConfirmTitle')}</h2>
-        <p id="cancel-invitation-text" className="cx-confirm-text">{t('private.cancelConfirmText', { name })}</p>
-        <p className="cx-private-shared">
-          <NavIcon name="message" size={22} />
-          {t('private.nothingShared')}
-        </p>
-        <p className="cx-muted">{t('private.sendLater')}</p>
-        <div className="cx-confirm-actions">
-          <button ref={keep} type="button" className="btn btn-outline-primary" onClick={onKeep} disabled={busy}>{t('private.keepWaiting')}</button>
-          <button type="button" className="btn btn-danger" onClick={onCancel} disabled={busy}>
-            {busy ? t('auth.working') : t('private.cancelInvitation')}
-          </button>
-        </div>
-      </div>
-    </div>
+    <ConfirmDialog title={t('private.cancelConfirmTitle')} text={t('private.cancelConfirmText', { name })}
+      keepLabel={t('private.keepWaiting')} confirmLabel={t('private.cancelInvitation')} busyLabel={t('auth.working')}
+      closeLabel={t('private.closeDialog')} busy={busy} onKeep={onKeep} onConfirm={onCancel}>
+      <p className="cx-private-shared">
+        <NavIcon name="message" size={22} />
+        {t('private.nothingShared')}
+      </p>
+      <p className="cx-muted">{t('private.sendLater')}</p>
+    </ConfirmDialog>
+  );
+}
+
+/** "End this private chat?": everything is erased for both people, so it asks first. */
+function EndChatDialog({ name, busy, onKeep, onEnd }: { name: string; busy: boolean; onKeep: () => void; onEnd: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <ConfirmDialog title={t('private.endConfirmTitle')} text={t('private.endConfirmText', { name })}
+      keepLabel={t('private.keepChatting')} confirmLabel={t('private.end')} busyLabel={t('auth.working')}
+      closeLabel={t('private.closeDialog')} busy={busy} onKeep={onKeep} onConfirm={onEnd}>
+      <p className="cx-private-shared">
+        <NavIcon name="lock" size={22} />
+        {t('private.endNothingKept')}
+      </p>
+      <p className="cx-muted">{t('private.endCannotUndo')}</p>
+    </ConfirmDialog>
   );
 }
 
@@ -619,37 +616,30 @@ function PrivateChatRoom({ chatId }: { chatId: string }) {
 
   const other = chat.counterpart?.displayName ?? t('conversations.someone');
   const initiatorName = chat.isInitiator ? (user?.displayName ?? '') : (chat.initiator?.displayName ?? other);
+  /** Cancels the invitation or ends the chat (initiator only), after the dialog's confirmation. */
+  const endChat = async (cancelled: boolean) => {
+    setCancelling(true);
+    setError(null);
+    try {
+      await api.endPrivateChat(chatId);
+      finish('ended');
+      if (cancelled) setCancelledFor(other);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCancelling(false);
+      setConfirming(false);
+    }
+  };
   const endButton = chat.isInitiator ? (
-    <button
-      type="button"
-      className={`btn ${chat.status === 'invited' ? 'btn-outline-danger' : 'btn-sm cx-private-danger'}`}
-      onClick={() => {
-        if (window.confirm(t('private.endConfirm'))) void act(async () => {
-          await api.endPrivateChat(chatId);
-          finish('ended');
-        });
-      }}
-    >
-      {chat.status === 'invited' ? t('private.cancelInvitation') : t('private.end')}
+    <button type="button" className="btn btn-sm cx-private-danger" onClick={() => setConfirming(true)}>
+      {t('private.end')}
     </button>
   ) : null;
 
   if (chat.status === 'invited' && chat.isInitiator) {
     const person = chat.counterpart ?? { id: 'someone', displayName: other, avatar: { initials: initialsOf(other) } };
-    const cancel = async () => {
-      setCancelling(true);
-      setError(null);
-      try {
-        await api.endPrivateChat(chatId);
-        finish('ended');
-        setCancelledFor(other);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setCancelling(false);
-        setConfirming(false);
-      }
-    };
+    const cancel = () => endChat(true);
     return (
       <PrivatePage title={t('private.invitedTitle')} subtitle={t('private.agreementSubtitle')} badge={false} listLink>
         <WaitingCard person={person} name={other} expiresAtUtc={chat.invitationExpiresAtUtc} error={error} onCancel={() => setConfirming(true)} />
@@ -773,6 +763,7 @@ function PrivateChatRoom({ chatId }: { chatId: string }) {
           </button>
         </div>
       </form>
+      {confirming && <EndChatDialog name={other} busy={cancelling} onKeep={() => setConfirming(false)} onEnd={() => void endChat(false)} />}
     </PrivateFrame>
   );
 }
