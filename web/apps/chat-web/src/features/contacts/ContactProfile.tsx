@@ -144,27 +144,46 @@ function ManageMenu({ onRemove, onBlock }: { onRemove: () => void; onBlock: () =
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
       if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', close);
+    box.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+  // Focus back on the trigger before acting, so a dialog the action opens returns focus there.
+  const choose = (action: () => void) => {
+    setOpen(false);
+    trigger.current?.focus();
+    action();
+  };
   return (
-    <div className="cx-contact-manage" ref={box} onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false); } }}>
-      <button type="button" className="cx-contact-manage-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+    <div className="cx-contact-manage" ref={box} onKeyDown={(e) => {
+      if (e.key === 'Escape' && open) {
+        e.stopPropagation();
+        setOpen(false);
+        trigger.current?.focus();
+      } else if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const items = Array.from(box.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+        const index = items.indexOf(document.activeElement as HTMLButtonElement);
+        items[(index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+      }
+    }}>
+      <button ref={trigger} type="button" className="cx-contact-manage-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <NavIcon name="dots" size={22} />
         {t('contactProfile.manage')}
       </button>
       {open && (
         <div className="cx-menu cx-contact-manage-menu" role="menu">
-          <button type="button" role="menuitem" className="cx-menu-item" onClick={() => { setOpen(false); onRemove(); }}>
+          <button type="button" role="menuitem" className="cx-menu-item" onClick={() => choose(onRemove)}>
             <NavIcon name="user" size={18} />
             {t('contacts.removeContact')}
           </button>
-          <button type="button" role="menuitem" className="cx-menu-item is-danger" onClick={() => { setOpen(false); onBlock(); }}>
+          <button type="button" role="menuitem" className="cx-menu-item is-danger" onClick={() => choose(onBlock)}>
             <NavIcon name="block" size={18} />
             {t('contacts.blockContact')}
           </button>

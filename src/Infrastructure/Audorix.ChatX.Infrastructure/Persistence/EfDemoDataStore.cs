@@ -89,11 +89,16 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
 
         await SaveAsync(cancellationToken).ConfigureAwait(false);
 
-        // Demo people show their email address to their contacts (contact drawer, 2026-11-24), also
-        // when they were loaded before that setting existed.
+        // Demo people show their email address to their contacts (contact drawer, 2026-11-24). Turned on
+        // once, when no demo person shares it yet (new demo data, or data loaded before the setting
+        // existed); after that a demo person who turns it off keeps it off.
         var demoIds = users.Values.ToList();
-        await db.UserProfiles.Where(p => demoIds.Contains(p.UserId) && !p.ShareEmailWithContacts && p.DeletedAtUtc == null)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ShareEmailWithContacts, true), cancellationToken).ConfigureAwait(false);
+        if (!await db.UserProfiles.AnyAsync(p => demoIds.Contains(p.UserId) && p.ShareEmailWithContacts, cancellationToken).ConfigureAwait(false))
+        {
+            await db.UserProfiles.Where(p => demoIds.Contains(p.UserId) && p.DeletedAtUtc == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.ShareEmailWithContacts, true), cancellationToken).ConfigureAwait(false);
+        }
+
         return users;
     }
 

@@ -67,6 +67,8 @@ public sealed class DemoDataTests
         Assert.Equal(Jpeg, await photo.Content.ReadAsByteArrayAsync(Ct));
         Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync($"/api/v1/users/{plan.People[2].Id}/photo?v=1")).StatusCode);
         await File.WriteAllBytesAsync(Path.Combine(avatars.FullName, "avatar-003.jpg"), Jpeg, Ct);
+        // A file that is not an image is skipped; the load still succeeds.
+        await File.WriteAllTextAsync(Path.Combine(avatars.FullName, "avatar-004.jpg"), "not an image", Ct);
 
         // The administrator who loads it is part of it, with 500 activity items (some mentions unread).
         Assert.True((await JsonAsync(await admin.GetAsync("/api/v1/organizations"))).GetArrayLength() >= 10);

@@ -16,8 +16,8 @@ public interface IUserProfileStore
     /// <summary>Saves; false (and nothing saved) when a unique value such as a Display ID is already taken.</summary>
     Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
 
-    /// <summary>Display IDs in use that start with <paramref name="prefix"/>.</summary>
-    Task<IReadOnlyList<string>> ListHandlesStartingWithAsync(string prefix, CancellationToken cancellationToken);
+    /// <summary>Display IDs in use by people other than <paramref name="exceptUserId"/> that start with <paramref name="prefix"/>.</summary>
+    Task<IReadOnlyList<string>> ListHandlesStartingWithAsync(string prefix, Guid exceptUserId, CancellationToken cancellationToken);
 }
 
 /// <summary>The signed-in user's own view of their account, profile and preferences.</summary>
@@ -71,6 +71,7 @@ public sealed class UserProfileService(
         var current = await GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow();
         current.Profile.Rename(displayName, now);
+        var handleChanged = false;
         if (handle is not null)
         {
             string normalized;
@@ -86,12 +87,14 @@ public sealed class UserProfileService(
             if (normalized != current.Profile.Handle)
             {
                 current.Profile.ChangeHandle(normalized, now);
+                handleChanged = true;
             }
         }
 
+        // Only a new Display ID can collide with someone else's; any other failed save is a plain conflict.
         if (!await profiles.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false))
         {
-            throw new RequestValidationException("handle", "handle_taken");
+            throw handleChanged ? new RequestValidationException("handle", "handle_taken") : new ConflictException("conflict");
         }
 
         return current;
@@ -113,7 +116,7 @@ public sealed class UserProfileService(
             }
 
             var suggestion = UserProfile.SuggestHandle(profile.DisplayName);
-            var taken = (await profiles.ListHandlesStartingWithAsync(suggestion, cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
+            var taken = (await profiles.ListHandlesStartingWithAsync(suggestion, userId, cancellationToken).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
             var handle = suggestion;
             for (var n = 2; taken.Contains(handle); n++)
             {

@@ -53,6 +53,8 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
               className={`cx-menu-item${item.danger ? ' is-danger' : ''}${item.separated ? ' is-separated' : ''}`}
               onClick={() => {
                 setOpen(false);
+                // Focus goes back to the menu button first, so a dialog the item opens returns it there.
+                button.current?.focus();
                 item.onSelect();
               }}
             >

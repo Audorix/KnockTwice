@@ -15,8 +15,8 @@ internal sealed class EfUserProfileStore(ChatXDbContext db) : IUserProfileStore
 
     public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => db.TrySaveChangesAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<string>> ListHandlesStartingWithAsync(string prefix, CancellationToken cancellationToken) =>
-        await db.UserProfiles.AsNoTracking().Where(p => p.Handle != null && p.Handle.StartsWith(prefix))
+    public async Task<IReadOnlyList<string>> ListHandlesStartingWithAsync(string prefix, Guid exceptUserId, CancellationToken cancellationToken) =>
+        await db.UserProfiles.AsNoTracking().Where(p => p.Handle != null && p.Handle.StartsWith(prefix) && p.UserId != exceptUserId)
             .Select(p => p.Handle!).ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 

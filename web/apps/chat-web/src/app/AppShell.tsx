@@ -1,6 +1,6 @@
-import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ComponentType, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation } from './router';
+import { Link, navigate, useLocation } from './router';
 import { useAuth } from '../features/auth/AuthContext';
 import { LanguageSelector } from '../features/language/LanguageSelector';
 import { BrandMark } from '../shared/components/BrandMark';
@@ -76,8 +76,13 @@ export function AppShell() {
   const { pathname, query } = useLocation();
   const { user } = useAuth();
   const main = useRef<HTMLElement>(null);
-  // "/contacts/" is "/contacts"; an unknown address says so instead of showing the home page.
-  const Page = routes[pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname] ?? NotFoundPage;
+  // "/contacts/" is "/contacts" and "/index.html" is "/": the address is corrected, so layouts and the
+  // highlighted menu item follow. Any other unknown address says so instead of showing the home page.
+  const canonical = pathname === '/index.html' ? '/' : pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  useEffect(() => {
+    if (canonical !== pathname) navigate(`${canonical}${window.location.search}${window.location.hash}`, { replace: true });
+  }, [canonical, pathname]);
+  const Page = routes[canonical] ?? NotFoundPage;
 
   // Move focus to the new page for keyboard and screen-reader users after navigation.
   const firstRender = useRef(true);
@@ -226,6 +231,7 @@ function MoreMenu({ items }: { items: { to: string; label: string; icon: NavIcon
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const badge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0);
   const active = items.some((item) => item.active);
 
@@ -236,12 +242,25 @@ function MoreMenu({ items }: { items: { to: string; label: string; icon: NavIcon
       if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', close);
+    box.current?.querySelector<HTMLAnchorElement>('[role="menuitem"]')?.focus();
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && open) {
+      setOpen(false);
+      trigger.current?.focus();
+    } else if (open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+      event.preventDefault();
+      const entries = Array.from(box.current?.querySelectorAll<HTMLAnchorElement>('[role="menuitem"]') ?? []);
+      const index = entries.indexOf(document.activeElement as HTMLAnchorElement);
+      entries[(index + (event.key === 'ArrowDown' ? 1 : -1) + entries.length) % entries.length]?.focus();
+    }
+  };
+
   return (
-    <div className="cx-rail-more" ref={box} onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}>
-      <button type="button" className={`cx-rail-link${active ? ' is-active' : ''}`} aria-haspopup="menu" aria-expanded={open}
+    <div className="cx-rail-more" ref={box} onKeyDown={onKey}>
+      <button ref={trigger} type="button" className={`cx-rail-link${active ? ' is-active' : ''}`} aria-haspopup="menu" aria-expanded={open}
         aria-label={t('nav.moreLabel')} onClick={() => setOpen((o) => !o)}>
         <span className="cx-rail-icon">
           <NavIcon name="dots" />

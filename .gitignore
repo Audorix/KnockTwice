@@ -1,6 +1,9 @@
 # Licensed third-party UI template kept locally for reference only. Never commit it.
-/demo/
-/Demo/
+# Only the demo data's profile pictures (Demo/avatars) are part of the repository.
+/demo/*
+/Demo/*
+!/Demo/avatars/
+!/demo/avatars/
 
 # .NET
 bin/

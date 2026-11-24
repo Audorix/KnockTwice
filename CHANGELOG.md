@@ -61,6 +61,17 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   preferences, `GET /api/v1/contacts/{userId}/details`. Migration AddDisplayIdAndEmailSharing.
 - **Phones:** Support, Private and Admin moved from the bottom tab bar into a "More" (⋯) menu at
   its end, which shows the private chat invitation count.
+- **Pre-release fixes:** Escape in a confirmation or photo dialog no longer also closes the panel it
+  was opened from; Tab stays inside those dialogs; focus returns to the "…" menu button after
+  Cancel; the typed organization name is compared ignoring case, as on the server. Blocking from a
+  full profile opens the Blocked tab. Addresses ending in "/" (and `/index.html`) are corrected, so
+  the chat layout and the highlighted menu item follow. The phone "More" menu and "Manage contact"
+  work with the keyboard. The crop frame stays covered when the window resizes. Demo data: an
+  avatar file that is too large or not an image is skipped instead of failing the whole load; a
+  demo person who removed their photo or stopped sharing their email keeps it that way. Display
+  IDs: two tabs opening at once can no longer give someone a numbered ID by mistake, and only a
+  real clash reports "already taken". CI uses the v5 GitHub actions and lists failing .NET tests
+  on the run page.
 - **Version 1.0.0:** `GET /api/v1/meta` reports product `Knock Twice` and stage `stable`; Docker
   image tags are `1.0.0`.
 - **Upgrading from 0.1.0:** back up, then run `migrate` (see
@@ -125,7 +136,7 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   private chat. In a group or channel it lists the other members to choose one, since a private chat
   is always between two people. Not offered in website chats.
 - **Demo profile photos:** loading demo data gives demo person N the picture `avatar-NNN.jpg` from
-  `DemoData:AvatarsPath` (in development, the git-ignored `demo/avatars`). It is idempotent and also
+  `DemoData:AvatarsPath` (in development, the 300 pictures in `Demo/avatars`). It is idempotent and also
   fills in photos on demo data loaded earlier; people who already have a photo keep it. Clearing demo
   data removes the photos too. The counts gain `photos`.
 - **Profile sessions:** the list now reloads when the Sessions tab opens and when you return to the

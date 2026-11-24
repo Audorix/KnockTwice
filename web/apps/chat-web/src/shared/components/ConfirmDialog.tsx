@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavIcon } from './NavIcon';
 
@@ -35,11 +35,20 @@ export function ConfirmDialog({ title, text, children, keepLabel, confirmLabel, 
     (typeToConfirm ? input.current : keep.current)?.focus();
     return () => (opener.current as HTMLElement | null)?.focus?.();
   }, [typeToConfirm]);
-  const ready = !typeToConfirm || typed.trim() === typeToConfirm;
+  // Same comparison as the server (case-insensitive).
+  const ready = !typeToConfirm || typed.trim().toLocaleLowerCase() === typeToConfirm.toLocaleLowerCase();
   return (
     <div className="cx-dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
       <div className="cx-dialog cx-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`}
-        aria-describedby={`${id}-text`} onKeyDown={(e) => { if (e.key === 'Escape' && !busy) onKeep(); }}>
+        aria-describedby={`${id}-text`} onKeyDown={(e) => {
+          // Escape closes only this dialog, not a drawer it was opened from; Tab stays inside it.
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            if (!busy) onKeep();
+          } else {
+            trapTab(e);
+          }
+        }}>
         <button type="button" className="cx-tool cx-confirm-close" onClick={onKeep} aria-label={closeLabel} disabled={busy}>
           <NavIcon name="close" size={20} />
         </button>
@@ -65,6 +74,24 @@ export function ConfirmDialog({ title, text, children, keepLabel, confirmLabel, 
       </div>
     </div>
   );
+}
+
+/** Keeps Tab and Shift+Tab inside the element handling the key (a modal dialog). */
+export function trapTab(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== 'Tab') return;
+  const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  ));
+  if (focusable.length === 0) return;
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 export interface ConfirmRequest {

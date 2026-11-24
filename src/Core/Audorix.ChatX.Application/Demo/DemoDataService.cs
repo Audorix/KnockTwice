@@ -125,19 +125,27 @@ public sealed class DemoDataService(
                 continue;
             }
 
+            // Only people who never had a photo: one that was removed stays removed (PhotoVersion counts every change).
             var profile = await profiles.FindAsync(plan.People[i].Id, cancellationToken).ConfigureAwait(false);
-            if (profile is null || profile.IsDeleted || profile.HasPhoto)
+            if (profile is null || profile.IsDeleted || profile.HasPhoto || profile.PhotoVersion > 0)
             {
                 continue;
             }
 
-            var stream = File.OpenRead(file);
-            await using (stream.ConfigureAwait(false))
+            try
             {
-                await media.SetPhotoAsync(profile.UserId, stream, stream.Length, cancellationToken).ConfigureAwait(false);
-            }
+                var stream = File.OpenRead(file);
+                await using (stream.ConfigureAwait(false))
+                {
+                    await media.SetPhotoAsync(profile.UserId, stream, stream.Length, cancellationToken).ConfigureAwait(false);
+                }
 
-            assigned++;
+                assigned++;
+            }
+            catch (Exception ex) when (ex is PayloadTooLargeException or RequestValidationException or IOException)
+            {
+                // A picture that is too large, not PNG/JPEG/WebP or unreadable is skipped; the others still load.
+            }
         }
 
         return assigned;

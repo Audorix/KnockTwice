@@ -67,7 +67,8 @@ describe('EmbedApp', () => {
 
     const launcher = await screen.findByRole('button', { name: 'Open chat' });
     expect(send).toHaveBeenCalledWith({ type: 'ready' });
-    expect(send).toHaveBeenCalledWith({ type: 'state', open: false, position: 'right', hidden: false });
+    // Sent from an effect after the launcher renders: wait for it rather than assume it already ran.
+    await waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'state', open: false, position: 'right', hidden: false }));
     // A page view alone creates no session.
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/sessions'))).toBe(false);
 
@@ -75,7 +76,7 @@ describe('EmbedApp', () => {
     expect(await screen.findByRole('heading', { name: 'Chat with Acme' })).toBeInTheDocument();
     expect(screen.getByText('Hi! How can we help?')).toBeInTheDocument();
     await waitFor(() => expect(sessionBodies).toEqual([{ parentOrigin: shop, language: 'en' }]));
-    expect(send).toHaveBeenCalledWith({ type: 'state', open: true, position: 'right', hidden: false });
+    await waitFor(() => expect(send).toHaveBeenCalledWith({ type: 'state', open: true, position: 'right', hidden: false }));
     expect(screen.queryByLabelText('Attach a file')).not.toBeInTheDocument();
     expect(screen.getByText(/Messages are kept/)).toBeInTheDocument();
 

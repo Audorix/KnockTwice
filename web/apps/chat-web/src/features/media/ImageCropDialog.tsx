@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import { trapTab } from '../../shared/components/ConfirmDialog';
 import { FormAlert } from '../../shared/components/Field';
 import { NavIcon } from '../../shared/components/NavIcon';
 import { errorMessage } from '../auth/errors';
@@ -136,6 +137,14 @@ export function ImageCropDialog({ options, onClose }: { options: ImageCropOption
 
   const update = (change: Partial<Frame>) => setFrame((f) => clamp({ ...f, ...change }));
 
+  // The stage can change size (window resized, phone turned): keep the frame covered.
+  useEffect(() => {
+    setFrame((f) => {
+      const next = clamp(f);
+      return next.x === f.x && next.y === f.y ? f : next;
+    });
+  }, [clamp]);
+
   /** Draws the crop at `width` pixels wide. */
   const render = useCallback(
     (width: number): HTMLCanvasElement | null => {
@@ -248,7 +257,14 @@ export function ImageCropDialog({ options, onClose }: { options: ImageCropOption
         aria-modal="true"
         aria-labelledby="photo-dialog-title"
         aria-describedby="photo-dialog-subtitle"
-        onKeyDown={(e) => { if (e.key === 'Escape' && !busy) onClose(); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            if (!busy) onClose();
+          } else {
+            trapTab(e);
+          }
+        }}
       >
         <header className="cx-dialog-head">
           <span className="cx-dialog-icon" aria-hidden="true"><NavIcon name="camera" size={26} /></span>
