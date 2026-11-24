@@ -19,7 +19,8 @@ public sealed class DemoDataSettings
 /// <param name="UserEmails">A few demo accounts to sign in with (all share <paramref name="Password"/>).</param>
 public sealed record DemoDataResult(DemoDataCounts Created, DemoDataCounts Total, IReadOnlyList<string> UserEmails, string Password);
 
-public sealed record DemoDataCounts(int Users, int Organizations, int Contacts, int Conversations, int Messages);
+/// <param name="Activity">Mentions, saved messages, reminders and scheduled messages in demo conversations (2026-11-24).</param>
+public sealed record DemoDataCounts(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity = 0);
 
 /// <summary>Writes and removes demo records in bulk (implemented by Infrastructure).</summary>
 public interface IDemoDataStore

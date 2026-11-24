@@ -74,6 +74,24 @@ Owner decisions: add personal conversation pinning; previews from the API; bubbl
 
 No API change for the activity page (existing mentions, saved, scheduled and reminders endpoints).
 
+## Search page (from the owner's mockup, 2026-11-24)
+
+Owner decisions: real totals from the API; a context panel backed by a new API; "Oldest first" added.
+
+| Area | What |
+| --- | --- |
+| Search card | A large field with clear (×) and Search; Conversation (with the organization when names repeat), From (the conversation's people, or your contacts), From/To date, With files. Active filters as removable chips with "Clear filters"; an (i) button shows the search tips. Dates apply only once the year is complete (no searches for year 0002 while typing). |
+| Results | Tabs **All results · Messages · Files** with totals, newest/oldest order, "N results for … in #channel", matching conversations as quick links, cards with avatar (or a file tile in Files), place and organization, highlighted words (text and file names), file chips, "View in conversation" and a save bookmark; "Showing 1–N of M" and "Load more". |
+| Message context | The selected result with up to three messages before and after, day separators, the match highlighted, files to download, and "Open conversation". A side column from 1200 px (the first result is selected there); a slide-over that takes focus (Escape closes) below. |
+| Entry | `/search?conversation=<id>` (the search button in a conversation header) starts filtered to that conversation. |
+| API | `GET /api/v1/search`: `order=newest|oldest`; first page `counts { total, withFiles }` (database: one `COUNT` query; OpenSearch: `size 0` with `track_total_hits` and a `hasFiles` filter aggregation); results carry the caller's `saved`. New `GET /api/v1/conversations/{id}/messages/{messageId}/context?size=` (0–20, default 3; never before the caller's join). OpenAPI re-exported. |
+
+Validation: search integration tests on SQLite and PostgreSQL (new: counts with and without filters,
+oldest-first paging, saved state, context with neighbours, join boundary, validation), OpenSearch query
+unit test (order, count query); web tests 84/84 (new: tabs with totals, context panel, saving,
+order, filter from a conversation link and clearing); bundle 173.1 kB of 180 kB. Checked in the
+browser in dark and light at 1500 px and on a phone (375 px, no sideways scrolling).
+
 Validation: conversation, contacts and list-page integration tests on SQLite and PostgreSQL (new:
 last message, deleted last message, pinning, shared-files paging and deletion); web tests 83/83;
 type check clean; bundle 172.5 kB of 180 kB (largest chunk 63.7 kB). Checked in the browser in dark

@@ -45,6 +45,17 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   mentions grouped by day with search, All/Unread, a conversation filter and order, "Mark as read"
   per mention and "Mark all as read"; a "Coming up" column with the next reminders and scheduled
   messages.
+- **Demo data:** 300 more channels (800 in all; everyone is in at least 10) and activity: mentions,
+  saved messages, reminders and scheduled messages, 500 items for the administrator who loads it and
+  50–100 for every demo person, with recent mentions unread. Loading again extends an existing demo
+  installation. The demo data counts gain `activity`.
+- **Search page:** a search card with conversation, sender and date filters shown as removable
+  chips; **All results · Messages · Files** tabs with totals; newest or oldest first; result cards
+  with highlighted words, files, "View in conversation" and save; a **Message context** panel with
+  the messages around the selected result (a slide-over on smaller screens). Opening search from a
+  conversation now starts filtered to it. API: `counts` and `order=oldest` on
+  `GET /api/v1/search`, results carry `saved`, and
+  `GET /api/v1/conversations/{id}/messages/{messageId}/context`.
 
 ### Changed (Phase 24)
 

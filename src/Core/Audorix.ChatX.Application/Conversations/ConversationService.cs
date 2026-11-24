@@ -36,6 +36,10 @@ public interface IConversationStore
     Task<IReadOnlyList<ConversationEvent>> ListHistoryAsync(
         Guid conversationId, long fromSequence, long beforeSequence, int limit, CancellationToken cancellationToken);
 
+    /// <summary>Main-timeline entries after <paramref name="afterSequence"/>, oldest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<ConversationEvent>> ListHistoryAfterAsync(
+        Guid conversationId, long afterSequence, int limit, CancellationToken cancellationToken);
+
     /// <summary>Active participations of the user in conversations owned by the organization.</summary>
     Task<IReadOnlyList<Guid>> ListActiveConversationIdsInOrganizationAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken);
 
@@ -246,6 +250,9 @@ public sealed record ThreadView(int ReplyCount, DateTimeOffset? LastReplyAtUtc, 
 
 /// <param name="NextBeforeSequence">Pass as the next page's upper bound; null when <paramref name="HasMore"/> is false.</param>
 public sealed record HistoryPage(IReadOnlyList<HistoryEntryView> Items, long? NextBeforeSequence, bool HasMore);
+
+/// <summary>A message and its neighbours, ascending (redesign 2026-11).</summary>
+public sealed record MessageContextView(IReadOnlyList<HistoryEntryView> Items, bool HasOlder, bool HasNewer);
 
 /// <summary>Realtime notification that a conversation changed; clients reload what they show.</summary>
 /// <param name="Change"><c>created</c>, <c>updated</c>, <c>members</c>, <c>read</c> or <c>removed</c>.</param>
@@ -542,6 +549,34 @@ public sealed partial class ConversationService(
         var items = page.Take(size).OrderBy(e => e.Sequence).ToList();
         var views = await WithCallerStateAsync(userId, await DescribeAsync(items, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
         return new HistoryPage(views, hasMore ? items[0].Sequence : null, hasMore);
+    }
+
+    public const int MaxContextSize = 20;
+
+    /// <summary>
+    /// A message with up to <paramref name="size"/> main-timeline entries before and after it (redesign
+    /// 2026-11, the search page's context panel). Only what the caller may see: never before their join.
+    /// </summary>
+    public async Task<MessageContextView> GetMessageContextAsync(Guid userId, Guid conversationId, Guid messageId, int? size, CancellationToken cancellationToken)
+    {
+        var count = size ?? 3;
+        if (count is < 0 or > MaxContextSize)
+        {
+            throw new RequestValidationException("size", "limit_out_of_range");
+        }
+
+        var (_, me) = await RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var message = await store.FindEntryAsync(conversationId, messageId, cancellationToken).ConfigureAwait(false);
+        if (message is not { IsMessage: true } || message.Sequence < me.VisibleFromSequence)
+        {
+            throw new ResourceNotFoundException("message_not_found");
+        }
+
+        var before = await store.ListHistoryAsync(conversationId, me.VisibleFromSequence, message.Sequence, count + 1, cancellationToken).ConfigureAwait(false);
+        var after = await store.ListHistoryAfterAsync(conversationId, message.Sequence, count + 1, cancellationToken).ConfigureAwait(false);
+        var items = before.Take(count).OrderBy(e => e.Sequence).Append(message).Concat(after.Take(count)).ToList();
+        var views = await WithCallerStateAsync(userId, await DescribeAsync(items, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        return new MessageContextView(views, before.Count > count, after.Count > count);
     }
 
     /// <summary>People and reply previews for history entries (used by history and message events).</summary>

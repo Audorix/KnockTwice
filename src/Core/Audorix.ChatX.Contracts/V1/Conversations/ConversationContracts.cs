@@ -156,6 +156,11 @@ public sealed record ConversationListPageResponse(IReadOnlyList<ConversationSumm
 /// <summary>A page of history in ascending order. Pass <paramref name="NextCursor"/> as <c>before</c> to load older entries.</summary>
 public sealed record ConversationHistoryResponse(IReadOnlyList<ConversationEntryResponse> Items, string? NextCursor, bool HasMore);
 
+/// <summary>A message and its neighbours in the main timeline, ascending (redesign 2026-11).</summary>
+/// <param name="HasOlder">More visible entries exist before the first item.</param>
+/// <param name="HasNewer">More entries exist after the last item.</param>
+public sealed record MessageContextResponse(IReadOnlyList<ConversationEntryResponse> Items, bool HasOlder, bool HasNewer);
+
 /// <param name="OrganizationId">Set for an organization conversation; omit for a personal one.</param>
 public sealed record OpenDirectConversationRequest(Guid UserId, Guid? OrganizationId);
 

@@ -24,18 +24,25 @@ internal static class SearchSetup
     public static RouteGroupBuilder MapSearchEndpoints(this RouteGroupBuilder v1)
     {
         v1.MapGet("/search", async (
-            string? q, Guid? conversationId, Guid? senderId, DateTimeOffset? from, DateTimeOffset? to, bool? hasFiles, string? cursor, int? limit,
+            string? q, Guid? conversationId, Guid? senderId, DateTimeOffset? from, DateTimeOffset? to, bool? hasFiles, string? cursor, int? limit, string? order,
             HttpContext http, SearchService search, CancellationToken ct) =>
         {
+            var oldestFirst = order?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "newest" => false,
+                "oldest" => true,
+                _ => throw new RequestValidationException("order", "order_invalid"),
+            };
             var page = await search.SearchAsync(http.User.RequireUserId(),
-                new SearchRequest(q, conversationId, senderId, from, to, hasFiles, DecodeCursor(cursor), limit), ct);
+                new SearchRequest(q, conversationId, senderId, from, to, hasFiles, DecodeCursor(cursor), limit, oldestFirst), ct);
             return TypedResults.Ok(new SearchResponse(
                 page.Items.Select(i => new SearchResultResponse(ConversationEndpoints.ToSummary(i.Conversation), ConversationEndpoints.ToEntry(i.Message))).ToList(),
-                page.Next is { } next ? EncodeCursor(next) : null));
+                page.Next is { } next ? EncodeCursor(next) : null,
+                page.Counts is { } counts ? new SearchCountsResponse(counts.Total, counts.WithFiles) : null));
         })
             .RequireAuthorization()
             .WithTags("Search")
-            .WithSummary("Searches the messages the caller can read (from their join), newest first. Every word of q matches as a prefix, case- and accent-insensitive; message text and attachment file names. Optional filters: conversationId, senderId, from/to (UTC), hasFiles.");
+            .WithSummary("Searches the messages the caller can read (from their join), newest first (order=oldest for oldest first). Every word of q matches as a prefix, case- and accent-insensitive; message text and attachment file names. Optional filters: conversationId, senderId, from/to (UTC), hasFiles. The first page also has counts (all matches, and those with files).");
 
         var admin = v1.MapGroup("/admin/search").WithTags("Administration");
         admin.MapGet(string.Empty, async (SearchService search, CancellationToken ct) =>

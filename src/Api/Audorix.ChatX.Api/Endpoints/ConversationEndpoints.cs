@@ -68,6 +68,13 @@ internal static class ConversationEndpoints
                 page.HasMore));
         }).WithSummary("History visible to the caller (from their join), newest page first; items ascending. Pass nextCursor as 'before' for older entries.");
 
+        conversations.MapGet("/{conversationId:guid}/messages/{messageId:guid}/context", async (
+            Guid conversationId, Guid messageId, int? size, HttpContext http, ConversationService service, CancellationToken ct) =>
+        {
+            var context = await service.GetMessageContextAsync(http.User.RequireUserId(), conversationId, messageId, size, ct);
+            return TypedResults.Ok(new MessageContextResponse(context.Items.Select(ToEntry).ToList(), context.HasOlder, context.HasNewer));
+        }).WithSummary("A message with up to 'size' (default 3, at most 20) main-timeline entries before and after it, ascending; never before the caller's join.");
+
         conversations.MapPost("/{conversationId:guid}/read", async (
             Guid conversationId, MarkConversationReadRequest request, HttpContext http, ConversationService service, CancellationToken ct) =>
         {

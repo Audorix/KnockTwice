@@ -11,6 +11,8 @@ interface DemoCounts {
   contacts: number;
   conversations: number;
   messages: number;
+  /** Mentions, saved messages, reminders and scheduled messages. */
+  activity: number;
 }
 
 interface DemoDataResponse {
@@ -20,7 +22,7 @@ interface DemoDataResponse {
   password: string;
 }
 
-const sum = (c: DemoCounts) => c.users + c.organizations + c.contacts + c.conversations + c.messages;
+const sum = (c: DemoCounts) => c.users + c.organizations + c.contacts + c.conversations + c.messages + (c.activity ?? 0);
 
 /**
  * Demo data for installation administrators where it is enabled (Development and development-mode
@@ -63,7 +65,9 @@ export function DemoDataCard() {
     const created = result.created;
     setNotice(sum(created) === 0
       ? t('demo.upToDate')
-      : t('demo.created', { users: created.users, organizations: created.organizations, contacts: created.contacts, conversations: created.conversations, messages: created.messages }));
+      : t('demo.created', {
+        users: created.users, organizations: created.organizations, contacts: created.contacts, conversations: created.conversations, messages: created.messages, activity: created.activity,
+      }));
     setAccounts(result);
     setExisting(result.total);
   });
@@ -74,7 +78,7 @@ export function DemoDataCard() {
       const { removed } = (await sendJson<{ removed: DemoCounts }>('DELETE', '/api/v1/admin/demo-data', undefined, { timeoutMs: 300_000 }))!;
       setNotice(t('demo.cleared', { users: removed.users, organizations: removed.organizations, conversations: removed.conversations, messages: removed.messages }));
       setAccounts(null);
-      setExisting({ users: 0, organizations: 0, contacts: 0, conversations: 0, messages: 0 });
+      setExisting({ users: 0, organizations: 0, contacts: 0, conversations: 0, messages: 0, activity: 0 });
     });
   };
 
@@ -86,7 +90,7 @@ export function DemoDataCard() {
       <p className="cx-muted">{t('demo.intro')}</p>
       {existing && sum(existing) > 0 && (
         <p className="small cx-meta">
-          {t('demo.existing', { users: existing.users, organizations: existing.organizations, conversations: existing.conversations, messages: existing.messages })}
+          {t('demo.existing', { users: existing.users, organizations: existing.organizations, conversations: existing.conversations, messages: existing.messages, activity: existing.activity })}
         </p>
       )}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}

@@ -84,6 +84,15 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
             .Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
+    public async Task<IReadOnlyList<ConversationEvent>> ListHistoryAfterAsync(
+        Guid conversationId, long afterSequence, int limit, CancellationToken cancellationToken) =>
+        await db.ConversationEvents.AsNoTracking()
+            .Where(e => e.ConversationId == conversationId && e.Sequence > afterSequence
+                        && (e.ThreadRootId == null || e.ShownInConversation))
+            .OrderBy(e => e.Sequence)
+            .Take(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
     // ---- Reactions and threads (Phase 16) --------------------------------------------------------
 
     public void Add(MessageReaction reaction) => db.MessageReactions.Add(reaction);

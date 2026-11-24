@@ -1,4 +1,4 @@
-import type { SearchResponse } from '../../shared/api/contracts';
+import type { MessageContextResponse, SearchResponse } from '../../shared/api/contracts';
 import { getJson } from '../../shared/api/httpClient';
 
 /** Search filters (Phase 14); empty values are left out of the request. */
@@ -9,18 +9,30 @@ export interface SearchFilters {
   fromDate?: string;
   /** yyyy-mm-dd in the user's time zone: up to the end of that day. */
   toDate?: string;
+  /** true: only messages with files; false: only messages without (the result tabs). */
   hasFiles?: boolean;
 }
 
-export async function searchMessages(query: string, filters: SearchFilters, cursor?: string | null, signal?: AbortSignal): Promise<SearchResponse> {
+export type SearchOrder = 'newest' | 'oldest';
+
+export async function searchMessages(
+  query: string, filters: SearchFilters, cursor?: string | null, signal?: AbortSignal, order: SearchOrder = 'newest',
+): Promise<SearchResponse> {
   const params = new URLSearchParams({ q: query });
   if (filters.conversationId) params.set('conversationId', filters.conversationId);
   if (filters.senderId) params.set('senderId', filters.senderId);
   if (filters.fromDate) params.set('from', new Date(`${filters.fromDate}T00:00:00`).toISOString());
   if (filters.toDate) params.set('to', new Date(`${filters.toDate}T23:59:59.999`).toISOString());
-  if (filters.hasFiles) params.set('hasFiles', 'true');
+  if (filters.hasFiles !== undefined) params.set('hasFiles', String(filters.hasFiles));
+  if (order === 'oldest') params.set('order', 'oldest');
   if (cursor) params.set('cursor', cursor);
   return (await getJson<SearchResponse>(`/api/v1/search?${params.toString()}`, signal ? { signal } : {})).body ?? { items: [], nextCursor: null };
+}
+
+/** A message with up to `size` entries before and after it (the context panel). */
+export async function getMessageContext(conversationId: string, messageId: string, size = 3, signal?: AbortSignal): Promise<MessageContextResponse> {
+  const path = `/api/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/context?size=${size}`;
+  return (await getJson<MessageContextResponse>(path, signal ? { signal } : {})).body!;
 }
 
 /** The same word rules as the server: lower case, accents removed. */

@@ -154,9 +154,23 @@ export interface SearchResultResponse {
 }
 
 export interface SearchResponse {
-  /** Newest first. */
+  /** Newest first (or oldest first with order=oldest). */
   items: SearchResultResponse[];
   nextCursor: string | null;
+  /** First page only: all matches, and those with files, whatever the files filter. */
+  counts?: SearchCountsResponse | null;
+}
+
+export interface SearchCountsResponse {
+  total: number;
+  withFiles: number;
+}
+
+/** A message and its neighbours in the main timeline, ascending (redesign 2026-11). */
+export interface MessageContextResponse {
+  items: ConversationEntryResponse[];
+  hasOlder: boolean;
+  hasNewer: boolean;
 }
 
 /** What deleting the signed-in account involves (Phase 13). */

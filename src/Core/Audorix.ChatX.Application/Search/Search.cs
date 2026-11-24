@@ -107,10 +107,11 @@ public sealed record SearchDocument(
 /// <summary>A conversation the caller may search, from the history position they may see.</summary>
 public sealed record SearchScope(Guid ConversationId, long FromSequence);
 
-/// <summary>Results are newest first; a cursor continues after the last result of a page.</summary>
+/// <summary>Results are newest first (or oldest first); a cursor continues after the last result of a page.</summary>
 public sealed record SearchCursor(long CreatedAtTicks, Guid EntryId);
 
 /// <param name="Terms">Normalized words; every one must match a word of the message as a prefix.</param>
+/// <param name="OldestFirst">Ascending order (redesign 2026-11); the cursor then continues with later results.</param>
 public sealed record SearchCriteria(
     IReadOnlyList<string> Terms,
     IReadOnlyList<SearchScope> Scopes,
@@ -119,9 +120,13 @@ public sealed record SearchCriteria(
     DateTimeOffset? To,
     bool? HasFiles,
     SearchCursor? After,
-    int Limit);
+    int Limit,
+    bool OldestFirst = false);
 
 public sealed record SearchMatch(Guid ConversationId, Guid EntryId, long CreatedAtTicks);
+
+/// <summary>How many indexed messages match, all of them and those with files (redesign 2026-11).</summary>
+public sealed record SearchCounts(int Total, int WithFiles);
 
 /// <summary>
 /// A search engine behind ChatX (Phase 14). Implementations: the database (default) and
@@ -147,6 +152,12 @@ public interface ISearchProvider
     Task ClearAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<SearchMatch>> SearchAsync(SearchCriteria criteria, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts the matches of <paramref name="criteria"/>, ignoring its <see cref="SearchCriteria.HasFiles"/>,
+    /// cursor and limit: all of them and those with files.
+    /// </summary>
+    Task<SearchCounts> CountAsync(SearchCriteria criteria, CancellationToken cancellationToken);
 }
 
 /// <summary>The search engine could not be reached or refused the request. Mapped to 503 <c>search_unavailable</c>.</summary>
@@ -174,11 +185,13 @@ public interface ISearchBacklog
 }
 
 public sealed record SearchRequest(
-    string? Query, Guid? ConversationId, Guid? SenderId, DateTimeOffset? From, DateTimeOffset? To, bool? HasFiles, SearchCursor? After, int? Limit);
+    string? Query, Guid? ConversationId, Guid? SenderId, DateTimeOffset? From, DateTimeOffset? To, bool? HasFiles, SearchCursor? After, int? Limit,
+    bool OldestFirst = false);
 
 public sealed record SearchResultView(ConversationSummaryView Conversation, HistoryEntryView Message);
 
-public sealed record SearchPage(IReadOnlyList<SearchResultView> Items, SearchCursor? Next);
+/// <param name="Counts">On the first page only (no cursor): how many messages match in all.</param>
+public sealed record SearchPage(IReadOnlyList<SearchResultView> Items, SearchCursor? Next, SearchCounts? Counts = null);
 
 public sealed record SearchStatus(string Provider, bool Enabled, int Pending);
 
@@ -235,16 +248,21 @@ public sealed class SearchService(
             .ToDictionary(c => c.Conversation.Id);
         if (visible.Count == 0)
         {
-            return new SearchPage([], null);
+            return new SearchPage([], null, request.After is null ? new SearchCounts(0, 0) : null);
         }
 
         var scopes = visible.Values.Select(c => new SearchScope(c.Conversation.Id, c.Me.VisibleFromSequence)).ToList();
+        var criteria = new SearchCriteria(terms, scopes, request.SenderId, request.From, request.To, request.HasFiles, request.After, limit + 1, request.OldestFirst);
         IReadOnlyList<SearchMatch> matches;
+        SearchCounts? counts = null;
         try
         {
-            matches = await provider.SearchAsync(
-                new SearchCriteria(terms, scopes, request.SenderId, request.From, request.To, request.HasFiles, request.After, limit + 1),
-                cancellationToken).ConfigureAwait(false);
+            matches = await provider.SearchAsync(criteria, cancellationToken).ConfigureAwait(false);
+            if (request.After is null)
+            {
+                // Counted from the index: a message deleted a moment ago may still count for a few seconds.
+                counts = await provider.CountAsync(criteria, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (SearchUnavailableException)
         {
@@ -260,10 +278,12 @@ public sealed class SearchService(
                         && visible.TryGetValue(e.ConversationId, out var c) && e.Sequence >= c.Me.VisibleFromSequence)
             .Select(e => e!)
             .ToList();
-        var views = await messaging.ViewsAsync(live, cancellationToken).ConfigureAwait(false);
+        // With the caller's own state (saved), for the bookmark on each result (redesign 2026-11).
+        var views = await conversations.WithCallerStateAsync(userId, await messaging.ViewsAsync(live, cancellationToken).ConfigureAwait(false), cancellationToken)
+            .ConfigureAwait(false);
         var items = views.Select(v => new SearchResultView(visible[v.Entry.ConversationId], v)).ToList();
         var next = matches.Count > limit ? new SearchCursor(page[^1].CreatedAtTicks, page[^1].EntryId) : null;
-        return new SearchPage(items, next);
+        return new SearchPage(items, next, counts);
     }
 
     public async Task<SearchStatus> StatusAsync(CancellationToken cancellationToken) =>

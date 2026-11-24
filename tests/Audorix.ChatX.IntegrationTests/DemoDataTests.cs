@@ -11,8 +11,9 @@ using static Audorix.ChatX.IntegrationTests.Support.TestUsers;
 namespace Audorix.ChatX.IntegrationTests;
 
 /// <summary>
-/// Demo data (owner request of 2026-11-23): 300 people with the password Demo123!, 50 companies,
-/// 150 groups and 10,000 messages; loading is idempotent; clearing removes only demo data.
+/// Demo data (owner requests of 2026-11-23 and 2026-11-24): 300 people with the password Demo123!,
+/// 50 companies, 150 groups, 800 channels, messages and activity (500 items for the administrator,
+/// 50–100 for everyone else); loading is idempotent; clearing removes only demo data.
 /// </summary>
 public sealed class DemoDataTests
 {
@@ -42,16 +43,33 @@ public sealed class DemoDataTests
         AssertStatus(HttpStatusCode.OK, first, await first.Content.ReadAsStringAsync(Ct));
         var loaded = await JsonAsync(first);
         var created = loaded.GetProperty("created");
-        Assert.Equal((300, 50, 12_500), (created.GetProperty("users").GetInt32(), created.GetProperty("organizations").GetInt32(), created.GetProperty("messages").GetInt32()));
-        Assert.True(created.GetProperty("conversations").GetInt32() >= 950, "150 groups, about 300 direct conversations and 500 channels");
-        Assert.Equal(500, await CountChannelsAsync(api));
+        var plan = Application.Demo.DemoDataPlan.Create();
+        var planned = plan.Messages.Where(m => m.Mentions is not null).Sum(m => m.Mentions!.Count) + plan.Saved.Count + plan.Reminders.Count + plan.Scheduled.Count;
+        Assert.Equal((300, 50, plan.Messages.Count), (created.GetProperty("users").GetInt32(), created.GetProperty("organizations").GetInt32(), created.GetProperty("messages").GetInt32()));
+        Assert.Equal(planned, created.GetProperty("activity").GetInt32());
+        Assert.Equal(planned, loaded.GetProperty("total").GetProperty("activity").GetInt32());
+        Assert.True(created.GetProperty("conversations").GetInt32() >= 1250, "150 groups, about 300 direct conversations and 800 channels");
+        Assert.Equal(800, await CountChannelsAsync(api));
         Assert.True(created.GetProperty("contacts").GetInt32() >= 900);
         Assert.Equal("Demo123!", loaded.GetProperty("password").GetString());
 
-        // The administrator who loads it is part of it.
-        Assert.Equal(10, (await JsonAsync(await admin.GetAsync("/api/v1/organizations"))).GetArrayLength());
+        // The administrator who loads it is part of it, with 500 activity items (some mentions unread).
+        Assert.True((await JsonAsync(await admin.GetAsync("/api/v1/organizations"))).GetArrayLength() >= 10);
         var mine = (await JsonAsync(await admin.GetAsync("/api/v1/conversations"))).EnumerateArray().ToList();
         Assert.True(mine.Count > 40, $"conversations: {mine.Count}");
+        var activity = await ActivityAsync(api);
+        Assert.Equal((400, 60, 25, 15), activity[adminId]);
+        Assert.True((await JsonAsync(await admin.GetAsync("/api/v1/mentions/unread"))).GetProperty("unread").GetInt32() > 0);
+
+        // Everyone else: at least ten channels and 50 to 100 activity items.
+        var channels = await ChannelsPerPersonAsync(api);
+        Assert.True(channels[adminId] >= 10, $"administrator channels: {channels[adminId]}");
+        Assert.Equal(300, activity.Count - 1);
+        Assert.All(activity.Where(a => a.Key != adminId), a =>
+        {
+            Assert.True(channels.GetValueOrDefault(a.Key) >= 10, $"channels: {channels.GetValueOrDefault(a.Key)}");
+            Assert.InRange(a.Value.Mentions + a.Value.Saved + a.Value.Reminders + a.Value.Scheduled, 50, 100);
+        });
 
         // Every demo account signs in with Demo123!.
         foreach (var email in loaded.GetProperty("userEmails").EnumerateArray().Select(e => e.GetString()!).Take(3))
@@ -65,8 +83,9 @@ public sealed class DemoDataTests
         AssertStatus(HttpStatusCode.NoContent, await admin.PostAsync($"/api/v1/conversations/{hikers}/leave"));
         var afterLeave = await CountRowsAsync(api);
         var again = (await JsonAsync(await admin.PostAsync("/api/v1/admin/demo-data"))).GetProperty("created");
-        Assert.Equal((0, 0, 0, 0, 0), (again.GetProperty("users").GetInt32(), again.GetProperty("organizations").GetInt32(),
-            again.GetProperty("contacts").GetInt32(), again.GetProperty("conversations").GetInt32(), again.GetProperty("messages").GetInt32()));
+        Assert.Equal((0, 0, 0, 0, 0, 0), (again.GetProperty("users").GetInt32(), again.GetProperty("organizations").GetInt32(),
+            again.GetProperty("contacts").GetInt32(), again.GetProperty("conversations").GetInt32(), again.GetProperty("messages").GetInt32(),
+            again.GetProperty("activity").GetInt32()));
         Assert.Equal(afterLeave, await CountRowsAsync(api));
 
         // Clearing removes the demo data and nothing else.
@@ -137,6 +156,30 @@ public sealed class DemoDataTests
         await using var scope = api.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().Conversations
             .CountAsync(c => c.Type == Domain.Conversations.ConversationType.Channel && c.IsDemo, Ct);
+    }
+
+    /// <summary>Mentions, saved messages, reminders and scheduled messages per person.</summary>
+    private static async Task<Dictionary<Guid, (int Mentions, int Saved, int Reminders, int Scheduled)>> ActivityAsync(ChatXApiFactory api)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ChatXDbContext>();
+        var mentions = await context.MessageMentions.GroupBy(m => m.UserId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, Ct);
+        var saved = await context.SavedMessages.GroupBy(m => m.UserId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, Ct);
+        var reminders = await context.Reminders.GroupBy(m => m.UserId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, Ct);
+        var scheduled = await context.ScheduledMessages.GroupBy(m => m.UserId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, Ct);
+        return mentions.Keys.Union(saved.Keys).Union(reminders.Keys).Union(scheduled.Keys).ToDictionary(id => id,
+            id => (mentions.GetValueOrDefault(id), saved.GetValueOrDefault(id), reminders.GetValueOrDefault(id), scheduled.GetValueOrDefault(id)));
+    }
+
+    /// <summary>Active channel memberships per person.</summary>
+    private static async Task<Dictionary<Guid, int>> ChannelsPerPersonAsync(ChatXApiFactory api)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<ChatXDbContext>();
+        var channels = context.Conversations.Where(c => c.Type == Domain.Conversations.ConversationType.Channel).Select(c => c.Id);
+        return await context.ConversationParticipants
+            .Where(p => channels.Contains(p.ConversationId) && p.Status == Domain.Conversations.ParticipantStatus.Active)
+            .GroupBy(p => p.UserId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count, Ct);
     }
 
     private static async Task<(int Users, int Organizations, int Members, int Workspaces, int Contacts, int Conversations, int Participants, int Events)> CountRowsAsync(ChatXApiFactory api)

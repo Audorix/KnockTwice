@@ -56,6 +56,22 @@ public sealed class SearchRulesTests
     }
 
     [Fact]
+    public void OpenSearch_orders_oldest_first_and_counts_without_the_files_filter()
+    {
+        var criteria = new SearchCriteria(["release"], [new SearchScope(Guid.NewGuid(), 1)], null, null, null, false,
+            new SearchCursor(5, Guid.NewGuid()), 21, OldestFirst: true);
+        Assert.Equal("asc", OpenSearchProvider.BuildQuery(criteria)["sort"]![0]!["createdAtTicks"]!.GetValue<string>());
+
+        var count = OpenSearchProvider.BuildCountQuery(criteria);
+        Assert.Equal(0, count["size"]!.GetValue<int>());
+        Assert.True(count["track_total_hits"]!.GetValue<bool>());
+        Assert.Null(count["search_after"]);
+        Assert.Null(count["sort"]);
+        Assert.DoesNotContain(count["query"]!["bool"]!["filter"]!.AsArray(), f => f!["term"]?["hasFiles"] is not null);
+        Assert.True(count["aggs"]!["withFiles"]!["filter"]!["term"]!["hasFiles"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public async Task OpenSearch_creates_the_index_once_indexes_in_bulk_and_reports_outages()
     {
         var handler = new RecordingHandler();

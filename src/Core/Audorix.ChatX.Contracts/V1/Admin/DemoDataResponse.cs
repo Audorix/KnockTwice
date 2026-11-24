@@ -6,7 +6,8 @@ namespace Audorix.ChatX.Contracts.V1.Admin;
 /// <param name="Password">The shared demo password (demo data is only available where enabled for development).</param>
 public sealed record DemoDataResponse(DemoDataCountsResponse Created, DemoDataCountsResponse Total, IReadOnlyList<string> UserEmails, string Password);
 
-public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages);
+/// <param name="Activity">Mentions, saved messages, reminders and scheduled messages in demo conversations.</param>
+public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity);
 
 /// <param name="Removed">The demo data that was removed.</param>
 public sealed record DemoDataClearedResponse(DemoDataCountsResponse Removed);

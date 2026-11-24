@@ -2,7 +2,8 @@ export type NavIconName =
   | 'chats' | 'lock' | 'people' | 'building' | 'back' | 'shield' | 'hash' | 'headset' | 'search' | 'at'
   | 'reply' | 'smile' | 'thread' | 'dots' | 'edit' | 'trash' | 'clip' | 'send'
   | 'settings' | 'user' | 'block' | 'plus' | 'message' | 'chevron-left' | 'chevron-right' | 'close'
-  | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external';
+  | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external'
+  | 'file' | 'info';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -13,6 +14,18 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
         <>
           <path {...common} d="M4 5h11a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-4 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
           <path {...common} d="M19 9h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-1v3l-4-3h-3" />
+        </>
+      )}
+      {name === 'file' && (
+        <>
+          <path {...common} d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+          <path {...common} d="M14 3v5h5" />
+        </>
+      )}
+      {name === 'info' && (
+        <>
+          <circle {...common} cx="12" cy="12" r="9" />
+          <path {...common} d="M12 11v5M12 7.75v.01" />
         </>
       )}
       {name === 'lock' && (

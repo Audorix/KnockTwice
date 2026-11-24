@@ -77,7 +77,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, direct conversations and about 10,000 messages. Idempotent; only where DemoData:Enabled. The caller is included.",
+        "summary": "Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included.",
         "responses": {
           "200": {
             "description": "OK",
@@ -266,7 +266,7 @@
         "tags": [
           "Search"
         ],
-        "summary": "Searches the messages the caller can read (from their join), newest first. Every word of q matches as a prefix, case- and accent-insensitive; message text and attachment file names. Optional filters: conversationId, senderId, from/to (UTC), hasFiles.",
+        "summary": "Searches the messages the caller can read (from their join), newest first (order=oldest for oldest first). Every word of q matches as a prefix, case- and accent-insensitive; message text and attachment file names. Optional filters: conversationId, senderId, from/to (UTC), hasFiles. The first page also has counts (all matches, and those with files).",
         "parameters": [
           {
             "name": "q",
@@ -331,6 +331,13 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2190,6 +2197,58 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ConversationHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversationId}/messages/{messageId}/context": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "A message with up to 'size' (default 3, at most 20) main-timeline entries before and after it, ascending; never before the caller's join.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "messageId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageContextResponse"
                 }
               }
             }
@@ -8359,7 +8418,8 @@
           "organizations",
           "contacts",
           "conversations",
-          "messages"
+          "messages",
+          "activity"
         ],
         "type": "object",
         "properties": {
@@ -8396,6 +8456,14 @@
             "format": "int32"
           },
           "messages": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "activity": {
             "pattern": "^-?(?:0|[1-9]\\d*)$",
             "type": [
               "integer",
@@ -8847,6 +8915,28 @@
               "string"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "MessageContextResponse": {
+        "required": [
+          "items",
+          "hasOlder",
+          "hasNewer"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationEntryResponse"
+            }
+          },
+          "hasOlder": {
+            "type": "boolean"
+          },
+          "hasNewer": {
+            "type": "boolean"
           }
         }
       },
@@ -9910,6 +10000,31 @@
           }
         }
       },
+      "SearchCountsResponse": {
+        "required": [
+          "total",
+          "withFiles"
+        ],
+        "type": "object",
+        "properties": {
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "withFiles": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "SearchResponse": {
         "required": [
           "items",
@@ -9927,6 +10042,16 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "counts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SearchCountsResponse"
+              }
             ]
           }
         }

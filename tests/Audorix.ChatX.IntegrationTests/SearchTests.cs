@@ -99,6 +99,75 @@ public sealed class SearchTests
 
     [Theory]
     [MemberData(nameof(Providers))]
+    public async Task Search_counts_matches_orders_oldest_first_and_shows_a_message_in_context(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db, new(FastIndexing));
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+
+        var direct = await DirectAsync(ana, benId);
+        var first = await SendAsync(ana, direct, "r1", "Release one");
+        var chat = await SendAsync(ben, direct, "x1", "Lunch?");
+        var upload = await ana.UploadAsync($"/api/v1/conversations/{direct}/attachments", "notes.png", TestFiles.Png(1024), "image/png");
+        AssertStatus(HttpStatusCode.Created, upload, await upload.Content.ReadAsStringAsync(Ct));
+        var second = await SendAsync(ana, direct, "r2", "Release two", (await JsonAsync(upload)).GetProperty("id").GetGuid());
+        var third = await SendAsync(ben, direct, "r3", "Release three");
+        await WaitForAsync(ben, "release", 3);
+
+        // Counts on the first page, the same whatever the files filter; none on later pages.
+        var page = await JsonAsync(await ben.GetAsync("/api/v1/search?q=release&limit=2&hasFiles=false"));
+        Assert.Equal(3, page.GetProperty("counts").GetProperty("total").GetInt32());
+        Assert.Equal(1, page.GetProperty("counts").GetProperty("withFiles").GetInt32());
+        Assert.Equal([third, first], Ids(page));
+        var cursor = page.GetProperty("nextCursor").GetString();
+        Assert.Null(cursor); // only two without files
+        var narrowed = await JsonAsync(await ben.GetAsync($"/api/v1/search?q=release&senderId={benId}"));
+        Assert.Equal(1, narrowed.GetProperty("counts").GetProperty("total").GetInt32());
+        Assert.Equal(0, narrowed.GetProperty("counts").GetProperty("withFiles").GetInt32());
+
+        // Oldest first, paged.
+        var oldest = await JsonAsync(await ben.GetAsync("/api/v1/search?q=release&limit=2&order=oldest"));
+        Assert.Equal([first, second], Ids(oldest));
+        var next = oldest.GetProperty("nextCursor").GetString()!;
+        var rest = await JsonAsync(await ben.GetAsync($"/api/v1/search?q=release&limit=2&order=oldest&cursor={Uri.EscapeDataString(next)}"));
+        Assert.Equal([third], Ids(rest));
+        Assert.Equal(JsonValueKind.Null, rest.GetProperty("counts").ValueKind);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ben.GetAsync("/api/v1/search?q=release&order=sideways")).StatusCode);
+
+        // Results carry the caller's saved state.
+        AssertStatus(HttpStatusCode.NoContent, await ben.SendAsync(HttpMethod.Put, $"/api/v1/conversations/{direct}/messages/{first}/saved", new { saved = true }));
+        var withSaved = await JsonAsync(await ben.GetAsync("/api/v1/search?q=release&order=oldest&limit=1"));
+        Assert.True(withSaved.GetProperty("items")[0].GetProperty("message").GetProperty("saved").GetBoolean());
+
+        // A message with its neighbours.
+        var context = await JsonAsync(await ben.GetAsync($"/api/v1/conversations/{direct}/messages/{second}/context?size=1"));
+        Assert.Equal([chat, second, third], context.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.True(context.GetProperty("hasOlder").GetBoolean());
+        Assert.False(context.GetProperty("hasNewer").GetBoolean());
+        Assert.Equal(HttpStatusCode.NotFound, (await carl.GetAsync($"/api/v1/conversations/{direct}/messages/{chat}/context")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await ben.GetAsync($"/api/v1/conversations/{direct}/messages/{chat}/context?size=21")).StatusCode);
+
+        // In a group joined later, nothing from before the join.
+        var group = (await JsonAsync(await ana.PostAsync("/api/v1/conversations/groups", new { title = "Team", userIds = new[] { benId } }))).GetProperty("id").GetGuid();
+        var old = await SendAsync(ana, group, "g1", "Before Carl");
+        await BecomeContactsAsync(ana, anaId, carl, carlId);
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"/api/v1/conversations/{group}/participants", new { userIds = new[] { carlId } }));
+        var welcome = await SendAsync(ana, group, "g2", "Welcome Carl");
+        Assert.Equal(HttpStatusCode.NotFound, (await carl.GetAsync($"/api/v1/conversations/{group}/messages/{old}/context")).StatusCode);
+        var seen = await JsonAsync(await carl.GetAsync($"/api/v1/conversations/{group}/messages/{welcome}/context"));
+        Assert.DoesNotContain(old, seen.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.Contains(welcome, seen.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.False(seen.GetProperty("hasOlder").GetBoolean());
+    }
+
+    [Theory]
+    [MemberData(nameof(Providers))]
     public async Task Administrators_rebuild_the_index_and_retention_removes_entries(string provider)
     {
         await using var db = await TestDatabase.CreateAsync(provider);

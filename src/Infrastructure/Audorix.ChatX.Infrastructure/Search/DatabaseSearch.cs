@@ -101,75 +101,24 @@ internal sealed class DatabaseSearchProvider(ChatXDbContext db) : ISearchProvide
         }
 
         var postgres = IsPostgreSql;
-        var connection = db.Database.GetDbConnection();
-        if (connection.State != System.Data.ConnectionState.Open)
-        {
-            await db.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
-        }
-
+        var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await using var command = connection.CreateCommand();
-            var sql = new StringBuilder();
-            if (postgres)
-            {
-                // Terms contain only letters and digits (SearchText), so they cannot form operators.
-                Add(command, "match", string.Join(" & ", criteria.Terms.Select(t => t + ":*")));
-                Add(command, "cids", criteria.Scopes.Select(s => s.ConversationId).ToArray());
-                Add(command, "froms", criteria.Scopes.Select(s => s.FromSequence).ToArray());
-                sql.Append("""
-                    SELECT s.conversation_id, s.entry_id, s.created_at_ticks
-                    FROM message_search s
-                    JOIN unnest(@cids, @froms) AS sc(cid, fromseq) ON s.conversation_id = sc.cid AND s.sequence >= sc.fromseq
-                    WHERE s.document @@ to_tsquery('simple', @match)
-                    """);
-            }
-            else
-            {
-                Add(command, "match", string.Join(' ', criteria.Terms.Select(t => "\"" + t + "\"*")));
-                Add(command, "scopes", JsonSerializer.Serialize(criteria.Scopes.Select(s => new { c = Text(s.ConversationId), f = s.FromSequence })));
-                sql.Append("""
-                    SELECT s.conversation_id, s.entry_id, s.created_at_ticks
-                    FROM message_search_fts
-                    JOIN message_search s ON s.rowid = message_search_fts.rowid
-                    JOIN json_each(@scopes) j ON s.conversation_id = json_extract(j.value, '$.c') AND s.sequence >= json_extract(j.value, '$.f')
-                    WHERE message_search_fts MATCH @match
-                    """);
-            }
+            var sql = new StringBuilder("SELECT s.conversation_id, s.entry_id, s.created_at_ticks");
+            AppendMatches(command, sql, criteria, postgres, withFilesFilter: true);
 
-            if (criteria.SenderId is { } sender)
-            {
-                Add(command, "sender", postgres ? sender : Text(sender));
-                sql.Append(" AND s.sender_id = @sender");
-            }
-
-            if (criteria.From is { } from)
-            {
-                Add(command, "from", from.UtcTicks);
-                sql.Append(" AND s.created_at_ticks >= @from");
-            }
-
-            if (criteria.To is { } to)
-            {
-                Add(command, "to", to.UtcTicks);
-                sql.Append(" AND s.created_at_ticks <= @to");
-            }
-
-            if (criteria.HasFiles is { } hasFiles)
-            {
-                Add(command, "files", postgres ? hasFiles : (hasFiles ? 1 : 0));
-                sql.Append(" AND s.has_files = @files");
-            }
-
+            var (compare, direction) = criteria.OldestFirst ? (">", "ASC") : ("<", "DESC");
             if (criteria.After is { } after)
             {
                 Add(command, "afterTicks", after.CreatedAtTicks);
                 Add(command, "afterId", postgres ? after.EntryId : Text(after.EntryId));
-                sql.Append(" AND (s.created_at_ticks < @afterTicks OR (s.created_at_ticks = @afterTicks AND s.entry_id < @afterId))");
+                sql.Append(CultureInfo.InvariantCulture,
+                    $" AND (s.created_at_ticks {compare} @afterTicks OR (s.created_at_ticks = @afterTicks AND s.entry_id {compare} @afterId))");
             }
 
             Add(command, "limit", criteria.Limit);
-            sql.Append(" ORDER BY s.created_at_ticks DESC, s.entry_id DESC LIMIT @limit");
+            sql.Append(CultureInfo.InvariantCulture, $" ORDER BY s.created_at_ticks {direction}, s.entry_id {direction} LIMIT @limit");
             command.CommandText = sql.ToString();
 
             var matches = new List<SearchMatch>();
@@ -184,6 +133,97 @@ internal sealed class DatabaseSearchProvider(ChatXDbContext db) : ISearchProvide
         finally
         {
             await db.Database.CloseConnectionAsync().ConfigureAwait(false);
+        }
+    }
+
+    public async Task<SearchCounts> CountAsync(SearchCriteria criteria, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+        if (criteria.Terms.Count == 0 || criteria.Scopes.Count == 0)
+        {
+            return new SearchCounts(0, 0);
+        }
+
+        var postgres = IsPostgreSql;
+        var connection = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var command = connection.CreateCommand();
+            var sql = new StringBuilder("SELECT COUNT(*), COALESCE(SUM(CASE WHEN s.has_files THEN 1 ELSE 0 END), 0)");
+            AppendMatches(command, sql, criteria, postgres, withFilesFilter: false);
+            command.CommandText = sql.ToString();
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            return new SearchCounts(Convert.ToInt32(reader.GetValue(0), CultureInfo.InvariantCulture), Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture));
+        }
+        finally
+        {
+            await db.Database.CloseConnectionAsync().ConfigureAwait(false);
+        }
+    }
+
+    private async Task<DbConnection> OpenAsync(CancellationToken cancellationToken)
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await db.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        return connection;
+    }
+
+    /// <summary>The FROM and WHERE of a search: terms, visibility and the filters (not the cursor).</summary>
+    private static void AppendMatches(DbCommand command, StringBuilder sql, SearchCriteria criteria, bool postgres, bool withFilesFilter)
+    {
+        if (postgres)
+        {
+            // Terms contain only letters and digits (SearchText), so they cannot form operators.
+            Add(command, "match", string.Join(" & ", criteria.Terms.Select(t => t + ":*")));
+            Add(command, "cids", criteria.Scopes.Select(s => s.ConversationId).ToArray());
+            Add(command, "froms", criteria.Scopes.Select(s => s.FromSequence).ToArray());
+            sql.Append("""
+
+                FROM message_search s
+                JOIN unnest(@cids, @froms) AS sc(cid, fromseq) ON s.conversation_id = sc.cid AND s.sequence >= sc.fromseq
+                WHERE s.document @@ to_tsquery('simple', @match)
+                """);
+        }
+        else
+        {
+            Add(command, "match", string.Join(' ', criteria.Terms.Select(t => "\"" + t + "\"*")));
+            Add(command, "scopes", JsonSerializer.Serialize(criteria.Scopes.Select(s => new { c = Text(s.ConversationId), f = s.FromSequence })));
+            sql.Append("""
+
+                FROM message_search_fts
+                JOIN message_search s ON s.rowid = message_search_fts.rowid
+                JOIN json_each(@scopes) j ON s.conversation_id = json_extract(j.value, '$.c') AND s.sequence >= json_extract(j.value, '$.f')
+                WHERE message_search_fts MATCH @match
+                """);
+        }
+
+        if (criteria.SenderId is { } sender)
+        {
+            Add(command, "sender", postgres ? sender : Text(sender));
+            sql.Append(" AND s.sender_id = @sender");
+        }
+
+        if (criteria.From is { } from)
+        {
+            Add(command, "from", from.UtcTicks);
+            sql.Append(" AND s.created_at_ticks >= @from");
+        }
+
+        if (criteria.To is { } to)
+        {
+            Add(command, "to", to.UtcTicks);
+            sql.Append(" AND s.created_at_ticks <= @to");
+        }
+
+        if (withFilesFilter && criteria.HasFiles is { } hasFiles)
+        {
+            Add(command, "files", postgres ? hasFiles : (hasFiles ? 1 : 0));
+            sql.Append(" AND s.has_files = @files");
         }
     }
 

@@ -63,8 +63,19 @@ data** button removes only demo data.
   separate seed, so earlier demo data stays identical and an existing installation is only extended.
   The demo data test now allows 5 minutes per load, like the web app, after a timeout while the
   whole suite shared one PostgreSQL server.
+- Added on 2026-11-24 (owner request, after the UI redesign): 300 more channels (800 in all) and
+  activity. People who belonged to no company join two, and anyone still in fewer than 10 channels
+  is added to General-workspace channels of their companies (or joins one more company), so everyone
+  is in at least 10. Activity: messages that @mention one to four people of the conversation
+  (`message_mentions` rows, the mentions of the last two days left unread), saved messages,
+  reminders (1 hour to 14 days ahead) and scheduled messages (2 hours to 20 days ahead): 400 + 60 +
+  25 + 15 = 500 items for the administrator who loads it, 50–100 for everyone else. Again a separate
+  seed, so everything earlier stays identical; people added to an existing company also join its
+  General workspace. The counts gain `activity`. `DemoDataPlanTests` (unit) check the plan; the
+  integration test checks the loaded rows per person.
 - Measured: loading took about 20 seconds and clearing about 5 seconds on SQLite on this machine
-  (before the channels were added).
+  (before the channels were added); extending an installation that had the earlier demo data with the
+  2026-11-24 additions took 31 seconds (300 channels, about 11,300 messages, about 23,000 activity items).
   `DemoDataTests` (both databases) and the web tests pass.
 
 ## Open items

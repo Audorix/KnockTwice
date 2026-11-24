@@ -29,7 +29,18 @@ public sealed record DemoChannel(string Key, Guid Id, string Name, string Compan
 /// <param name="ConversationKey">A group key, or a direct conversation key.</param>
 /// <param name="ClientId">Fixed per message, so a message is created once (the same rule as real clients).</param>
 /// <param name="At">Minutes after the start of the demo period.</param>
-public sealed record DemoMessage(string ConversationKey, string Author, string ClientId, string Body, int At);
+/// <param name="Mentions">People the message mentions (person keys; "me" too). Their names are in the text as "@Name";
+/// the administrator's as <see cref="DemoDataPlan.MeToken"/>, replaced when loading.</param>
+public sealed record DemoMessage(string ConversationKey, string Author, string ClientId, string Body, int At, IReadOnlyList<string>? Mentions = null);
+
+/// <summary>A message a person saved (by its conversation and client id).</summary>
+public sealed record DemoSaved(string Person, string ConversationKey, string ClientId);
+
+/// <param name="HoursAhead">The reminder is due this many hours after loading.</param>
+public sealed record DemoReminder(string Key, string Person, string ConversationKey, string ClientId, int HoursAhead);
+
+/// <param name="HoursAhead">The message is sent this many hours after loading.</param>
+public sealed record DemoScheduled(string Key, string Person, string ConversationKey, string Body, int HoursAhead);
 
 /// <summary>
 /// Everything the demo data loader creates (owner request of 2026-11-23: 300 people, 50 companies,
@@ -46,17 +57,39 @@ public sealed class DemoDataPlan
     public const int CompanyCount = 50;
     public const int GroupCount = 150;
     public const int MessageCount = 10_000;
-    public const int ChannelCount = 500;
 
-    /// <summary>Messages written in the demo channels, in addition to <see cref="MessageCount"/>.</summary>
+    /// <summary>The first 500 channels (2026-11-23) and 300 more (2026-11-24).</summary>
+    public const int FirstChannelCount = 500;
+    public const int ChannelCount = 800;
+
+    /// <summary>Everyone (the administrator who loads it included) is in at least this many channels.</summary>
+    public const int MinimumChannelsPerPerson = 10;
+
+    /// <summary>Messages written in the first demo channels, in addition to <see cref="MessageCount"/>.</summary>
     public const int ChannelMessageCount = 2_500;
+
+    /// <summary>Activity of the administrator who loads it: mentions, saved messages, reminders and scheduled messages (owner request of 2026-11-24).</summary>
+    public const int CallerMentions = 400;
+    public const int CallerSaved = 60;
+    public const int CallerReminders = 25;
+    public const int CallerScheduled = 15;
+
+    /// <summary>Activity items of every other person: between these two.</summary>
+    public const int MinimumActivity = 50;
+    public const int MaximumActivity = 100;
+
+    /// <summary>Stands for "@" and the name of the administrator who loads it, in message text.</summary>
+    public const string MeToken = "@{me}";
+
+    /// <summary>Mentions of the last two days are left unread.</summary>
+    public const int UnreadMinutes = 2 * 24 * 60;
 
     /// <summary>Messages are spread over this many days before the load.</summary>
     public const int PeriodDays = 30;
 
     public IReadOnlyList<DemoPerson> People { get; }
 
-    public IReadOnlyList<DemoCompany> Companies { get; }
+    public IReadOnlyList<DemoCompany> Companies { get; private set; }
 
     /// <summary>Contact pairs (person keys, "me" included).</summary>
     public IReadOnlyList<(string A, string B)> Contacts { get; }
@@ -65,11 +98,17 @@ public sealed class DemoDataPlan
 
     public IReadOnlyList<DemoDirect> Directs { get; }
 
-    /// <summary>500 channels spread over the companies' workspaces (owner request of 2026-11-23).</summary>
-    public IReadOnlyList<DemoChannel> Channels { get; }
+    /// <summary>800 channels spread over the companies' workspaces (owner requests of 2026-11-23 and 2026-11-24).</summary>
+    public IReadOnlyList<DemoChannel> Channels { get; private set; }
 
-    /// <summary>Messages of groups and direct conversations, followed by the channel messages.</summary>
+    /// <summary>Messages of groups and direct conversations, then the channel messages, then the messages with mentions.</summary>
     public IReadOnlyList<DemoMessage> Messages { get; }
+
+    public IReadOnlyList<DemoSaved> Saved { get; }
+
+    public IReadOnlyList<DemoReminder> Reminders { get; }
+
+    public IReadOnlyList<DemoScheduled> Scheduled { get; }
 
     public static Guid DemoId(string key) =>
         new(SHA256.HashData(Encoding.UTF8.GetBytes("audorix-chatx-demo:" + key)).AsSpan(0, 16));
@@ -94,7 +133,216 @@ public sealed class DemoDataPlan
         // Channels came later: their own seed keeps everything above exactly as earlier versions made it.
         var channelRandom = new Random(20261124);
         Channels = BuildChannels(channelRandom);
-        Messages = messages.Concat(BuildChannelMessages(channelRandom)).ToList();
+        var channelMessages = BuildChannelMessages(channelRandom, Channels, ChannelMessageCount);
+
+        // More channels and activity (2026-11-24), again with their own seed so all of the above stays the same.
+        var activityRandom = new Random(20261125);
+        Companies = JoinCompanies(activityRandom);
+        var more = BuildMoreChannels(activityRandom);
+        Channels = FillChannels(activityRandom, Channels.Concat(more).ToList());
+        var moreMessages = BuildChannelMessages(activityRandom, more, more.Count * 5);
+        var all = messages.Concat(channelMessages).Concat(moreMessages).ToList();
+        var (mentions, saved, reminders, scheduled) = BuildActivity(activityRandom, all);
+        Messages = all.Concat(mentions).ToList();
+        Saved = saved;
+        Reminders = reminders;
+        Scheduled = scheduled;
+    }
+
+    // ---- More channels and activity (owner request of 2026-11-24) ------------------------------
+
+    /// <summary>People who belong to no company join two (as members), so they can take part in channels.</summary>
+    private List<DemoCompany> JoinCompanies(Random random)
+    {
+        var companies = Companies.ToList();
+        var placed = companies.SelectMany(c => c.Members.Select(m => m.Key)).ToHashSet(StringComparer.Ordinal);
+        foreach (var person in People.Where(p => !placed.Contains(p.Key)))
+        {
+            foreach (var index in Enumerable.Range(0, companies.Count).OrderBy(_ => random.Next()).Take(2))
+            {
+                var company = companies[index];
+                companies[index] = company with { Members = company.Members.Append((person.Key, DemoRole.Member)).ToList() };
+            }
+        }
+
+        return companies;
+    }
+
+    private List<DemoChannel> BuildMoreChannels(Random random)
+    {
+        var names = Channels.Select(c => $"{c.CompanyKey}|{c.TeamWorkspace}|{c.Name}").ToHashSet(StringComparer.Ordinal);
+        var channels = new List<DemoChannel>();
+        for (var n = 0; channels.Count < ChannelCount - FirstChannelCount; n++)
+        {
+            var company = Companies[random.Next(Companies.Count)];
+            var team = random.Next(4) == 0;
+            var roster = (team ? company.TeamMembers : company.Members.Select(m => m.Key).Where(k => k != Me)).ToList();
+            if (roster.Count < 2)
+            {
+                continue;
+            }
+
+            var name = Pick(random, ChannelNames);
+            if (!names.Add($"{company.Key}|{team}|{name}"))
+            {
+                name = $"{name}-{random.Next(2, 99)}";
+                if (!names.Add($"{company.Key}|{team}|{name}"))
+                {
+                    continue;
+                }
+            }
+
+            var manager = roster[random.Next(roster.Count)];
+            var members = Sample(random, roster.Where(k => k != manager).ToList(), random.Next(1, roster.Count));
+            if (!team && company.Members.Any(m => m.Key == Me) && random.Next(10) < 3)
+            {
+                members.Add(Me);
+            }
+
+            var key = $"channel-b{n:D3}";
+            channels.Add(new DemoChannel(key, DemoId("conversation:" + key), name, company.Key, team, random.Next(5) == 0, manager, members));
+        }
+
+        return channels;
+    }
+
+    /// <summary>Adds people to channels of their companies' General workspaces until everyone is in at least ten.</summary>
+    private List<DemoChannel> FillChannels(Random random, List<DemoChannel> channels)
+    {
+        var count = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var channel in channels)
+        {
+            foreach (var key in channel.Members.Append(channel.Manager).Distinct())
+            {
+                count[key] = count.GetValueOrDefault(key) + 1;
+            }
+        }
+
+        var members = channels.Select(c => c.Members.ToList()).ToList();
+        var companyList = Companies.ToList();
+        foreach (var person in People.Select(p => p.Key).Append(Me))
+        {
+            var missing = MinimumChannelsPerPerson - count.GetValueOrDefault(person);
+            while (missing > 0)
+            {
+                var companies = companyList.Where(c => c.Members.Any(m => m.Key == person)).Select(c => c.Key).ToHashSet(StringComparer.Ordinal);
+                var open = Enumerable.Range(0, channels.Count)
+                    .Where(i => !channels[i].TeamWorkspace && companies.Contains(channels[i].CompanyKey) && channels[i].Manager != person && !members[i].Contains(person))
+                    .OrderBy(_ => random.Next())
+                    .Take(missing)
+                    .ToList();
+                foreach (var index in open)
+                {
+                    members[index].Add(person);
+                }
+
+                missing -= open.Count;
+                if (missing > 0 && person != Me)
+                {
+                    // Their companies have too few channels: they join one more company.
+                    var other = Enumerable.Range(0, companyList.Count).Where(i => !companies.Contains(companyList[i].Key)).OrderBy(_ => random.Next()).First();
+                    companyList[other] = companyList[other] with { Members = companyList[other].Members.Append((person, DemoRole.Member)).ToList() };
+                }
+                else if (missing > 0)
+                {
+                    break;
+                }
+            }
+        }
+
+        Companies = companyList;
+        return channels.Select((c, i) => c with { Members = members[i] }).ToList();
+    }
+
+    private string NameOf(string key) => key == Me ? MeToken : "@" + People.First(p => p.Key == key).Name;
+
+    /// <summary>
+    /// Mentions (messages that @mention up to four people), saved messages, reminders and scheduled
+    /// messages: <see cref="CallerMentions"/> and the rest for the administrator, 50–100 items for everyone else.
+    /// </summary>
+    private (List<DemoMessage> Mentions, List<DemoSaved> Saved, List<DemoReminder> Reminders, List<DemoScheduled> Scheduled) BuildActivity(
+        Random random, List<DemoMessage> messages)
+    {
+        var rosters = Groups.Select(g => (g.Key, Roster: new[] { g.Owner }.Concat(g.Members).Distinct().ToList()))
+            .Concat(Directs.Select(d => (d.Key, Roster: new List<string> { d.A, d.B })))
+            .Concat(Channels.Select(c => (c.Key, Roster: new[] { c.Manager }.Concat(c.Members).Distinct().ToList())))
+            .ToDictionary(r => r.Key, r => r.Roster, StringComparer.Ordinal);
+        var places = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var (key, roster) in rosters)
+        {
+            foreach (var person in roster)
+            {
+                (places.TryGetValue(person, out var list) ? list : places[person] = []).Add(key);
+            }
+        }
+
+        var byConversation = messages.GroupBy(m => m.ConversationKey).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+        var language = People.ToDictionary(p => p.Key, p => p.Language);
+        var people = People.Select(p => p.Key).Prepend(Me).ToList();
+
+        // How much of each kind every person gets.
+        var plan = new Dictionary<string, (int Mentions, int Saved, int Reminders, int Scheduled)>(StringComparer.Ordinal)
+        {
+            [Me] = (CallerMentions, CallerSaved, CallerReminders, CallerScheduled),
+        };
+        foreach (var person in people.Skip(1))
+        {
+            var total = random.Next(MinimumActivity, MaximumActivity + 1);
+            var (savedCount, reminderCount, scheduledCount) = (random.Next(3, 9), random.Next(1, 6), random.Next(0, 4));
+            plan[person] = (total - savedCount - reminderCount - scheduledCount, savedCount, reminderCount, scheduledCount);
+        }
+
+        var period = PeriodDays * 24 * 60;
+        var need = plan.ToDictionary(p => p.Key, p => p.Value.Mentions, StringComparer.Ordinal);
+        var mentions = new List<DemoMessage>();
+        foreach (var person in people)
+        {
+            var mine = places.GetValueOrDefault(person)?.Where(k => rosters[k].Count >= 2).ToList() ?? [];
+            while (need[person] > 0 && mine.Count > 0)
+            {
+                var conversation = mine[random.Next(mine.Count)];
+                var roster = rosters[conversation];
+                var author = roster.Where(k => k != person).OrderBy(_ => random.Next()).First();
+                var mentioned = new List<string> { person };
+                mentioned.AddRange(roster.Where(k => k != person && k != author && need.GetValueOrDefault(k) > 0).OrderBy(_ => random.Next()).Take(random.Next(0, 4)));
+                foreach (var key in mentioned)
+                {
+                    need[key]--;
+                }
+
+                var spanish = author != Me && language.GetValueOrDefault(author) == "es";
+                var text = spanish
+                    ? string.Format(CultureInfo.InvariantCulture, Pick(random, SpanishBodies), Pick(random, SpanishThings))
+                    : string.Format(CultureInfo.InvariantCulture, Pick(random, EnglishBodies), Pick(random, EnglishThings));
+                var at = random.Next(10) == 0 ? random.Next(period - UnreadMinutes, period - 1) : random.Next(60, period - UnreadMinutes);
+                mentions.Add(new DemoMessage(conversation, author, $"demo-m{mentions.Count}", $"{string.Join(' ', mentioned.Select(NameOf))} {text}", at, mentioned));
+            }
+        }
+
+        // Saved messages and reminders point at messages of the person's conversations; scheduled messages go to one of them.
+        var saved = new List<DemoSaved>();
+        var reminders = new List<DemoReminder>();
+        var scheduled = new List<DemoScheduled>();
+        foreach (var person in people)
+        {
+            var mine = places.GetValueOrDefault(person) ?? [];
+            var candidates = mine.SelectMany(k => byConversation.GetValueOrDefault(k) ?? []).Where(m => m.Author != person).ToList();
+            var (_, savedCount, reminderCount, scheduledCount) = plan[person];
+            var picked = candidates.OrderBy(_ => random.Next()).Take(savedCount + reminderCount).ToList();
+            saved.AddRange(picked.Take(savedCount).Select(m => new DemoSaved(person, m.ConversationKey, m.ClientId)));
+            reminders.AddRange(picked.Skip(savedCount).Select((m, i) =>
+                new DemoReminder($"{person}:{i}", person, m.ConversationKey, m.ClientId, random.Next(1, 14 * 24))));
+            for (var i = 0; i < scheduledCount && mine.Count > 0; i++)
+            {
+                var spanish = person != Me && language.GetValueOrDefault(person) == "es";
+                var body = spanish
+                    ? $"{Pick(random, SpanishOpeners)} {string.Format(CultureInfo.InvariantCulture, Pick(random, SpanishBodies), Pick(random, SpanishThings))}"
+                    : $"{Pick(random, EnglishOpeners)} {string.Format(CultureInfo.InvariantCulture, Pick(random, EnglishBodies), Pick(random, EnglishThings))}";
+                scheduled.Add(new DemoScheduled($"{person}:{i}", person, mine[random.Next(mine.Count)], body, random.Next(2, 20 * 24)));
+            }
+        }
+
+        return (mentions, saved, reminders, scheduled);
     }
 
     // ---- Channels ----------------------------------------------------------------------------
@@ -111,7 +359,7 @@ public sealed class DemoDataPlan
     {
         var channels = new List<DemoChannel>();
         var names = new HashSet<string>(StringComparer.Ordinal);
-        for (var n = 0; channels.Count < ChannelCount; n++)
+        for (var n = 0; channels.Count < FirstChannelCount; n++)
         {
             var company = Companies[n % Companies.Count];
             var team = random.Next(3) == 0;
@@ -147,14 +395,14 @@ public sealed class DemoDataPlan
         return channels;
     }
 
-    private List<DemoMessage> BuildChannelMessages(Random random)
+    private List<DemoMessage> BuildChannelMessages(Random random, IReadOnlyList<DemoChannel> channels, int count)
     {
         var language = People.ToDictionary(p => p.Key, p => p.Language);
         var period = PeriodDays * 24 * 60;
         var messages = new List<DemoMessage>();
-        for (var i = 0; messages.Count < ChannelMessageCount; i++)
+        for (var i = 0; messages.Count < count; i++)
         {
-            var channel = Channels[random.Next(Channels.Count)];
+            var channel = channels[random.Next(channels.Count)];
             var authors = new[] { channel.Manager }.Concat(channel.Members).ToList();
             var author = authors[random.Next(authors.Count)];
             var spanish = author != Me && language.GetValueOrDefault(author) == "es";

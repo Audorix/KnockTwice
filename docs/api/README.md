@@ -111,8 +111,17 @@ they take part in, from their join, never deleted messages), newest first.
   file name; case and accents are ignored (`presup cafe` finds "Presupuesto del Café"). `q` needs at
   least 2 characters (`400 query_too_short`).
 - Filters: `conversationId`, `senderId`, `from` / `to` (UTC timestamps, inclusive), `hasFiles=true|false`.
-- `limit` (1–50, default 20); pass `nextCursor` back as `cursor` for older results.
-- Each item has the `conversation` (as in the conversation list) and the `message` (as in history).
+- `limit` (1–50, default 20); pass `nextCursor` back as `cursor` (with the same filters and order) for
+  more results. `order=oldest` returns the oldest first (default `newest`).
+- The first page (no `cursor`) also has `counts: { total, withFiles }`: all matching messages and
+  those with files, whatever `hasFiles` is (so `total - withFiles` have no files). Counts come from
+  the index, so a message deleted a moment ago may still count for a few seconds. Later pages have
+  `counts: null`.
+- Each item has the `conversation` (as in the conversation list) and the `message` (as in history,
+  with the caller's `saved`).
+- `GET /api/v1/conversations/{id}/messages/{messageId}/context?size=3` returns the message with up to
+  `size` (0–20) main-timeline entries before and after it, ascending: `{ items, hasOlder, hasNewer }`.
+  Never anything before the caller's join (`404 message_not_found` for such a message).
 - Changes reach the index within a few seconds. `403 search_disabled` when an administrator switched
   search off; `503 search_unavailable` when the search engine (OpenSearch) is down.
 - Administrators: `GET /api/v1/admin/search` (provider and pending changes) and

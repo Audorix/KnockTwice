@@ -39,7 +39,7 @@ internal static class UserEndpoints
         })
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
-            .WithSummary("Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, direct conversations and about 10,000 messages. Idempotent; only where DemoData:Enabled. The caller is included.");
+            .WithSummary("Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included.");
 
         v1.MapGet("/admin/demo-data", async (Application.Demo.DemoDataService demo, CancellationToken ct) =>
             TypedResults.Ok(ToCounts(await demo.CountAsync(ct))))
@@ -63,7 +63,7 @@ internal static class UserEndpoints
     }
 
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
-        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages);
+        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity);
 
     public static CurrentUserResponse ToResponse(CurrentUser user) => new(
         user.Account.Id,

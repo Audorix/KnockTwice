@@ -211,6 +211,37 @@ internal sealed class OpenSearchProvider(HttpClient http, IOptions<OpenSearchOpt
         return matches;
     }
 
+    public async Task<SearchCounts> CountAsync(SearchCriteria criteria, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(criteria);
+        if (criteria.Terms.Count == 0 || criteria.Scopes.Count == 0)
+        {
+            return new SearchCounts(0, 0);
+        }
+
+        using var response = await SendAsync(HttpMethod.Post, $"{Index}/_search", BuildCountQuery(criteria), cancellationToken).ConfigureAwait(false);
+        var result = await response.Content.ReadFromJsonAsync<JsonObject>(cancellationToken).ConfigureAwait(false)
+            ?? throw new SearchUnavailableException("OpenSearch returned no result.");
+        return new SearchCounts(
+            result["hits"]?["total"]?["value"]?.GetValue<int>() ?? 0,
+            result["aggregations"]?["withFiles"]?["doc_count"]?.GetValue<int>() ?? 0);
+    }
+
+    /// <summary>The same matches without the files filter, cursor or results: an exact total and how many have files.</summary>
+    internal static JsonObject BuildCountQuery(SearchCriteria criteria)
+    {
+        var query = BuildQuery(criteria with { HasFiles = null, After = null });
+        query.Remove("_source");
+        query.Remove("sort");
+        query["size"] = 0;
+        query["track_total_hits"] = true;
+        query["aggs"] = new JsonObject
+        {
+            ["withFiles"] = new JsonObject { ["filter"] = new JsonObject { ["term"] = new JsonObject { ["hasFiles"] = true } } },
+        };
+        return query;
+    }
+
     /// <summary>
     /// Every term must match a word of the text as a prefix. Visibility is a filter: conversations
     /// whose whole history is visible in one <c>terms</c> clause, the others each with their first
@@ -271,6 +302,7 @@ internal sealed class OpenSearchProvider(HttpClient http, IOptions<OpenSearchOpt
             filter.Add(new JsonObject { ["term"] = new JsonObject { ["hasFiles"] = hasFiles } });
         }
 
+        var order = criteria.OldestFirst ? "asc" : "desc";
         var query = new JsonObject
         {
             ["size"] = criteria.Limit,
@@ -278,8 +310,8 @@ internal sealed class OpenSearchProvider(HttpClient http, IOptions<OpenSearchOpt
             ["track_total_hits"] = false,
             ["query"] = new JsonObject { ["bool"] = new JsonObject { ["must"] = must, ["filter"] = filter } },
             ["sort"] = new JsonArray(
-                new JsonObject { ["createdAtTicks"] = "desc" },
-                new JsonObject { ["entryId"] = "desc" }),
+                new JsonObject { ["createdAtTicks"] = order },
+                new JsonObject { ["entryId"] = order }),
         };
         if (criteria.After is { } after)
         {

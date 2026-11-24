@@ -22,7 +22,7 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
 
     public async Task<DemoDataCounts> PopulateAsync(DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
-        var created = new int[5];
+        var created = new int[6];
         var start = nowUtc.AddDays(-DemoDataPlan.PeriodDays - 1);
         var users = await EnsureUsersAsync(plan, password, start, created, cancellationToken).ConfigureAwait(false);
         users[DemoDataPlan.Me] = callerId;
@@ -36,7 +36,8 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
         }
 
         await EnsureMessagesAsync(plan, users, conversations, start, created, cancellationToken).ConfigureAwait(false);
-        return new DemoDataCounts(created[0], created[1], created[2], created[3], created[4]);
+        await EnsureActivityAsync(plan, users, conversations, nowUtc, created, cancellationToken).ConfigureAwait(false);
+        return new DemoDataCounts(created[0], created[1], created[2], created[3], created[4], created[5]);
     }
 
     // ---- People ------------------------------------------------------------------------------
@@ -97,6 +98,8 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
         var existing = await db.Organizations.Where(o => ids.Contains(o.Id)).ToDictionaryAsync(o => o.Id, cancellationToken).ConfigureAwait(false);
         var memberships = (await db.OrganizationMembers.Where(m => ids.Contains(m.OrganizationId)).ToListAsync(cancellationToken).ConfigureAwait(false))
             .ToDictionary(m => (m.OrganizationId, m.UserId));
+        var generalIds = plan.Companies.Select(c => DemoDataPlan.DemoId($"workspace:{c.Key}:general")).ToList();
+        var generals = await db.Workspaces.Where(w => generalIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, cancellationToken).ConfigureAwait(false);
         foreach (var company in plan.Companies)
         {
             if (existing.TryGetValue(company.Id, out var organization))
@@ -130,6 +133,15 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
                 db.OrganizationMembers.Add(member);
                 memberships[(company.Id, userId)] = member;
                 added[key] = member;
+            }
+
+            if (!isNew && added.Count > 0 && generals.TryGetValue(DemoDataPlan.DemoId($"workspace:{company.Key}:general"), out var existingGeneral))
+            {
+                // People added to an existing company (2026-11-24: everyone belongs to one) join its General workspace.
+                foreach (var member in added.Values)
+                {
+                    db.WorkspaceMembers.Add(WorkspaceMember.Join(Guid.CreateVersion7(start), existingGeneral, member, WorkspaceRole.Member, start));
+                }
             }
 
             if (isNew)
@@ -369,9 +381,14 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
             .Select(e => (e.ConversationId, e.ActorUserId, e.ClientMessageId!)).ToHashSet();
         var participants = await db.ConversationParticipants.Where(p => ids.Contains(p.ConversationId)).ToListAsync(cancellationToken).ConfigureAwait(false);
         var active = participants.Where(p => p.IsActive).Select(p => (p.ConversationId, p.UserId)).ToHashSet();
+        var caller = users[DemoDataPlan.Me];
+        var callerMention = "@" + (await db.UserProfiles.Where(p => p.UserId == caller).Select(p => p.DisplayName).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false)
+            ?? "me");
 
         var pending = 0;
         var touched = new HashSet<Guid>();
+        var unreadFrom = new Dictionary<(Guid ConversationId, Guid UserId), long>();
+        var unreadAfter = DemoDataPlan.PeriodDays * 24 * 60 - DemoDataPlan.UnreadMinutes;
         foreach (var message in plan.Messages.OrderBy(m => m.At))
         {
             if (!conversations.TryGetValue(message.ConversationKey, out var conversation))
@@ -386,7 +403,25 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
             }
 
             var at = start.AddDays(1).AddMinutes(message.At);
-            db.ConversationEvents.Add(ConversationEvent.Post(Guid.CreateVersion7(at), conversation, author, message.ClientId, message.Body, null, 20000, at));
+            var entry = ConversationEvent.Post(Guid.CreateVersion7(at), conversation, author, message.ClientId,
+                message.Body.Replace(DemoDataPlan.MeToken, callerMention, StringComparison.Ordinal), null, 20000, at);
+            db.ConversationEvents.Add(entry);
+            foreach (var mentioned in (message.Mentions ?? []).Select(k => users[k]).Distinct())
+            {
+                // Only people who take part (someone may have left); recent mentions stay unread.
+                if (mentioned == author || !active.Contains((conversation.Id, mentioned)))
+                {
+                    continue;
+                }
+
+                db.MessageMentions.Add(MessageMention.Create(Guid.CreateVersion7(at), entry, mentioned, MentionKind.User));
+                created[5]++;
+                if (message.At >= unreadAfter && !unreadFrom.ContainsKey((conversation.Id, mentioned)))
+                {
+                    unreadFrom[(conversation.Id, mentioned)] = entry.Sequence;
+                }
+            }
+
             sent.Add((conversation.Id, author, message.ClientId));
             touched.Add(conversation.Id);
             created[4]++;
@@ -397,14 +432,85 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
             }
         }
 
-        // Demo people have read everything; the person who loads it has the last few messages unread.
-        var caller = users[DemoDataPlan.Me];
+        // Demo people have read everything but their mentions of the last two days; the person who
+        // loads it also has the last few messages of each conversation unread.
+        var byId = conversations.Values.DistinctBy(c => c.Id).ToDictionary(c => c.Id);
         foreach (var participant in participants.Where(p => p.IsActive && touched.Contains(p.ConversationId)))
         {
-            var conversation = conversations.Values.First(c => c.Id == participant.ConversationId);
+            var conversation = byId[participant.ConversationId];
             var target = participant.UserId == caller ? conversation.LastSequence - (int)(conversation.Id.GetHashCode() & 3) : conversation.LastSequence;
+            if (unreadFrom.TryGetValue((conversation.Id, participant.UserId), out var firstUnread))
+            {
+                target = Math.Min(target, firstUnread - 1);
+            }
+
             participant.MarkDelivered(conversation.LastSequence, conversation.LastSequence);
             participant.MarkRead(Math.Max(target, participant.LastReadSequence), conversation.LastSequence);
+        }
+
+        await SaveAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // ---- Saved messages, reminders and scheduled messages (2026-11-24) ---------------------------
+
+    private async Task EnsureActivityAsync(
+        DemoDataPlan plan, Dictionary<string, Guid> users, Dictionary<string, Conversation> conversations, DateTimeOffset nowUtc, int[] created,
+        CancellationToken cancellationToken)
+    {
+        var ids = conversations.Values.Select(c => c.Id).Distinct().ToList();
+        var wanted = plan.Saved.Select(s => s.ClientId).Concat(plan.Reminders.Select(r => r.ClientId)).ToHashSet(StringComparer.Ordinal);
+        var messages = (await db.ConversationEvents.AsNoTracking()
+                .Where(e => ids.Contains(e.ConversationId) && e.ClientMessageId != null && e.Kind == ConversationEventKind.Message && e.DeletedAtUtc == null)
+                .ToListAsync(cancellationToken).ConfigureAwait(false))
+            .Where(e => wanted.Contains(e.ClientMessageId!))
+            .ToDictionary(e => (e.ConversationId, e.ClientMessageId!));
+        var active = (await db.ConversationParticipants.Where(p => ids.Contains(p.ConversationId) && p.Status == ParticipantStatus.Active)
+                .Select(p => new { p.ConversationId, p.UserId }).ToListAsync(cancellationToken).ConfigureAwait(false))
+            .Select(p => (p.ConversationId, p.UserId)).ToHashSet();
+        var people = users.Values.ToList();
+        var saved = (await db.SavedMessages.Where(s => people.Contains(s.UserId)).Select(s => new { s.UserId, s.EntryId })
+                .ToListAsync(cancellationToken).ConfigureAwait(false))
+            .Select(s => (s.UserId, s.EntryId)).ToHashSet();
+        var reminderIds = plan.Reminders.Select(r => DemoDataPlan.DemoId("reminder:" + r.Key)).ToList();
+        var reminders = (await db.Reminders.Where(r => reminderIds.Contains(r.Id)).Select(r => r.Id).ToListAsync(cancellationToken).ConfigureAwait(false)).ToHashSet();
+        var scheduledIds = plan.Scheduled.Select(s => DemoDataPlan.DemoId("scheduled:" + s.Key)).ToList();
+        var scheduled = (await db.ScheduledMessages.Where(s => scheduledIds.Contains(s.Id)).Select(s => s.Id).ToListAsync(cancellationToken).ConfigureAwait(false)).ToHashSet();
+
+        ConversationEvent? Find(string conversationKey, string clientId, Guid userId) =>
+            conversations.TryGetValue(conversationKey, out var conversation) && active.Contains((conversation.Id, userId))
+                && messages.TryGetValue((conversation.Id, clientId), out var message) ? message : null;
+
+        foreach (var item in plan.Saved)
+        {
+            var userId = users[item.Person];
+            if (Find(item.ConversationKey, item.ClientId, userId) is { } message && saved.Add((userId, message.Id)))
+            {
+                db.SavedMessages.Add(SavedMessage.Create(DemoDataPlan.DemoId($"saved:{item.Person}:{item.ConversationKey}:{item.ClientId}"), message, userId,
+                    message.CreatedAtUtc.AddMinutes(30) < nowUtc ? message.CreatedAtUtc.AddMinutes(30) : nowUtc));
+                created[5]++;
+            }
+        }
+
+        foreach (var item in plan.Reminders)
+        {
+            var id = DemoDataPlan.DemoId("reminder:" + item.Key);
+            var userId = users[item.Person];
+            if (!reminders.Contains(id) && Find(item.ConversationKey, item.ClientId, userId) is { } message)
+            {
+                db.Reminders.Add(Reminder.Create(id, message, userId, nowUtc.AddHours(item.HoursAhead), nowUtc));
+                created[5]++;
+            }
+        }
+
+        foreach (var item in plan.Scheduled)
+        {
+            var id = DemoDataPlan.DemoId("scheduled:" + item.Key);
+            var userId = users[item.Person];
+            if (!scheduled.Contains(id) && conversations.TryGetValue(item.ConversationKey, out var conversation) && active.Contains((conversation.Id, userId)))
+            {
+                db.ScheduledMessages.Add(ScheduledMessage.Create(id, userId, conversation.Id, item.Body, null, null, false, [], nowUtc.AddHours(item.HoursAhead), nowUtc));
+                created[5]++;
+            }
         }
 
         await SaveAsync(cancellationToken).ConfigureAwait(false);
@@ -427,7 +533,11 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
             await db.Contacts.CountAsync(c => demoUsers.Contains(c.UserLowId) || demoUsers.Contains(c.UserHighId), cancellationToken).ConfigureAwait(false),
             await db.Conversations.CountAsync(c => c.IsDemo, cancellationToken).ConfigureAwait(false),
             await db.ConversationEvents.CountAsync(e => e.Kind == ConversationEventKind.Message && demoConversations.Contains(e.ConversationId), cancellationToken)
-                .ConfigureAwait(false));
+                .ConfigureAwait(false),
+            await db.MessageMentions.CountAsync(m => demoConversations.Contains(m.ConversationId), cancellationToken).ConfigureAwait(false)
+            + await db.SavedMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false)
+            + await db.Reminders.CountAsync(r => demoConversations.Contains(r.ConversationId), cancellationToken).ConfigureAwait(false)
+            + await db.ScheduledMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<IReadOnlyList<string>> ListAttachmentKeysAsync(CancellationToken cancellationToken)
