@@ -93,7 +93,7 @@ internal static class RuntimeSettingsConfiguration
 
 /// <summary>Loads the live settings before the host serves requests and refreshes them every 30 seconds.</summary>
 internal sealed class RuntimeSettingsLoader(IServiceScopeFactory scopes, RuntimeSettingsConfigurationProvider provider, ILogger<RuntimeSettingsLoader> logger)
-    : BackgroundService
+    : Hosting.QuietBackgroundService
 {
     public static readonly TimeSpan ReloadInterval = TimeSpan.FromSeconds(30);
 
@@ -103,7 +103,7 @@ internal sealed class RuntimeSettingsLoader(IServiceScopeFactory scopes, Runtime
         await base.StartAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(ReloadInterval);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))

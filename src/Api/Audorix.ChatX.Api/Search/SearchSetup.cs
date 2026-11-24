@@ -89,9 +89,9 @@ internal static class SearchSetup
 /// When the provider is unavailable the changes wait in the queue.
 /// </summary>
 internal sealed class SearchIndexingService(
-    IServiceScopeFactory scopes, IOptions<SearchSettings> settings, TimeProvider time, ILogger<SearchIndexingService> logger) : BackgroundService
+    IServiceScopeFactory scopes, IOptions<SearchSettings> settings, TimeProvider time, ILogger<SearchIndexingService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         var prepared = false;
         var failing = false;

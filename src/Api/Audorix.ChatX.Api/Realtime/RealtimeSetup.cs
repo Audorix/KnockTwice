@@ -86,9 +86,9 @@ internal sealed class OutboxDispatcherService(
     IServiceScopeFactory scopes,
     IOptions<Application.Messaging.MessagingSettings> settings,
     TimeProvider time,
-    ILogger<OutboxDispatcherService> logger) : BackgroundService
+    ILogger<OutboxDispatcherService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(settings.Value.OutboxPollInterval, time);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -120,9 +120,9 @@ internal sealed class AttachmentCleanupService(
     IServiceScopeFactory scopes,
     IOptions<Application.Attachments.AttachmentSettings> settings,
     TimeProvider time,
-    ILogger<AttachmentCleanupService> logger) : BackgroundService
+    ILogger<AttachmentCleanupService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(settings.Value.CleanupInterval, time);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -156,9 +156,9 @@ internal sealed class PrivateChatMaintenanceService(
     IServiceScopeFactory scopes,
     IOptions<Application.PrivateChats.PrivateChatSettings> settings,
     TimeProvider time,
-    ILogger<PrivateChatMaintenanceService> logger) : BackgroundService
+    ILogger<PrivateChatMaintenanceService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(settings.Value.SweepInterval, time);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
@@ -199,9 +199,9 @@ internal sealed class RealtimeMaintenanceService(
     IServiceScopeFactory scopes,
     IOptions<RealtimeSettings> settings,
     TimeProvider time,
-    ILogger<RealtimeMaintenanceService> logger) : BackgroundService
+    ILogger<RealtimeMaintenanceService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         var options = settings.Value;
         using var timer = new PeriodicTimer(options.SweepInterval, time);

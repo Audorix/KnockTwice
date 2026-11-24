@@ -89,9 +89,9 @@ internal static class PlanningSetup
 /// half-saved behind; its failure is recorded in another scope.
 /// </summary>
 internal sealed class PlanningDispatchService(
-    IServiceScopeFactory scopes, IOptions<PlanningSettings> settings, TimeProvider time, ILogger<PlanningDispatchService> logger) : BackgroundService
+    IServiceScopeFactory scopes, IOptions<PlanningSettings> settings, TimeProvider time, ILogger<PlanningDispatchService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         var lastCleanup = DateTimeOffset.MinValue;
         using var timer = new PeriodicTimer(settings.Value.DispatchInterval, time);

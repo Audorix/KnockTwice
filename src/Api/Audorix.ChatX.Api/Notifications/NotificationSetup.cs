@@ -41,9 +41,9 @@ internal static class NotificationSetup
 /// and looks for unread messages to email once a minute.
 /// </summary>
 internal sealed class NotificationDispatchService(
-    IServiceScopeFactory scopes, IOptions<NotificationSettings> settings, TimeProvider time, ILogger<NotificationDispatchService> logger) : BackgroundService
+    IServiceScopeFactory scopes, IOptions<NotificationSettings> settings, TimeProvider time, ILogger<NotificationDispatchService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         var lastEmail = DateTimeOffset.MinValue;
         using var timer = new PeriodicTimer(settings.Value.DispatchInterval, time);

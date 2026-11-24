@@ -37,9 +37,9 @@ internal sealed class NoAuditContext : IAuditContext
 }
 
 /// <summary>Deletes audit records past <c>Audit:RetentionDays</c>, every six hours.</summary>
-internal sealed class AuditRetentionService(IServiceScopeFactory scopes, ILogger<AuditRetentionService> logger) : BackgroundService
+internal sealed class AuditRetentionService(IServiceScopeFactory scopes, ILogger<AuditRetentionService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
         do
@@ -66,9 +66,9 @@ internal sealed class AuditRetentionService(IServiceScopeFactory scopes, ILogger
 /// Applies <c>Retention</c> (Phase 13) every six hours, first five minutes after start: inactive
 /// anonymous visitors, never confirmed accounts and, when switched on, old messages.
 /// </summary>
-internal sealed class DataRetentionHostedService(IServiceScopeFactory scopes, TimeProvider time, ILogger<DataRetentionHostedService> logger) : BackgroundService
+internal sealed class DataRetentionHostedService(IServiceScopeFactory scopes, TimeProvider time, ILogger<DataRetentionHostedService> logger) : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         try
         {

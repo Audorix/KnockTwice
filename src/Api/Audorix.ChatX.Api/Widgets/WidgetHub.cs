@@ -75,9 +75,9 @@ internal sealed class WidgetConnections
 /// <summary>Closes visitor connections whose session ended or whose widget was switched off.</summary>
 internal sealed class WidgetConnectionSweeper(
     IServiceScopeFactory scopes, WidgetConnections connections, IOptions<RealtimeSettings> settings, TimeProvider time, ILogger<WidgetConnectionSweeper> logger)
-    : BackgroundService
+    : Hosting.QuietBackgroundService
 {
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task RunAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(settings.Value.SessionCheckInterval, time);
         while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
