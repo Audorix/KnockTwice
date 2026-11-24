@@ -1358,6 +1358,20 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("BannerContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("banner_content_type");
+
+                    b.Property<string>("BannerKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("banner_key");
+
+                    b.Property<int>("BannerVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("banner_version");
+
                     b.Property<string>("ChannelCreation")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1389,6 +1403,20 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("photo_content_type");
+
+                    b.Property<string>("PhotoKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("photo_key");
+
+                    b.Property<int>("PhotoVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("photo_version");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
@@ -1843,6 +1871,11 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("email_notifications");
 
+                    b.Property<string>("Handle")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("handle");
+
                     b.Property<DateTimeOffset?>("LastNotificationEmailAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_notification_email_at_utc");
@@ -1865,6 +1898,10 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("photo_version");
 
+                    b.Property<bool>("ShareEmailWithContacts")
+                        .HasColumnType("boolean")
+                        .HasColumnName("share_email_with_contacts");
+
                     b.Property<string>("Theme")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -1883,6 +1920,10 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
 
                     b.HasKey("UserId")
                         .HasName("pk_user_profiles");
+
+                    b.HasIndex("Handle")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_profiles_handle");
 
                     b.ToTable("user_profiles", null, t =>
                         {

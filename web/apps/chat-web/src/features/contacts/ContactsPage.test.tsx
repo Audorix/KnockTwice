@@ -98,6 +98,10 @@ describe('ContactsPage', () => {
         removed = ben.id;
         return new Response(null, { status: 204 });
       },
+      [`GET /api/v1/contacts/${ben.id}/details`]: () => json(200, { handle: 'benbrown', email: 'ben@example.org', emailShared: true }),
+      [`GET /api/v1/users/${ben.id}/links`]: () => json(200, []),
+      [`GET /api/v1/contacts/${person(1).id}/details`]: () => json(200, { handle: 'person01', email: null, emailShared: false }),
+      [`GET /api/v1/users/${person(1).id}/links`]: () => json(200, []),
     });
     const u = userEvent.setup();
     render(<AuthProvider><ContactsPage /></AuthProvider>);
@@ -120,13 +124,38 @@ describe('ContactsPage', () => {
     await u.selectOptions(screen.getByLabelText('Sort'), 'recent');
     expect(within(screen.getAllByRole('row')[1]!).getByText('Person 10')).toBeInTheDocument();
 
-    // The row menu opens the profile; removing closes it.
+    // A contact who keeps their email private: "Email not shared", and no copy button for it.
     await u.selectOptions(screen.getByLabelText('Sort'), 'nameAsc');
+    await u.click(screen.getByRole('button', { name: 'Person 01' }));
+    let profile = screen.getByRole('dialog', { name: 'Contact profile' });
+    expect(await within(profile).findByText('@person01')).toBeInTheDocument();
+    expect(within(profile).getByText('Email not shared')).toBeInTheDocument();
+    expect(within(profile).queryByRole('button', { name: 'Copy email address' })).not.toBeInTheDocument();
+    await u.keyboard('{Escape}');
+
+    // The row menu opens the profile (owner mockup): photo and status, Message and View full
+    // profile, details with one-click copy, shared organizations and the contact date.
     await u.click(screen.getByRole('button', { name: 'More actions for Ben Brown' }));
     await u.click(screen.getByRole('menuitem', { name: 'View profile' }));
-    const profile = screen.getByRole('dialog', { name: 'Profile of Ben Brown' });
+    profile = screen.getByRole('dialog', { name: 'Contact profile' });
+    expect(within(profile).getByText('Ben Brown')).toBeInTheDocument();
+    expect(within(profile).getByText('Offline')).toBeInTheDocument();
+    expect(within(profile).getByRole('button', { name: 'Message' })).toBeInTheDocument();
+    expect(within(profile).getByRole('link', { name: 'View full profile' })).toHaveAttribute('href', `/person?id=${ben.id}`);
     expect(within(profile).getByText('Acme')).toBeInTheDocument();
-    await u.click(within(profile).getByRole('button', { name: 'Remove contact' }));
+    expect(within(profile).getByText(/Contact since/)).toBeInTheDocument();
+    expect(await within(profile).findByText('ben@example.org')).toBeInTheDocument();
+    await u.click(within(profile).getByRole('button', { name: 'Copy email address' }));
+    expect(await navigator.clipboard.readText()).toBe('ben@example.org');
+    expect(within(profile).getAllByRole('status').some((s) => s.textContent === 'Copied')).toBe(true);
+    await u.click(within(profile).getByRole('button', { name: 'Copy Display ID' }));
+    expect(await navigator.clipboard.readText()).toBe('@benbrown');
+
+    // Remove and Block live under "Manage contact"; removing closes the drawer.
+    expect(within(profile).queryByRole('button', { name: 'Remove contact' })).not.toBeInTheDocument();
+    await u.click(within(profile).getByRole('button', { name: 'Manage contact' }));
+    expect(within(profile).getByRole('menuitem', { name: 'Block contact' })).toBeInTheDocument();
+    await u.click(within(profile).getByRole('menuitem', { name: 'Remove contact' }));
     expect(await screen.findByText('Showing 1–8 of 10 contacts')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });

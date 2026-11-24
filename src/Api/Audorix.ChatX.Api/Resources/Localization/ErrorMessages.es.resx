@@ -162,4 +162,6 @@
   <data name="guest_role_fixed" xml:space="preserve"><value>Los invitados no pueden administrar conversaciones.</value></data>
   <data name="assignee_not_agent" xml:space="preserve"><value>Solo se puede asignar a agentes de soporte, administradores o participantes.</value></data>
   <data name="not_a_support_conversation" xml:space="preserve"><value>Esta operación solo está disponible para conversaciones del sitio web.</value></data>
+  <data name="handle_invalid" xml:space="preserve"><value>Ese ID visible no es válido. Use de 3 a 30 letras, dígitos, puntos o guiones bajos.</value></data>
+  <data name="handle_taken" xml:space="preserve"><value>Ese ID visible ya está en uso.</value></data>
 </root>

@@ -79,7 +79,8 @@ describe('Home page (redesign 2026-11)', () => {
     const attention = screen.getByRole('region', { name: 'Needs your attention' });
     expect(await within(attention).findByText('2 contact requests')).toBeInTheDocument();
     expect(await within(attention).findByText('Release review')).toBeInTheDocument();
-    expect(within(attention).getByText(/Today, .* · # customers/)).toBeInTheDocument();
+    // Three hours from now: tomorrow when the test runs late in the evening.
+    expect(within(attention).getByText(/(Today|Tomorrow), .* · # customers/)).toBeInTheDocument();
 
     const workspaces = screen.getByRole('region', { name: 'Your workspaces' });
     expect(await within(workspaces).findByRole('link', { name: 'Open General in Iron Motors' })).toHaveAttribute('href', '/channels?org=o-2&ws=w-1');

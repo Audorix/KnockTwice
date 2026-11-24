@@ -15,3 +15,8 @@ FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /web/apps/chat-web/dist /usr/share/nginx/html
 EXPOSE 8080
+
+# Healthy when nginx answers and passes /health/live through to the API (busybox wget is in the
+# alpine image; the API image has no HTTP client, so this one check covers both).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8080/health/live || exit 1

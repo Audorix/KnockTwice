@@ -55,6 +55,90 @@ public sealed class Organization
     public bool IsDemo { get; private set; }
 
     public void MarkAsDemo() => IsDemo = true;
+
+    // ---- Picture and background image (redesign 2026-11-24, owner mockup "Organization profile").
+
+    /// <summary>Storage key of the square picture shown in lists and headers; null for the initials.</summary>
+    public string? PhotoKey { get; private set; }
+
+    public string? PhotoContentType { get; private set; }
+
+    /// <summary>Increases with every change, so picture addresses can be cached for good.</summary>
+    public int PhotoVersion { get; private set; }
+
+    /// <summary>Storage key of the wide background image of the organization's header; null for none.</summary>
+    public string? BannerKey { get; private set; }
+
+    public string? BannerContentType { get; private set; }
+
+    public int BannerVersion { get; private set; }
+
+    /// <summary>Uses a new picture or background image; returns the key of the one it replaces (to delete), if any.</summary>
+    public string? SetImage(OrganizationImage kind, string key, string contentType, DateTimeOffset nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(contentType))
+        {
+            throw new DomainRuleException("image_invalid", "A stored image is required.");
+        }
+
+        string? previous;
+        if (Require.Defined(kind) == OrganizationImage.Photo)
+        {
+            previous = PhotoKey;
+            (PhotoKey, PhotoContentType) = (key, contentType);
+            PhotoVersion++;
+        }
+        else
+        {
+            previous = BannerKey;
+            (BannerKey, BannerContentType) = (key, contentType);
+            BannerVersion++;
+        }
+
+        UpdatedAtUtc = Require.Utc(nowUtc);
+        return previous;
+    }
+
+    /// <summary>Removes the picture or background image; returns the removed key, if any.</summary>
+    public string? RemoveImage(OrganizationImage kind, DateTimeOffset nowUtc)
+    {
+        string? previous;
+        if (Require.Defined(kind) == OrganizationImage.Photo)
+        {
+            previous = PhotoKey;
+            if (previous is null)
+            {
+                return null;
+            }
+
+            (PhotoKey, PhotoContentType) = (null, null);
+            PhotoVersion++;
+        }
+        else
+        {
+            previous = BannerKey;
+            if (previous is null)
+            {
+                return null;
+            }
+
+            (BannerKey, BannerContentType) = (null, null);
+            BannerVersion++;
+        }
+
+        UpdatedAtUtc = Require.Utc(nowUtc);
+        return previous;
+    }
+}
+
+/// <summary>The organization's two images.</summary>
+public enum OrganizationImage
+{
+    /// <summary>Square picture (like a profile photo).</summary>
+    Photo = 1,
+
+    /// <summary>Wide background image of the header.</summary>
+    Banner = 2,
 }
 
 /// <summary>Who may create channels (organization setting, Phase 11).</summary>

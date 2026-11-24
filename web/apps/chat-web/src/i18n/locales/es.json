@@ -28,7 +28,9 @@
     "support": "Soporte",
     "search": "Buscar",
     "mentions": "Actividad",
-    "homeItem": "Inicio"
+    "homeItem": "Inicio",
+    "more": "Más",
+    "moreLabel": "Más páginas"
   },
   "mentions": {
     "title": "Menciones",
@@ -493,7 +495,9 @@
     "reminder_not_found": "Este recordatorio ya no existe.",
     "channel_archived": "Este canal está archivado y es de solo lectura.",
     "photo_too_large": "La foto es demasiado grande.",
-    "photo_type_invalid": "Use una imagen JPG, PNG o WebP."
+    "photo_type_invalid": "Use una imagen JPG, PNG o WebP.",
+    "handle_invalid": "Ese ID visible no es válido. Use de 3 a 30 letras, dígitos, puntos o guiones bajos.",
+    "handle_taken": "Ese ID visible ya está en uso."
   },
   "fieldErrors": {
     "invalid": "Este valor no es válido.",
@@ -549,7 +553,6 @@
     "removeNamed": "Quitar a {{name}}",
     "block": "Bloquear",
     "blockNamed": "Bloquear a {{name}}",
-    "blockConfirm": "¿Bloquear a {{name}}? Dejarán de ser contactos, se cerrarán las solicitudes pendientes y ninguno podrá encontrar ni añadir al otro.",
     "blocked": "Personas bloqueadas",
     "unblock": "Desbloquear",
     "subtitle": "Tu gente, a una conversación de distancia.",
@@ -627,7 +630,6 @@
     "roleFor": "Rol de {{name}}",
     "removeNamed": "Quitar a {{name}} de la organización",
     "leave": "Salir de la organización",
-    "leaveConfirm": "¿Salir de {{name}}? Perderá el acceso a sus espacios de trabajo.",
     "invite": "Invitar personas",
     "inviteHint": "Verán la invitación al iniciar sesión con esta dirección.",
     "role": "Rol",
@@ -657,7 +659,6 @@
       "start": "Eliminar organización…",
       "summary": "Elimina la organización con todos sus espacios de trabajo, canales, conversaciones, mensajes, archivos, equipos, invitados y chats de sitio web, para todos. No se puede deshacer.",
       "typeName": "Escriba el nombre de la organización ({{name}}) para confirmar",
-      "prompt": "Esto elimina «{{name}}» con todas sus conversaciones, mensajes y archivos, para todos. Escriba el nombre de la organización para confirmar:",
       "submit": "Eliminar organización definitivamente",
       "cancel": "Cancelar"
     },
@@ -770,7 +771,6 @@
     "removeNamed": "Quitar a {{name}} de la conversación",
     "addPeople": "Añadir personas",
     "leave": "Salir del grupo",
-    "leaveConfirm": "¿Salir de {{name}}? Perderá el acceso a su historial.",
     "removedNotice": "Ya no tiene acceso a esa conversación.",
     "roles": {
       "owner": "Propietario",
@@ -842,7 +842,6 @@
     "upToDate": "Los datos de demostración ya están completos; no se añadió nada.",
     "signInAs": "Todas las cuentas de demostración usan la contraseña {{password}}. Por ejemplo:",
     "clear": "Borrar los datos de demostración",
-    "clearConfirm": "¿Eliminar todos los datos de demostración? Se borran las personas de demostración (y lo que escribieron), las empresas y las conversaciones de demostración. Las conversaciones y los datos creados por personas reales se conservan.",
     "cleared": "Se eliminaron {{users}} personas, {{organizations}} empresas, {{conversations}} conversaciones y {{messages}} mensajes de demostración.",
     "existing": "Cargado ahora: {{users}} personas, {{organizations}} empresas, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad, {{support}} conversaciones de soporte.",
     "lead": "Cargue un espacio de trabajo realista para desarrollo y pruebas.",
@@ -869,7 +868,6 @@
     "reply": "Responder",
     "edit": "Editar",
     "delete": "Eliminar",
-    "deleteConfirm": "¿Eliminar este mensaje para todos?",
     "deleted": "Este mensaje se eliminó.",
     "edited": "editado",
     "editing": "Editando su mensaje",
@@ -1327,14 +1325,12 @@
       "organizations_other": "{{count}} organizaciones",
       "enable": "Activar",
       "disable": "Desactivar",
-      "disableConfirm": "¿Desactivar a {{name}}? Se cerrarán todas sus sesiones y no podrá entrar hasta que se active de nuevo.",
       "signOut": "Cerrar todas las sesiones",
       "signedOut": "Se cerraron las sesiones de {{name}} en todos los dispositivos.",
       "confirm": "Marcar correo confirmado",
       "resend": "Reenviar confirmación",
       "resent": "Se envió un nuevo correo de confirmación.",
       "delete": "Eliminar",
-      "deleteConfirm": "¿Eliminar la cuenta de {{name}}? Se borran sus datos personales y sus mensajes muestran «Usuario eliminado». No se puede deshacer.",
       "deleted": "Se eliminó a {{name}}.",
       "subtitle": "Gestione las cuentas y los roles de la instalación.",
       "statusLabel": "Estado",
@@ -1382,7 +1378,6 @@
       "rename": "Renombrar",
       "role": "Rol de {{name}}",
       "remove": "Quitar",
-      "removeConfirm": "¿Quitar a {{name}} de la organización? También saldrá de sus conversaciones.",
       "subtitle": "Consulte las organizaciones de la instalación y sus miembros.",
       "columns": {
         "organization": "Organización",
@@ -1724,7 +1719,6 @@
       "status_other": "Proveedor: {{provider}}. {{count}} cambios de mensajes pendientes de indexar.",
       "hint": "Los mensajes nuevos, editados y eliminados se indexan en segundos. Reconstruya el índice después de cambiar de proveedor de búsqueda, o si los resultados no parecen correctos.",
       "rebuild": "Reconstruir el índice",
-      "rebuildConfirm": "¿Vaciar el índice de búsqueda e indexar de nuevo todos los mensajes? Los resultados estarán incompletos hasta que termine.",
       "rebuilt_one": "{{count}} mensaje en cola para indexar.",
       "rebuilt_other": "{{count}} mensajes en cola para indexar.",
       "pending_one": "{{count}} cambio pendiente",
@@ -1798,7 +1792,6 @@
     "enabled": "El chat está activo",
     "saved": "Guardado.",
     "rotate": "Reemplazar el secreto de firma",
-    "rotateConfirm": "¿Reemplazar el secreto de firma? Tu sitio web debe usar el nuevo de inmediato: los tokens firmados con el anterior dejan de funcionar.",
     "secretTitle": "Secreto de firma:",
     "secretHint": "cópialo ahora y guárdalo solo en tu servidor web. No se vuelve a mostrar.",
     "secret": "Secreto de firma",
@@ -1872,7 +1865,6 @@
     "create": "Crear canal",
     "back": "← Canales",
     "leave": "Salir",
-    "leaveConfirm": "¿Salir de {{name}}? Perderás el acceso a su historial.",
     "settings": "Ajustes del canal",
     "roles": {
       "manager": "Gestor",
@@ -1945,7 +1937,6 @@
     "privacyNote": "Los canales privados solo los ven sus miembros.",
     "archive": "Archivar canal",
     "restore": "Restaurar canal",
-    "archiveConfirm": "¿Archivar {{name}}? Quedará de solo lectura para todos hasta que un responsable lo restaure.",
     "leaveChannel": "Salir del canal",
     "justNow": "Ahora mismo",
     "closePanel": "Cerrar",
@@ -2068,7 +2059,6 @@
     "noGuests": "No hay invitados.",
     "noChannels": "sin canales",
     "removeGuestNamed": "Quitar al invitado {{name}}",
-    "removeGuestConfirm": "¿Quitar a {{name}}? Pierde el acceso a todos los canales de esta organización.",
     "teamsTitle": "Equipos",
     "teamsIntro": "Grupos de miembros del espacio. Añadir un equipo a un canal añade a sus miembros, también a quienes se unan después.",
     "noTeams": "Todavía no hay equipos.",
@@ -2080,7 +2070,6 @@
     },
     "deleteTeam": "Eliminar",
     "deleteTeamNamed": "Eliminar el equipo {{name}}",
-    "deleteTeamConfirm": "¿Eliminar el equipo {{name}}? Quienes añadió a canales se quedan en ellos.",
     "newTeam": "Nuevo equipo",
     "createTeam": "Crear equipo",
     "teamMembersOf": "Miembros de {{name}}",
@@ -2268,7 +2257,11 @@
       "subtitle": "Elija el nombre que ven los demás.",
       "nameHint": "Se usa en conversaciones, menciones y búsquedas.",
       "emailHint": "Su dirección de acceso. Solo la ven usted y los administradores.",
-      "save": "Guardar el perfil"
+      "save": "Guardar el perfil",
+      "handle": "ID visible",
+      "handleHint": "Cómo le encuentran y reconocen, por ejemplo @sunombre. Letras, dígitos, puntos y guiones bajos.",
+      "shareEmail": "Mostrar mi correo electrónico a mis contactos",
+      "emailHintShared": "Sus contactos lo ven en su perfil. Los administradores también."
     },
     "appearance": {
       "title": "Apariencia",
@@ -2370,5 +2363,143 @@
       "channels": "Canales",
       "compose": "Mensaje para #design-team…"
     }
+  },
+  "confirm": {
+    "cancel": "Cancelar",
+    "close": "Cerrar",
+    "disableUser": {
+      "title": "¿Desactivar a {{name}}?",
+      "text": "Se cerrará su sesión en todas partes y no podrá iniciar sesión hasta que se vuelva a activar.",
+      "action": "Desactivar cuenta"
+    },
+    "deleteUser": {
+      "title": "¿Eliminar la cuenta de {{name}}?",
+      "text": "Sus datos personales se borran y sus mensajes muestran \"Usuario eliminado\". Esto no se puede deshacer.",
+      "action": "Eliminar cuenta"
+    },
+    "removeMember": {
+      "title": "¿Quitar a {{name}}?",
+      "text": "Saldrá de la organización y de sus conversaciones.",
+      "action": "Quitar"
+    },
+    "rebuildIndex": {
+      "title": "¿Reconstruir el índice de búsqueda?",
+      "text": "El índice se vacía y todos los mensajes se indexan de nuevo. Los resultados estarán incompletos hasta que termine.",
+      "action": "Reconstruir índice"
+    },
+    "leaveChannel": {
+      "title": "¿Salir de {{name}}?",
+      "text": "Perderá el acceso a su historial.",
+      "action": "Salir del canal"
+    },
+    "archiveChannel": {
+      "title": "¿Archivar {{name}}?",
+      "text": "Quedará en solo lectura para todos hasta que un responsable lo restaure.",
+      "action": "Archivar"
+    },
+    "removeGuest": {
+      "title": "¿Quitar a {{name}}?",
+      "text": "Perderá el acceso a todos los canales de esta organización.",
+      "action": "Quitar invitado"
+    },
+    "deleteTeam": {
+      "title": "¿Eliminar el equipo {{name}}?",
+      "text": "Las personas que añadió a canales siguen en ellos.",
+      "action": "Eliminar equipo"
+    },
+    "block": {
+      "title": "¿Bloquear a {{name}}?",
+      "text": "Dejarán de ser contactos, las solicitudes pendientes se cierran y ninguno de los dos podrá encontrar ni añadir al otro.",
+      "action": "Bloquear"
+    },
+    "deleteMessage": {
+      "title": "¿Eliminar este mensaje?",
+      "text": "Se elimina para todos en la conversación.",
+      "action": "Eliminar"
+    },
+    "leaveConversation": {
+      "title": "¿Salir de {{name}}?",
+      "text": "Perderá el acceso a su historial.",
+      "action": "Salir"
+    },
+    "clearDemo": {
+      "title": "¿Quitar todos los datos de demostración?",
+      "text": "Se eliminan las personas de demostración (y lo que escribieron), las empresas y las conversaciones de demostración. Las conversaciones y los datos creados por personas reales se conservan.",
+      "action": "Quitar datos de demostración"
+    },
+    "leaveOrganization": {
+      "title": "¿Salir de {{name}}?",
+      "text": "Perderá el acceso a sus espacios de trabajo.",
+      "action": "Salir de la organización"
+    },
+    "rotateSecret": {
+      "title": "¿Reemplazar el secreto de firma?",
+      "text": "Su sitio web debe usar el nuevo de inmediato: los tokens de identidad firmados con el secreto anterior dejan de funcionar.",
+      "action": "Reemplazar secreto"
+    },
+    "deleteOrganization": {
+      "title": "¿Eliminar {{name}}?",
+      "text": "La organización se elimina con todas sus conversaciones, mensajes y archivos, para todos. Esto no se puede deshacer."
+    }
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "text": "Esta dirección no existe en Knock Twice. Puede que se haya movido o que el enlace esté mal escrito.",
+    "home": "Ir a la página de inicio"
+  },
+  "orgPage": {
+    "tabsLabel": "Secciones de la organización",
+    "tabs": {
+      "profile": "Perfil",
+      "members": "Miembros",
+      "workspaces": "Espacios de trabajo",
+      "channels": "Canales e invitados",
+      "website": "Chat del sitio web",
+      "settings": "Configuración"
+    },
+    "memberCount_one": "{{count}} miembro",
+    "memberCount_other": "{{count}} miembros",
+    "workspaceCount_one": "{{count}} espacio de trabajo",
+    "workspaceCount_other": "{{count}} espacios de trabajo",
+    "changePicture": "Cambiar imagen",
+    "changeBackground": "Cambiar fondo",
+    "profileTitle": "Perfil de la organización",
+    "saveChanges": "Guardar cambios",
+    "saved": "Guardado.",
+    "pictureHeading": "Imagen de la organización",
+    "pictureHint": "Se muestra en la lista de organizaciones y en el encabezado de la organización.",
+    "backgroundHeading": "Imagen de fondo",
+    "backgroundHint": "Una imagen ancha detrás del encabezado de la organización.",
+    "glance": "De un vistazo",
+    "guests": "Invitados",
+    "quickActions": "Acciones rápidas",
+    "channelsHint": "Cree, archive y gestione los canales de los espacios de trabajo de esta organización.",
+    "openChannels": "Abrir canales",
+    "pictureTitle": "Cambiar la imagen de la organización",
+    "pictureSubtitle": "Elija una imagen cuadrada, por ejemplo su logotipo.",
+    "backgroundTitle": "Cambiar la imagen de fondo",
+    "backgroundSubtitle": "Elija una imagen ancha para el encabezado de la organización.",
+    "removePicture": "Quitar imagen",
+    "removePictureHint": "Volver a mostrar las iniciales.",
+    "removeBackground": "Quitar fondo",
+    "removeBackgroundHint": "Volver a mostrar el encabezado sin imagen.",
+    "saveImage": "Guardar imagen",
+    "currentImage": "Imagen actual"
+  },
+  "contactProfile": {
+    "title": "Perfil del contacto",
+    "viewFull": "Ver perfil completo",
+    "details": "Datos del contacto",
+    "email": "Correo electrónico",
+    "emailNotShared": "Correo no compartido",
+    "displayId": "ID visible",
+    "copyEmail": "Copiar el correo electrónico",
+    "copyDisplayId": "Copiar el ID visible",
+    "copied": "Copiado",
+    "manage": "Gestionar contacto",
+    "backToContacts": "Volver a contactos",
+    "noLinks": "No comparte enlaces con sus contactos.",
+    "removeTitle": "¿Quitar a {{name}} de sus contactos?",
+    "removeText": "Podrán seguir encontrándose y enviar una nueva solicitud más adelante."
   }
 }

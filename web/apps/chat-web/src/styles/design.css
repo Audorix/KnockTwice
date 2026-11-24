@@ -7697,3 +7697,646 @@ button.cx-person:hover .cx-person-name {
   font-size: 0.8125rem;
   font-weight: 500;
 }
+
+/* ---- 1.0 release fixes (2026-11-24): confirm variants, not-found page, organization and channel pages ---- */
+
+.cx-confirm-icon.is-primary {
+  background: rgba(var(--cx-primary-rgb), 0.18);
+  color: var(--cx-primary);
+}
+
+.cx-not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 36rem;
+  margin: 3rem auto 0;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.cx-not-found-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  margin-bottom: 1.25rem;
+  border-radius: 50%;
+  background: rgba(var(--cx-primary-rgb), 0.14);
+  color: var(--cx-primary);
+}
+
+.cx-not-found-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  font-weight: 800;
+}
+
+.cx-organization-page,
+.cx-channel-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.cx-organization-page > .cx-card,
+.cx-channel-page > .cx-card {
+  margin-top: 0 !important;
+}
+
+.cx-organization-page .cx-page-header,
+.cx-channel-page .cx-page-header {
+  align-items: flex-start;
+}
+
+/* ---- Organization page (owner mockup 2026-11-24): hero with picture and background, tabs ---- */
+
+.cx-organization-mark.is-sm { width: 2rem; height: 2rem; font-size: 0.8rem; }
+.cx-organization-mark.is-lg { width: 6rem; height: 6rem; font-size: 1.75rem; border-radius: 1rem; border: 1px solid var(--cx-border); }
+.cx-organization-mark.is-xl { width: 9rem; height: 9rem; font-size: 2.5rem; border-radius: 1.5rem; border: 1px solid var(--cx-border); }
+
+.cx-organization-mark.has-photo {
+  overflow: hidden;
+  background: var(--cx-surface);
+}
+
+.cx-organization-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cx-org-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  background-color: var(--cx-surface);
+  background-position: center;
+  background-size: cover;
+}
+
+/* No background image: soft lines like the mockup. */
+.cx-org-hero:not([style])::after {
+  position: absolute;
+  inset: -60% -10% auto 40%;
+  height: 30rem;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at center, transparent 55%, rgba(var(--cx-primary-rgb), 0.18) 55.4%, transparent 56%),
+    radial-gradient(ellipse at center, transparent 62%, rgba(var(--cx-primary-rgb), 0.12) 62.4%, transparent 63%),
+    radial-gradient(ellipse at center, transparent 69%, rgba(var(--cx-primary-rgb), 0.08) 69.4%, transparent 70%);
+  content: '';
+  pointer-events: none;
+}
+
+.cx-org-hero-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  padding: 2.25rem 2.25rem;
+}
+
+/* A background image gets a shade, so the name stays readable in both themes. */
+.cx-org-hero-inner.has-banner {
+  background: linear-gradient(90deg, rgba(12, 17, 22, 0.78) 0%, rgba(12, 17, 22, 0.45) 55%, rgba(12, 17, 22, 0.2) 100%);
+  color: #ffffff;
+}
+
+.cx-org-hero-inner.has-banner .cx-org-hero-meta {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.cx-org-hero-mark {
+  position: relative;
+  flex: none;
+}
+
+.cx-org-hero-camera {
+  position: absolute;
+  right: -0.5rem;
+  bottom: -0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 2px solid var(--cx-surface);
+  border-radius: 50%;
+  background: var(--cx-raised);
+  color: var(--cx-text);
+}
+
+.cx-org-hero-camera:hover {
+  background: var(--cx-primary);
+  color: #ffffff;
+}
+
+.cx-org-hero-name {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.cx-org-hero-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 1.3rem + 1.4vw, 2.6rem);
+  font-weight: 800;
+}
+
+.cx-org-role {
+  flex: none;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #111827;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.cx-org-hero-meta {
+  margin-top: 0.4rem;
+  color: var(--cx-text-muted);
+  font-size: 1.1rem;
+}
+
+.cx-org-hero-action {
+  flex: none;
+  align-self: center;
+}
+
+.cx-org-hero-inner:not(.has-banner) .cx-org-hero-action {
+  border-color: var(--cx-border-strong, var(--cx-border));
+  color: var(--cx-text);
+}
+
+.cx-org-hero-inner:not(.has-banner) .cx-org-hero-action:hover {
+  background: var(--cx-raised);
+}
+
+.cx-org-tabs {
+  margin: 0;
+}
+
+.cx-org-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cx-org-panel > .cx-card,
+.cx-org-panel .cx-card.mt-3 {
+  margin-top: 0 !important;
+}
+
+.cx-org-profile {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(16rem, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.cx-org-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cx-org-profile-card {
+  padding: 1.5rem 1.75rem;
+}
+
+.cx-org-name-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.cx-org-name-form .btn {
+  flex: none;
+  min-height: 2.75rem;
+  font-weight: 700;
+}
+
+.cx-org-divider {
+  margin: 1.5rem 0 1.25rem;
+  border-color: var(--cx-border);
+  opacity: 1;
+}
+
+.cx-org-subtitle {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.cx-org-image-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.cx-org-banner-preview {
+  width: 16rem;
+  max-width: 100%;
+  aspect-ratio: 4 / 1;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-sm);
+  background-color: var(--cx-raised);
+  background-position: center;
+  background-size: cover;
+}
+
+.cx-org-banner-preview.is-empty {
+  background-image: linear-gradient(120deg, rgba(var(--cx-primary-rgb), 0.18), transparent 70%);
+}
+
+.cx-org-glance li {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.75rem 0;
+}
+
+.cx-org-glance li + li {
+  border-top: 1px solid var(--cx-border);
+}
+
+.cx-org-glance svg {
+  flex: none;
+  color: var(--cx-text-muted);
+}
+
+.cx-org-quick {
+  justify-content: flex-start;
+  padding: 0.65rem 1rem;
+  font-weight: 600;
+}
+
+.cx-org-channels-link,
+.cx-org-leave {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* Crop shapes (organization picture: rounded square; background: rectangle). */
+.cx-photo-mask.is-rounded { border-radius: 1.25rem; }
+.cx-photo-mask.is-rect { border-radius: 0.5rem; }
+.cx-photo-preview-circle.is-rounded { border-radius: 22%; }
+.cx-photo-preview-circle.is-rect { border-radius: 0.375rem; }
+.cx-photo-dialog.is-wide .cx-photo-stage { max-width: none; }
+
+@media (max-width: 991.98px) {
+  .cx-org-profile {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .cx-org-hero-inner {
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .cx-organization-mark.is-xl {
+    width: 6rem;
+    height: 6rem;
+    font-size: 1.75rem;
+  }
+
+  .cx-org-hero-name {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .cx-org-hero-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .cx-org-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .cx-org-tabs .cx-tab {
+    white-space: nowrap;
+  }
+
+  .cx-org-name-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cx-org-profile-card {
+    padding: 1.25rem;
+  }
+}
+
+/* ---- Phones: Support, Private and Admin behind "More" (owner request 2026-11-24) ---- */
+
+.cx-rail-more {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .cx-rail-in-more {
+    display: none;
+  }
+
+  .cx-rail-more {
+    position: relative;
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cx-rail-more > .cx-rail-link {
+    width: 100%;
+    border: 0;
+    background: none;
+  }
+
+  .cx-rail-more > .cx-rail-link.is-active,
+  .cx-rail-more > .cx-rail-link[aria-expanded='true'] {
+    color: var(--cx-primary);
+  }
+
+  .cx-rail-more-menu {
+    position: absolute;
+    top: auto;
+    right: 0.25rem;
+    bottom: calc(100% + 0.5rem);
+    min-width: 13rem;
+  }
+
+  .cx-rail-more-menu .cx-menu-item {
+    text-decoration: none;
+  }
+
+  .cx-rail-more-menu .cx-menu-item.is-active {
+    background: rgba(var(--cx-primary-rgb), 0.14);
+    color: var(--cx-primary);
+  }
+
+  .cx-rail-badge.is-inline {
+    position: static;
+    transform: none;
+  }
+}
+
+/* ---- Contact profile drawer and full profile (owner mockup 2026-11-24) ---- */
+
+.cx-contact-drawer {
+  gap: 0;
+  width: min(30rem, 100%);
+  padding: 0;
+}
+
+.cx-contact-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 0.75rem;
+}
+
+.cx-contact-drawer-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.cx-contact-drawer-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 1.5rem 1.5rem;
+  overflow-y: auto;
+}
+
+.cx-contact-identity {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--cx-border);
+  border-left: 4px solid var(--cx-primary);
+  border-radius: var(--cx-radius-sm);
+  background: var(--cx-raised);
+}
+
+.cx-contact-identity .cx-avatar-xl {
+  width: 6.25rem;
+  height: 6.25rem;
+  font-size: 2.25rem;
+}
+
+.cx-contact-name {
+  margin: 0 0 0.35rem;
+  overflow-wrap: anywhere;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.cx-contact-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--cx-text-muted);
+}
+
+.cx-contact-presence .cx-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+}
+
+.cx-contact-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.cx-contact-actions .btn {
+  justify-content: center;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.cx-contact-card {
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-sm);
+}
+
+.cx-contact-card-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.cx-contact-details > div {
+  padding: 0.7rem 0;
+}
+
+.cx-contact-details > div + div {
+  border-top: 1px solid var(--cx-border);
+}
+
+.cx-contact-details > div:first-child {
+  border-top: 1px solid var(--cx-border);
+}
+
+.cx-contact-details dt {
+  font-weight: 700;
+}
+
+.cx-contact-details dd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--cx-text-muted);
+}
+
+.cx-copy {
+  flex: none;
+}
+
+.cx-copy.is-copied {
+  color: var(--cx-up, var(--cx-primary));
+}
+
+.cx-contact-orgs {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.cx-contact-orgs > svg {
+  flex: none;
+  margin-top: 0.15rem;
+  color: var(--cx-text-muted);
+}
+
+.cx-contact-since {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0;
+  padding: 0 1.25rem;
+}
+
+.cx-contact-since svg {
+  color: var(--cx-text-muted);
+}
+
+.cx-contact-drawer-foot {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid var(--cx-border);
+}
+
+.cx-contact-manage {
+  position: relative;
+}
+
+.cx-contact-manage-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem;
+  border: 0;
+  background: none;
+  color: var(--cx-text);
+  font-weight: 700;
+}
+
+.cx-contact-manage-button:hover,
+.cx-contact-manage-button[aria-expanded='true'] {
+  color: var(--cx-primary);
+}
+
+.cx-contact-manage-menu {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 0.5rem);
+  left: 0;
+}
+
+/* Full profile page. */
+.cx-person-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 64rem;
+}
+
+.cx-person-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 1.75rem 2rem;
+}
+
+.cx-person-page-name {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.25rem);
+  font-weight: 800;
+}
+
+.cx-person-hero .cx-contact-actions {
+  display: flex;
+  align-items: center;
+}
+
+.cx-person-hero .cx-contact-manage-menu {
+  right: 0;
+  left: auto;
+  top: calc(100% + 0.5rem);
+  bottom: auto;
+}
+
+.cx-person-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 767.98px) {
+  .cx-contact-identity {
+    gap: 1rem;
+  }
+
+  .cx-contact-identity .cx-avatar-xl {
+    width: 4.5rem;
+    height: 4.5rem;
+    font-size: 1.6rem;
+  }
+
+  .cx-contact-name {
+    font-size: 1.3rem;
+  }
+
+  .cx-person-hero {
+    padding: 1.25rem;
+  }
+
+  .cx-person-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

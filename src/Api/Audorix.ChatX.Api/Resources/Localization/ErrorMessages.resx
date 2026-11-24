@@ -162,4 +162,6 @@
   <data name="guest_role_fixed" xml:space="preserve"><value>Guests cannot manage conversations.</value></data>
   <data name="assignee_not_agent" xml:space="preserve"><value>Conversations can only be assigned to support agents, administrators or people taking part.</value></data>
   <data name="not_a_support_conversation" xml:space="preserve"><value>This operation is only available for website conversations.</value></data>
+  <data name="handle_invalid" xml:space="preserve"><value>That display ID is not valid. Use 3 to 30 letters, digits, dots or underscores.</value></data>
+  <data name="handle_taken" xml:space="preserve"><value>That display ID is already taken.</value></data>
 </root>

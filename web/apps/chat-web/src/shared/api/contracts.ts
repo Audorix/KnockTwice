@@ -137,6 +137,15 @@ export interface CurrentUserResponse {
   externalProviders: string[];
   roles: string[];
   permissions: string[];
+  /** Display ID, shown as @handle (2026-11-24). */
+  handle?: string | null;
+}
+
+/** A contact's drawer details (2026-11-24): the email only when they share it. */
+export interface ContactDetailsResponse {
+  handle: string | null;
+  email: string | null;
+  emailShared: boolean;
 }
 
 /** Initials, and the profile photo's address when the person has one (redesign 2026-11). */
@@ -414,6 +423,8 @@ export interface UserPreferences {
   notificationPreviews?: boolean;
   /** Phase 15: unread-message emails. */
   emailNotifications?: 'batched' | 'daily' | 'off';
+  /** Contacts see the email address (2026-11-24; off by default). */
+  shareEmailWithContacts?: boolean;
 }
 
 export type AttachmentKind = 'image' | 'file';
@@ -520,6 +531,9 @@ export interface OrganizationResponse {
   supportAgent?: boolean;
   guestsEnabled?: boolean;
   channelCreation?: 'members' | 'administrators';
+  /** Square picture and wide background image (2026-11-24); versioned addresses, null when none. */
+  photoUrl?: string | null;
+  bannerUrl?: string | null;
 }
 
 export interface OrganizationMemberResponse {

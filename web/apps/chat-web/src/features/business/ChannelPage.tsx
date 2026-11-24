@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, navigate, useLocation } from '../../app/router';
 import type { ChannelDetailResponse, ChannelVisibility, OrganizationResponse, TeamResponse, WorkspaceMemberResponse } from '../../shared/api/contracts';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { Field, FormAlert } from '../../shared/components/Field';
 import { useAuth } from '../auth/AuthContext';
 import { errorMessage } from '../auth/errors';
@@ -28,6 +29,7 @@ function Channel() {
   const [organization, setOrganization] = useState<OrganizationResponse | null>(null);
   const [missing, setMissing] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [confirm, confirmDialog] = useConfirm();
 
   const reload = useCallback(() => {
     api.getChannel(channelId).then(
@@ -64,34 +66,44 @@ function Channel() {
   const c = detail.channel;
   const canInviteGuests = !!organization?.myPermissions.includes('organization.members.manage') && organization.guestsEnabled !== false;
 
+  const leave = () =>
+    void confirm({
+      title: t('confirm.leaveChannel.title', { name: c.name }),
+      text: t('confirm.leaveChannel.text'),
+      confirmLabel: t('confirm.leaveChannel.action'),
+    }).then((ok) => { if (ok) void (act(async () => {
+      await api.leaveChannel(c.id);
+      navigate('/channels');
+    })); });
+
   return (
-    <>
-      <p className="mb-2">
-        <Link to={`/channels?org=${encodeURIComponent(c.organizationId)}&ws=${encodeURIComponent(c.workspaceId)}`}>{t('channels.back')}</Link>
-      </p>
-      <div className="cx-account-header mb-3">
-        <h1 className="cx-page-title mb-0">
-          <ChannelMark visibility={c.visibility} /> {c.name}
-        </h1>
-        <span className="badge text-bg-light border">{t(`channels.visibility.${c.visibility}`)}</span>
-        <span className="cx-meta">{c.workspaceName}</span>
-        <span className="ms-auto d-flex gap-2">
+    <div className="cx-channel-page">
+      {confirmDialog}
+      <header className="cx-page-header">
+        <div className="min-w-0">
+          <nav aria-label={t('nav.label')} className="cx-breadcrumb">
+            <Link to={`/channels?org=${encodeURIComponent(c.organizationId)}&ws=${encodeURIComponent(c.workspaceId)}`}>{t('channels.title')}</Link>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{c.name}</span>
+          </nav>
+          <h1 className="cx-page-title mb-1 text-truncate">
+            <ChannelMark visibility={c.visibility} /> {c.name}
+          </h1>
+          <p className="cx-muted mb-0">
+            {t(`channels.visibility.${c.visibility}`)} · {c.workspaceName}
+          </p>
+        </div>
+        <div className="d-flex gap-2 flex-wrap">
           {c.joined ? (
             <>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => navigate(`/conversations?id=${encodeURIComponent(c.id)}`)}>{t('channels.open')}</button>
-              <button type="button" className="btn btn-sm btn-outline-danger"
-                onClick={() => window.confirm(t('channels.leaveConfirm', { name: c.name })) && void act(async () => {
-                  await api.leaveChannel(c.id);
-                  navigate('/channels');
-                })}>
-                {t('channels.leave')}
-              </button>
+              <button type="button" className="btn btn-outline-danger" onClick={leave}>{t('channels.leave')}</button>
+              <button type="button" className="btn btn-primary" onClick={() => navigate(`/conversations?id=${encodeURIComponent(c.id)}`)}>{t('channels.open')}</button>
             </>
           ) : (
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => void act(() => api.joinChannel(c.id))}>{t('channels.join')}</button>
+            <button type="button" className="btn btn-primary" onClick={() => void act(() => api.joinChannel(c.id))}>{t('channels.join')}</button>
           )}
-        </span>
-      </div>
+        </div>
+      </header>
       {c.description && <p>{c.description}</p>}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
 
@@ -125,7 +137,7 @@ function Channel() {
       </section>
 
       {c.canManage && canInviteGuests && <InviteGuest organizationId={c.organizationId} channelId={c.id} />}
-    </>
+    </div>
   );
 }
 

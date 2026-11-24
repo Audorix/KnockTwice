@@ -5,6 +5,7 @@ import { useAuth } from '../features/auth/AuthContext';
 import { LanguageSelector } from '../features/language/LanguageSelector';
 import { BrandMark } from '../shared/components/BrandMark';
 import { HomePage } from '../features/foundation/HomePage';
+import { NotFoundPage } from '../features/foundation/NotFoundPage';
 import {
   ForgotPasswordPage,
   RegisterPage,
@@ -35,6 +36,7 @@ const ContactsPage = page(() => import('../features/contacts/ContactsPage'), 'Co
 const OrganizationsPage = page(() => import('../features/organizations/OrganizationsPage'), 'OrganizationsPage');
 const OrganizationPage = page(() => import('../features/organizations/OrganizationPage'), 'OrganizationPage');
 const PrivateChatPage = page(() => import('../features/private/PrivateChatPage'), 'PrivateChatPage');
+const PersonPage = page(() => import('../features/contacts/ContactProfile'), 'PersonPage');
 const AdminPage = page(() => import('../features/admin/AdminPage'), 'AdminPage');
 const ChannelsPage = page(() => import('../features/business/ChannelsPage'), 'ChannelsPage');
 const ChannelPage = page(() => import('../features/business/ChannelPage'), 'ChannelPage');
@@ -52,6 +54,7 @@ const routes: Record<string, ComponentType> = {
   '/verify-email': VerifyEmailPage,
   '/account': AccountPage,
   '/contacts': ContactsPage,
+  '/person': PersonPage,
   '/organizations': OrganizationsPage,
   '/organization': OrganizationPage,
   '/conversations': ConversationsPage,
@@ -73,7 +76,8 @@ export function AppShell() {
   const { pathname, query } = useLocation();
   const { user } = useAuth();
   const main = useRef<HTMLElement>(null);
-  const Page = routes[pathname] ?? HomePage;
+  // "/contacts/" is "/contacts"; an unknown address says so instead of showing the home page.
+  const Page = routes[pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname] ?? NotFoundPage;
 
   // Move focus to the new page for keyboard and screen-reader users after navigation.
   const firstRender = useRef(true);
@@ -213,6 +217,54 @@ function useSupportDesk(userId: string | undefined): boolean {
   return desk;
 }
 
+/**
+ * Phones only: "More" (three dots) at the end of the tab bar opens Support, Private and Admin, so
+ * the bar keeps room for the everyday pages. Its badge adds up theirs (private chat invitations).
+ */
+function MoreMenu({ items }: { items: { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string }[] }) {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const badge = items.reduce((sum, item) => sum + (item.badge ?? 0), 0);
+  const active = items.some((item) => item.active);
+
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  return (
+    <div className="cx-rail-more" ref={box} onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}>
+      <button type="button" className={`cx-rail-link${active ? ' is-active' : ''}`} aria-haspopup="menu" aria-expanded={open}
+        aria-label={t('nav.moreLabel')} onClick={() => setOpen((o) => !o)}>
+        <span className="cx-rail-icon">
+          <NavIcon name="dots" />
+          {badge > 0 && <span className="cx-rail-badge" aria-hidden="true">{badge > 99 ? '99+' : badge}</span>}
+        </span>
+        <span className="cx-rail-label">{t('nav.more')}</span>
+      </button>
+      {open && (
+        <div className="cx-menu cx-rail-more-menu" role="menu" aria-label={t('nav.moreLabel')}>
+          {items.map((item) => (
+            <Link key={item.to} to={item.to} role="menuitem" className={`cx-menu-item${item.active ? ' is-active' : ''}`}
+              aria-current={item.active ? 'page' : undefined}>
+              <NavIcon name={item.icon} size={20} />
+              <span className="flex-grow-1">{item.label}</span>
+              {item.badge ? <span className="cx-rail-badge is-inline" aria-label={item.badgeLabel}>{item.badge > 99 ? '99+' : item.badge}</span> : null}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The signed-in navigation: a rail on wide screens, a bottom tab bar on phones. */
 function AppNavigation() {
   const { t } = useTranslation();
@@ -223,25 +275,27 @@ function AppNavigation() {
   const supportDesk = useSupportDesk(user?.id);
   if (!user) return null;
 
-  type Item = { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string };
+  // `more`: on phones these sit behind the "More" button instead of in the tab bar (owner request 2026-11-24).
+  type Item = { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string; more?: boolean };
   const communicate: Item[] = [
     { to: '/', label: t('nav.homeItem'), icon: 'home', active: pathname === '/' },
     { to: '/conversations', label: t('nav.chats'), icon: 'chats', active: pathname === '/conversations', badge: unread, badgeLabel: t('notifications.unread', { count: unread }) },
     { to: '/mentions', label: t('nav.mentions'), icon: 'at', active: pathname === '/mentions', badge: activity, badgeLabel: t('notifications.activity', { count: activity }) },
     { to: '/search', label: t('nav.search'), icon: 'search', active: pathname === '/search' },
     { to: '/channels', label: t('nav.channels'), icon: 'hash', active: pathname === '/channels' || pathname === '/channel' },
-    ...(supportDesk ? [{ to: '/support', label: t('nav.support'), icon: 'headset' as const, active: pathname === '/support' }] : []),
-    { to: '/private', label: t('nav.private'), icon: 'lock', active: pathname === '/private', badge: invitations, badgeLabel: t('notifications.invitations', { count: invitations }) },
+    ...(supportDesk ? [{ to: '/support', label: t('nav.support'), icon: 'headset' as const, active: pathname === '/support', more: true }] : []),
+    { to: '/private', label: t('nav.private'), icon: 'lock', active: pathname === '/private', badge: invitations, badgeLabel: t('notifications.invitations', { count: invitations }), more: true },
   ];
   const workspace: Item[] = [
     { to: '/contacts', label: t('nav.contacts'), icon: 'people', active: pathname === '/contacts' },
     { to: '/organizations', label: t('nav.organizations'), icon: 'building', active: pathname === '/organizations' || pathname === '/organization' },
-    ...(canAdminister(user.permissions) ? [{ to: '/admin', label: t('nav.admin'), icon: 'shield' as const, active: pathname === '/admin' }] : []),
+    ...(canAdminister(user.permissions) ? [{ to: '/admin', label: t('nav.admin'), icon: 'shield' as const, active: pathname === '/admin', more: true }] : []),
   ];
+  const more = [...communicate, ...workspace].filter((item) => item.more);
 
   const renderItem = (item: Item) => (
-    // Home stays out of the phone tab bar (the brand mark leads home there).
-    <li key={item.to} className={item.icon === 'home' ? 'cx-rail-home' : undefined}>
+    // Home stays out of the phone tab bar (the brand mark leads home there); `more` items go behind "More".
+    <li key={item.to} className={item.icon === 'home' ? 'cx-rail-home' : item.more ? 'cx-rail-in-more' : undefined}>
       <Link to={item.to} className={`cx-rail-link${item.icon === 'lock' ? ' is-private' : ''}`} aria-current={item.active ? 'page' : undefined}>
         <span className="cx-rail-icon">
           <NavIcon name={item.icon} />
@@ -272,6 +326,7 @@ function AppNavigation() {
       <ul className="cx-rail-items list-unstyled">{communicate.map(renderItem)}</ul>
       <p className="cx-rail-section" aria-hidden="true">{t('nav.workspace')}</p>
       <ul className="cx-rail-items list-unstyled" aria-label={t('nav.workspace')}>{workspace.map(renderItem)}</ul>
+      {more.length > 0 && <MoreMenu items={more} />}
       <Link to="/account" className="cx-rail-user" aria-current={pathname === '/account' ? 'page' : undefined}>
         <Avatar user={user} size="sm" />
         <span className="cx-rail-user-text">

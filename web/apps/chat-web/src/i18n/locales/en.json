@@ -28,7 +28,9 @@
     "support": "Support",
     "search": "Search",
     "mentions": "Activity",
-    "homeItem": "Home"
+    "homeItem": "Home",
+    "more": "More",
+    "moreLabel": "More pages"
   },
   "mentions": {
     "title": "Mentions",
@@ -493,7 +495,9 @@
     "reminder_not_found": "This reminder no longer exists.",
     "channel_archived": "This channel is archived and read-only.",
     "photo_too_large": "The photo is too large.",
-    "photo_type_invalid": "Use a JPG, PNG or WebP image."
+    "photo_type_invalid": "Use a JPG, PNG or WebP image.",
+    "handle_invalid": "That display ID is not valid. Use 3 to 30 letters, digits, dots or underscores.",
+    "handle_taken": "That display ID is already taken."
   },
   "fieldErrors": {
     "invalid": "This value is not valid.",
@@ -549,7 +553,6 @@
     "removeNamed": "Remove {{name}}",
     "block": "Block",
     "blockNamed": "Block {{name}}",
-    "blockConfirm": "Block {{name}}? You will no longer be contacts, pending requests are closed and neither of you can find or add the other.",
     "blocked": "Blocked people",
     "unblock": "Unblock",
     "subtitle": "Your people, one conversation away.",
@@ -627,7 +630,6 @@
     "roleFor": "Role for {{name}}",
     "removeNamed": "Remove {{name}} from the organization",
     "leave": "Leave organization",
-    "leaveConfirm": "Leave {{name}}? You will lose access to its workspaces.",
     "invite": "Invite people",
     "inviteHint": "They will see the invitation after signing in with this address.",
     "role": "Role",
@@ -657,7 +659,6 @@
       "start": "Delete organization…",
       "summary": "Deletes the organization with all its workspaces, channels, conversations, messages, files, teams, guests and website chats, for everyone. It cannot be undone.",
       "typeName": "Type the organization name ({{name}}) to confirm",
-      "prompt": "This deletes \"{{name}}\" with all its conversations, messages and files, for everyone. Type the organization name to confirm:",
       "submit": "Delete organization permanently",
       "cancel": "Cancel"
     },
@@ -770,7 +771,6 @@
     "removeNamed": "Remove {{name}} from the conversation",
     "addPeople": "Add people",
     "leave": "Leave group",
-    "leaveConfirm": "Leave {{name}}? You will lose access to its history.",
     "removedNotice": "You no longer have access to that conversation.",
     "roles": {
       "owner": "Owner",
@@ -842,7 +842,6 @@
     "upToDate": "The demo data is already complete; nothing was added.",
     "signInAs": "Every demo account uses the password {{password}}. For example:",
     "clear": "Clear demo data",
-    "clearConfirm": "Remove all demo data? Demo people (and what they wrote), demo companies and demo conversations are deleted. Conversations and data that real people created stay.",
     "cleared": "Removed {{users}} demo people, {{organizations}} companies, {{conversations}} conversations and {{messages}} messages.",
     "existing": "Loaded now: {{users}} people, {{organizations}} companies, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items, {{support}} support conversations.",
     "lead": "Populate a realistic workspace for development and testing.",
@@ -869,7 +868,6 @@
     "reply": "Reply",
     "edit": "Edit",
     "delete": "Delete",
-    "deleteConfirm": "Delete this message for everyone?",
     "deleted": "This message was deleted.",
     "edited": "edited",
     "editing": "Editing your message",
@@ -1327,14 +1325,12 @@
       "organizations_other": "{{count}} organizations",
       "enable": "Enable",
       "disable": "Disable",
-      "disableConfirm": "Disable {{name}}? They are signed out everywhere and cannot sign in until enabled again.",
       "signOut": "Sign out everywhere",
       "signedOut": "{{name}} was signed out on every device.",
       "confirm": "Mark email confirmed",
       "resend": "Resend confirmation",
       "resent": "A new confirmation email was sent.",
       "delete": "Delete",
-      "deleteConfirm": "Delete the account of {{name}}? Their personal data is erased and their messages show \"Deleted user\". This cannot be undone.",
       "deleted": "{{name}} was deleted.",
       "subtitle": "Manage accounts and installation roles.",
       "statusLabel": "Status",
@@ -1382,7 +1378,6 @@
       "rename": "Rename",
       "role": "Role of {{name}}",
       "remove": "Remove",
-      "removeConfirm": "Remove {{name}} from the organization? They also leave its conversations.",
       "subtitle": "Browse organizations across this installation and review their members.",
       "columns": {
         "organization": "Organization",
@@ -1724,7 +1719,6 @@
       "status_other": "Provider: {{provider}}. {{count}} message changes waiting to be indexed.",
       "hint": "New, edited and deleted messages are indexed within seconds. Rebuild after switching the search provider, or if results look wrong.",
       "rebuild": "Rebuild index",
-      "rebuildConfirm": "Empty the search index and index every message again? Search results are incomplete until it finishes.",
       "rebuilt_one": "{{count}} message queued for indexing.",
       "rebuilt_other": "{{count}} messages queued for indexing.",
       "pending_one": "{{count}} change waiting",
@@ -1798,7 +1792,6 @@
     "enabled": "Chat is on",
     "saved": "Saved.",
     "rotate": "Replace signing secret",
-    "rotateConfirm": "Replace the signing secret? Your website must use the new one at once: identity tokens signed with the old secret stop working.",
     "secretTitle": "Signing secret:",
     "secretHint": "copy it now and keep it on your web server only. It is not shown again.",
     "secret": "Signing secret",
@@ -1872,7 +1865,6 @@
     "create": "Create channel",
     "back": "← Channels",
     "leave": "Leave",
-    "leaveConfirm": "Leave {{name}}? You lose access to its history.",
     "settings": "Channel settings",
     "roles": {
       "manager": "Manager",
@@ -1945,7 +1937,6 @@
     "privacyNote": "Private channels are visible only to their members.",
     "archive": "Archive channel",
     "restore": "Restore channel",
-    "archiveConfirm": "Archive {{name}}? It becomes read-only for everyone until a manager restores it.",
     "leaveChannel": "Leave channel",
     "justNow": "Just now",
     "closePanel": "Close",
@@ -2068,7 +2059,6 @@
     "noGuests": "No guests.",
     "noChannels": "no channels",
     "removeGuestNamed": "Remove guest {{name}}",
-    "removeGuestConfirm": "Remove {{name}}? They lose access to every channel of this organization.",
     "teamsTitle": "Teams",
     "teamsIntro": "Groups of workspace members. Adding a team to a channel adds its members, also the ones who join later.",
     "noTeams": "No teams yet.",
@@ -2080,7 +2070,6 @@
     },
     "deleteTeam": "Delete",
     "deleteTeamNamed": "Delete team {{name}}",
-    "deleteTeamConfirm": "Delete the team {{name}}? People it added to channels stay there.",
     "newTeam": "New team",
     "createTeam": "Create team",
     "teamMembersOf": "Members of {{name}}",
@@ -2268,7 +2257,11 @@
       "subtitle": "Choose the name people see.",
       "nameHint": "Used in conversations, mentions and search.",
       "emailHint": "Your sign-in address. Only you and administrators see it.",
-      "save": "Save profile"
+      "save": "Save profile",
+      "handle": "Display ID",
+      "handleHint": "How people find and recognise you, like @yourname. Letters, digits, dots and underscores.",
+      "shareEmail": "Show my email address to my contacts",
+      "emailHintShared": "Your contacts see it in your profile. Administrators see it too."
     },
     "appearance": {
       "title": "Appearance",
@@ -2370,5 +2363,143 @@
       "channels": "Channels",
       "compose": "Message #design-team…"
     }
+  },
+  "confirm": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "disableUser": {
+      "title": "Disable {{name}}?",
+      "text": "They are signed out everywhere and cannot sign in until enabled again.",
+      "action": "Disable account"
+    },
+    "deleteUser": {
+      "title": "Delete the account of {{name}}?",
+      "text": "Their personal data is erased and their messages show \"Deleted user\". This cannot be undone.",
+      "action": "Delete account"
+    },
+    "removeMember": {
+      "title": "Remove {{name}}?",
+      "text": "They leave the organization and its conversations.",
+      "action": "Remove"
+    },
+    "rebuildIndex": {
+      "title": "Rebuild the search index?",
+      "text": "The index is emptied and every message is indexed again. Search results are incomplete until it finishes.",
+      "action": "Rebuild index"
+    },
+    "leaveChannel": {
+      "title": "Leave {{name}}?",
+      "text": "You lose access to its history.",
+      "action": "Leave channel"
+    },
+    "archiveChannel": {
+      "title": "Archive {{name}}?",
+      "text": "It becomes read-only for everyone until a manager restores it.",
+      "action": "Archive"
+    },
+    "removeGuest": {
+      "title": "Remove {{name}}?",
+      "text": "They lose access to every channel of this organization.",
+      "action": "Remove guest"
+    },
+    "deleteTeam": {
+      "title": "Delete the team {{name}}?",
+      "text": "People it added to channels stay there.",
+      "action": "Delete team"
+    },
+    "block": {
+      "title": "Block {{name}}?",
+      "text": "You will no longer be contacts, pending requests are closed and neither of you can find or add the other.",
+      "action": "Block"
+    },
+    "deleteMessage": {
+      "title": "Delete this message?",
+      "text": "It is deleted for everyone in the conversation.",
+      "action": "Delete"
+    },
+    "leaveConversation": {
+      "title": "Leave {{name}}?",
+      "text": "You will lose access to its history.",
+      "action": "Leave"
+    },
+    "clearDemo": {
+      "title": "Remove all demo data?",
+      "text": "Demo people (and what they wrote), demo companies and demo conversations are deleted. Conversations and data that real people created stay.",
+      "action": "Remove demo data"
+    },
+    "leaveOrganization": {
+      "title": "Leave {{name}}?",
+      "text": "You will lose access to its workspaces.",
+      "action": "Leave organization"
+    },
+    "rotateSecret": {
+      "title": "Replace the signing secret?",
+      "text": "Your website must use the new one at once: identity tokens signed with the old secret stop working.",
+      "action": "Replace secret"
+    },
+    "deleteOrganization": {
+      "title": "Delete {{name}}?",
+      "text": "The organization is deleted with all its conversations, messages and files, for everyone. This cannot be undone."
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "text": "This address does not exist in Knock Twice. It may have moved, or the link may be mistyped.",
+    "home": "Go to the home page"
+  },
+  "orgPage": {
+    "tabsLabel": "Organization sections",
+    "tabs": {
+      "profile": "Profile",
+      "members": "Members",
+      "workspaces": "Workspaces",
+      "channels": "Channels & guests",
+      "website": "Website chat",
+      "settings": "Settings"
+    },
+    "memberCount_one": "{{count}} member",
+    "memberCount_other": "{{count}} members",
+    "workspaceCount_one": "{{count}} workspace",
+    "workspaceCount_other": "{{count}} workspaces",
+    "changePicture": "Change picture",
+    "changeBackground": "Change background",
+    "profileTitle": "Organization profile",
+    "saveChanges": "Save changes",
+    "saved": "Saved.",
+    "pictureHeading": "Organization picture",
+    "pictureHint": "Shown in the organizations list and the organization header.",
+    "backgroundHeading": "Background image",
+    "backgroundHint": "A wide image behind the organization header.",
+    "glance": "At a glance",
+    "guests": "Guests",
+    "quickActions": "Quick actions",
+    "channelsHint": "Create, archive and manage the channels of this organization’s workspaces.",
+    "openChannels": "Open channels",
+    "pictureTitle": "Change organization picture",
+    "pictureSubtitle": "Choose a square image, such as your logo.",
+    "backgroundTitle": "Change background image",
+    "backgroundSubtitle": "Choose a wide image for the organization header.",
+    "removePicture": "Remove picture",
+    "removePictureHint": "Show the initials again.",
+    "removeBackground": "Remove background",
+    "removeBackgroundHint": "Show the plain header again.",
+    "saveImage": "Save image",
+    "currentImage": "Current image"
+  },
+  "contactProfile": {
+    "title": "Contact profile",
+    "viewFull": "View full profile",
+    "details": "Contact details",
+    "email": "Email address",
+    "emailNotShared": "Email not shared",
+    "displayId": "Display ID",
+    "copyEmail": "Copy email address",
+    "copyDisplayId": "Copy Display ID",
+    "copied": "Copied",
+    "manage": "Manage contact",
+    "backToContacts": "Back to contacts",
+    "noLinks": "No links shared with contacts.",
+    "removeTitle": "Remove {{name}} from your contacts?",
+    "removeText": "You can still find each other and send a new request later."
   }
 }

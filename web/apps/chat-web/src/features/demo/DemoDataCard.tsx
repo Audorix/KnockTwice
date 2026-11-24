@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getJson, sendJson } from '../../shared/api/httpClient';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { FormAlert } from '../../shared/components/Field';
 import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { useAuth } from '../auth/AuthContext';
@@ -42,6 +43,7 @@ export function DemoDataCard() {
   const [notice, setNotice] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<DemoDataResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
+  const [confirm, confirmDialog] = useConfirm();
   const allowed = !!user && !!config?.demoDataEnabled && user.permissions.includes('installation.demo_data');
 
   useEffect(() => {
@@ -77,8 +79,13 @@ export function DemoDataCard() {
     setExisting(result.total);
   });
 
-  const clear = () => {
-    if (!window.confirm(t('demo.clearConfirm'))) return;
+  const clear = async () => {
+    const ok = await confirm({
+      title: t('confirm.clearDemo.title'),
+      text: t('confirm.clearDemo.text'),
+      confirmLabel: t('confirm.clearDemo.action'),
+    });
+    if (!ok) return;
     void run(async () => {
       const { removed } = (await sendJson<{ removed: DemoCounts }>('DELETE', '/api/v1/admin/demo-data', undefined, { timeoutMs: 300_000 }))!;
       setNotice(t('demo.cleared', { users: removed.users, organizations: removed.organizations, conversations: removed.conversations, messages: removed.messages }));
@@ -99,6 +106,7 @@ export function DemoDataCard() {
     : [];
   return (
     <section className="cx-card cx-demo-card" aria-labelledby="demo-title">
+      {confirmDialog}
       <h2 id="demo-title" className="cx-card-title">
         {t('demo.title')}
       </h2>

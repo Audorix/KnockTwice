@@ -6,9 +6,8 @@ import { FormAlert } from '../../shared/components/Field';
 import { NavIcon } from '../../shared/components/NavIcon';
 import { Pagination } from '../../shared/components/Pagination';
 import { RowMenu } from '../../shared/components/RowMenu';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { errorMessage, fieldErrors } from '../auth/errors';
-import { getUserLinks, type ProfileLink } from '../auth/authApi';
-import { LinkItem } from '../account/ProfileLinks';
 import { RequireUser, useAction } from '../auth/RequireUser';
 import { useRealtime } from '../realtime/RealtimeContext';
 import type { PresenceValue } from '../realtime/realtimeClient';
@@ -16,6 +15,7 @@ import { openDirect } from '../conversations/conversationsApi';
 import { startPrivateChat } from '../private/privateChatsApi';
 import { navigate } from '../../app/router';
 import * as api from './contactsApi';
+import { ContactDrawer } from './ContactProfile';
 
 /**
  * Contacts (redesign 2026-11): find people, then the contacts table with tabs for requests and
@@ -90,13 +90,16 @@ function Contacts() {
     await api.removeContact(user.id);
     setProfile(null);
   });
-  const block = (user: UserSummary) => {
-    if (!window.confirm(t('contacts.blockConfirm', { name: user.displayName }))) return;
-    void act(async () => {
+  const [confirm, confirmDialog] = useConfirm();
+  const block = (user: UserSummary) =>
+    void confirm({
+      title: t('confirm.block.title', { name: user.displayName }),
+      text: t('confirm.block.text'),
+      confirmLabel: t('confirm.block.action'),
+    }).then((ok) => { if (ok) void (act(async () => {
       await api.blockUser(user.id);
       setProfile(null);
-    });
-  };
+    })); });
 
   // Sends the private chat invitation and opens the chat, which waits for the contact to accept.
   const startPrivate = (user: UserSummary) =>
@@ -110,6 +113,7 @@ function Contacts() {
 
   return (
     <div className="cx-contacts">
+      {confirmDialog}
       <header className="cx-page-header">
         <div>
           <nav aria-label={t('nav.label')} className="cx-breadcrumb">
@@ -299,10 +303,9 @@ function Contacts() {
       </section>
 
       {profile && (
-        <ProfilePanel
+        <ContactDrawer
           contact={profile}
           status={statusOf(profile.user.id)}
-          language={i18n.language}
           onClose={() => setProfile(null)}
           onMessage={() => message(profile.user.id)}
           onRemove={() => remove(profile.user)}
@@ -344,77 +347,6 @@ function OrganizationTags({ organizations }: { organizations: ContactResponse['s
     <span className="cx-tags">
       {organizations.map((o) => <span key={o.id} className="cx-tag">{o.name}</span>)}
     </span>
-  );
-}
-
-/** Profile side panel: a modal dialog on the right; Escape, the close button or the backdrop close it. */
-function ProfilePanel({ contact, status, language, onClose, onMessage, onRemove, onBlock }: {
-  contact: ContactResponse;
-  status: PresenceValue;
-  language: string;
-  onClose: () => void;
-  onMessage: () => void;
-  onRemove: () => void;
-  onBlock: () => void;
-}) {
-  const { t } = useTranslation();
-  const closeButton = useRef<HTMLButtonElement>(null);
-  const opener = useRef<Element | null>(null);
-
-  useEffect(() => {
-    opener.current = document.activeElement;
-    closeButton.current?.focus();
-    return () => (opener.current as HTMLElement | null)?.focus?.();
-  }, []);
-
-  // The contact's links meant for their contacts (redesign 2026-11).
-  const [links, setLinks] = useState<ProfileLink[]>([]);
-  useEffect(() => {
-    getUserLinks(contact.user.id).then(setLinks, () => setLinks([]));
-  }, [contact.user.id]);
-
-  const organizations = contact.sharedOrganizations ?? [];
-  return (
-    <div className="cx-drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside className="cx-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-        <div className="cx-drawer-header">
-          <h2 id="profile-title" className="visually-hidden">{t('contacts.profileTitle', { name: contact.user.displayName })}</h2>
-          <button ref={closeButton} type="button" className="cx-tool" onClick={onClose} title={t('contacts.closeProfile')}>
-            <NavIcon name="close" size={18} />
-            <span className="visually-hidden">{t('contacts.closeProfile')}</span>
-          </button>
-        </div>
-        <div className="cx-drawer-identity">
-          <Avatar user={contact.user} size="md" presence={status} />
-          <p className="cx-drawer-name">{contact.user.displayName}</p>
-          <PresenceLabel value={status} />
-        </div>
-        <dl className="cx-drawer-facts">
-          <dt>{t('contacts.profileOrganizations')}</dt>
-          <dd>{organizations.length > 0 ? <OrganizationTags organizations={organizations} /> : <span className="cx-muted">{t('contacts.profileNoOrganizations')}</span>}</dd>
-          <dt className="visually-hidden">{t('contacts.columns.status')}</dt>
-          <dd className="cx-muted">{t('contacts.profileSince', { date: formatDay(contact.sinceUtc, language) })}</dd>
-          {links.length > 0 && (
-            <>
-              <dt>{t('contacts.profileLinks')}</dt>
-              <dd>
-                <ul className="list-unstyled cx-link-list mb-0">
-                  {links.map((link) => <LinkItem key={`${link.platform}-${link.url}`} link={link} />)}
-                </ul>
-              </dd>
-            </>
-          )}
-        </dl>
-        <div className="cx-drawer-actions">
-          <button type="button" className="btn btn-primary cx-icon-button" onClick={onMessage}>
-            <NavIcon name="message" size={16} />
-            {t('contacts.message')}
-          </button>
-          <button type="button" className="btn btn-outline-secondary" onClick={onRemove}>{t('contacts.removeContact')}</button>
-          <button type="button" className="btn btn-outline-danger" onClick={onBlock}>{t('contacts.blockContact')}</button>
-        </div>
-      </aside>
-    </div>
   );
 }
 

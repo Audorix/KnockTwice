@@ -189,6 +189,8 @@ public sealed partial class UserProfile
         NotificationPreviews = true;
         PhotoKey = null;
         PhotoContentType = null;
+        Handle = null;
+        ShareEmailWithContacts = false;
         DeletedAtUtc = utc;
         Touch(utc);
     }
@@ -252,6 +254,62 @@ public sealed partial class UserProfile
         value.Offset == TimeSpan.Zero
             ? value
             : throw new DomainRuleException("timestamp_not_utc", "Timestamps must be expressed in UTC.");
+
+    // ---- Display ID and email sharing (contact drawer, owner decisions 2026-11-24) ------------------
+
+    public const int HandleMinLength = 3;
+    public const int HandleMaxLength = 30;
+
+    /// <summary>
+    /// Display ID shown as <c>@handle</c>: unique, lower case letters, digits, dots and underscores.
+    /// Made from the name automatically the first time it is needed; the person may change it.
+    /// </summary>
+    public string? Handle { get; private set; }
+
+    /// <summary>Whether contacts see this person's email address (off unless the person turns it on).</summary>
+    public bool ShareEmailWithContacts { get; private set; }
+
+    public void ChangeHandle(string? handle, DateTimeOffset nowUtc)
+    {
+        Handle = NormalizeHandle(handle);
+        Touch(nowUtc);
+    }
+
+    public void ChangeEmailSharing(bool share, DateTimeOffset nowUtc)
+    {
+        ShareEmailWithContacts = share;
+        Touch(nowUtc);
+    }
+
+    /// <summary>Lower case, without a leading @; 3–30 of a–z, 0–9, "." and "_", starting with a letter or digit.</summary>
+    public static string NormalizeHandle(string? value)
+    {
+        var handle = (value ?? string.Empty).Trim().TrimStart('@').ToLowerInvariant();
+        return HandlePattern().IsMatch(handle) && !handle.EndsWith('.')
+            ? handle
+            : throw new DomainRuleException("handle_invalid", "A display ID has 3 to 30 letters, digits, dots or underscores.");
+    }
+
+    /// <summary>A Display ID made from a name: "Aarón Medina" becomes "aaronmedina" (at most 24 characters, so a number fits).</summary>
+    public static string SuggestHandle(string? displayName)
+    {
+        var decomposed = (displayName ?? string.Empty).Normalize(System.Text.NormalizationForm.FormD);
+        var builder = new System.Text.StringBuilder();
+        foreach (var c in decomposed)
+        {
+            var lower = char.ToLowerInvariant(c);
+            if (lower is >= 'a' and <= 'z' or >= '0' and <= '9')
+            {
+                builder.Append(lower);
+            }
+        }
+
+        var handle = builder.Length > 24 ? builder.ToString(0, 24) : builder.ToString();
+        return handle.Length >= HandleMinLength ? handle : "user" + handle;
+    }
+
+    [GeneratedRegex("^[a-z0-9][a-z0-9._]{2,29}$", RegexOptions.CultureInvariant)]
+    private static partial Regex HandlePattern();
 
     [GeneratedRegex("^[a-z]{2,3}$", RegexOptions.CultureInvariant)]
     private static partial Regex LanguageCode();

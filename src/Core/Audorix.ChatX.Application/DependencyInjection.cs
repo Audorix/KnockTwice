@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<ProfileMediaService>();
         services.AddSingleton<AccountEmailComposer>();
         services.AddScoped<Organizations.OrganizationService>();
+        services.AddScoped<Organizations.OrganizationMediaService>();
         services.AddScoped<Organizations.WorkspaceService>();
         services.AddScoped<Organizations.TeamService>();
         services.AddScoped<Organizations.GuestService>();

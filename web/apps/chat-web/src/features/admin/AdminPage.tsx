@@ -7,6 +7,7 @@ import { FormAlert } from '../../shared/components/Field';
 import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { Pagination } from '../../shared/components/Pagination';
 import { RowMenu, type RowMenuItem } from '../../shared/components/RowMenu';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { formatDateTime } from '../../shared/format';
 import { formatBytes } from '../attachments/Attachments';
 import { useAuth } from '../auth/AuthContext';
@@ -348,6 +349,7 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
   const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const { data, setData, error, setError } = useLoad(() => api.searchUsers(submitted, status, skip, take, role, sort), [submitted, status, skip, take, role, sort]);
+  const [confirm, confirmDialog] = useConfirm();
 
   const replace = (updated: api.AdminUser) => setData((page) => page && { ...page, items: page.items.map((u) => (u.id === updated.id ? updated : u)) });
   const act = async (action: () => Promise<api.AdminUser | unknown>, success?: string) => {
@@ -364,9 +366,11 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
 
   const actions: UserActions = {
     enable: (u) => void act(() => api.enableUser(u.id)),
-    disable: (u) => {
-      if (window.confirm(t('admin.users.disableConfirm', { name: u.displayName }))) void act(() => api.disableUser(u.id));
-    },
+    disable: (u) => void confirm({
+      title: t('confirm.disableUser.title', { name: u.displayName }),
+      text: t('confirm.disableUser.text'),
+      confirmLabel: t('confirm.disableUser.action'),
+    }).then((ok) => { if (ok) void (act(() => api.disableUser(u.id))); }),
     signOut: (u) => void act(async () => {
       await api.revokeUserSessions(u.id);
       return { ...u, activeSessions: 0 };
@@ -374,15 +378,15 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
     confirm: (u) => void act(() => api.confirmUserEmail(u.id)),
     resend: (u) => void act(() => api.resendConfirmation(u.id), t('admin.users.resent')),
     toggleRole: (u, name) => void act(() => (u.roles.includes(name) ? api.revokeRole(u.id, name) : api.grantRole(u.id, name))),
-    remove: (u) => {
-      if (window.confirm(t('admin.users.deleteConfirm', { name: u.displayName }))) {
-        void act(async () => {
-          await api.deleteUser(u.id);
-          setSelected(null);
-          setData((page) => page && { ...page, total: page.total - 1, items: page.items.filter((x) => x.id !== u.id) });
-        }, t('admin.users.deleted', { name: u.displayName }));
-      }
-    },
+    remove: (u) => void confirm({
+      title: t('confirm.deleteUser.title', { name: u.displayName }),
+      text: t('confirm.deleteUser.text'),
+      confirmLabel: t('confirm.deleteUser.action'),
+    }).then((ok) => { if (ok) void (act(async () => {
+      await api.deleteUser(u.id);
+      setSelected(null);
+      setData((page) => page && { ...page, total: page.total - 1, items: page.items.filter((x) => x.id !== u.id) });
+    }, t('admin.users.deleted', { name: u.displayName }))); }),
   };
 
   const search = (event: FormEvent) => {
@@ -398,6 +402,7 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
 
   return (
     <section className="cx-admin-section" aria-labelledby="admin-users-title">
+      {confirmDialog}
       <SectionHeading id="admin-users-title" title={t('admin.tabs.users')} count={data?.total} subtitle={t('admin.users.subtitle')} />
       <form className="cx-card cx-admin-filter-bar" onSubmit={search} role="search">
         <label className="cx-search-field">
@@ -711,6 +716,7 @@ const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 
 function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: string; canManage: boolean; onChanged: () => void; onDeleted: () => void }) {
   const { t } = useTranslation();
   const { data, setData, error, setError } = useLoad(() => api.getOrganization(id), [id]);
+  const [confirm, confirmDialog] = useConfirm();
   const [name, setName] = useState('');
   useEffect(() => {
     if (data) setName(data.organization.name);
@@ -730,6 +736,7 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
 
   return (
     <div className="cx-admin-detail">
+      {confirmDialog}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {!data ? (
         <Loading />
@@ -770,7 +777,11 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
                       className="cx-tool"
                       title={t('admin.organizations.removeNamed', { name: m.displayName })}
                       onClick={() => {
-                        if (window.confirm(t('admin.organizations.removeConfirm', { name: m.displayName }))) void act(() => api.removeMember(id, m.userId));
+                        void confirm({
+                          title: t('confirm.removeMember.title', { name: m.displayName }),
+                          text: t('confirm.removeMember.text'),
+                          confirmLabel: t('confirm.removeMember.action'),
+                        }).then((ok) => { if (ok) void (act(() => api.removeMember(id, m.userId))); });
                       }}
                     >
                       <NavIcon name="trash" size={18} />
@@ -789,10 +800,18 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
                 type="button"
                 className="btn btn-outline-danger"
                 onClick={() => {
-                  const typed = window.prompt(t('organizations.deletion.prompt', { name: data.organization.name }));
-                  if (typed === null) return;
-                  setError(null);
-                  api.deleteOrganization(id, typed).then(onDeleted, setError);
+                  const name = data.organization.name;
+                  void confirm({
+                    title: t('confirm.deleteOrganization.title', { name }),
+                    text: t('confirm.deleteOrganization.text'),
+                    confirmLabel: t('organizations.deletion.submit'),
+                    typeToConfirm: name,
+                    typeLabel: t('organizations.deletion.typeName', { name }),
+                  }).then((ok) => {
+                    if (!ok) return;
+                    setError(null);
+                    api.deleteOrganization(id, name).then(onDeleted, setError);
+                  });
                 }}
               >
                 {t('organizations.deletion.submit')}
@@ -1378,8 +1397,15 @@ function SearchIndex({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation();
   const { data, setData, error, setError } = useLoad(api.getSearchStatus, []);
   const [notice, setNotice] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
   const rebuild = async () => {
-    if (!window.confirm(t('admin.searchIndex.rebuildConfirm'))) return;
+    const ok = await confirm({
+      title: t('confirm.rebuildIndex.title'),
+      text: t('confirm.rebuildIndex.text'),
+      confirmLabel: t('confirm.rebuildIndex.action'),
+      tone: 'primary',
+    });
+    if (!ok) return;
     setError(null);
     setNotice(null);
     try {
@@ -1392,6 +1418,7 @@ function SearchIndex({ canManage }: { canManage: boolean }) {
   };
   return (
     <section className="cx-card cx-provider-panel" aria-labelledby="provider-panel-title">
+      {confirmDialog}
       <div className="cx-provider-panel-head">
         <NavIcon name="search" size={30} />
         <span>

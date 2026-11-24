@@ -204,18 +204,22 @@ function ProfileTab({ sessions, onChangePhoto, onSessions }: { sessions: Session
   const { t } = useTranslation();
   const { user, setUser } = useAuth();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [handle, setHandle] = useState(user?.handle ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
   if (!user) return null;
 
+  const handleChanged = handle.trim().replace(/^@/, '').toLowerCase() !== (user.handle ?? '');
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
     setSaved(false);
     try {
-      setUser(await api.updateProfile(displayName));
+      const updated = await api.updateProfile(displayName, handleChanged ? handle : undefined);
+      setUser(updated);
+      setHandle(updated.handle ?? '');
       setSaved(true);
     } catch (err) {
       setError(err);
@@ -224,6 +228,17 @@ function ProfileTab({ sessions, onChangePhoto, onSessions }: { sessions: Session
     }
   };
 
+  // Shared at once (2026-11-24): contacts see the address in your profile drawer.
+  const shareEmail = async (share: boolean) => {
+    setError(null);
+    try {
+      setUser(await api.savePreferences({ shareEmailWithContacts: share }));
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  const handleErrors = fieldErrors(error, 'handle', t);
   const errors = error instanceof ApiError && error.code?.startsWith('display_name') ? [errorMessage(error, t)] : fieldErrors(error, 'displayName', t);
   return (
     <div className="cx-profile-grid">
@@ -231,7 +246,7 @@ function ProfileTab({ sessions, onChangePhoto, onSessions }: { sessions: Session
         <h2 id="profile-details-title" className="cx-card-title">{t('profile.details.title')}</h2>
         <p className="cx-muted">{t('profile.details.subtitle')}</p>
         {saved && <FormAlert tone="success">{t('account.saved')}</FormAlert>}
-        {error !== null && errors.length === 0 && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+        {error !== null && errors.length === 0 && handleErrors.length === 0 && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
         <form onSubmit={submit} noValidate>
           <Field
             label={t('auth.fields.displayName')}
@@ -243,12 +258,30 @@ function ProfileTab({ sessions, onChangePhoto, onSessions }: { sessions: Session
             hint={t('profile.details.nameHint')}
           />
           <div className="mb-3">
+            <label className="form-label" htmlFor="profile-handle">{t('profile.details.handle')}</label>
+            <div className="input-group">
+              <span className="input-group-text" aria-hidden="true">@</span>
+              <input id="profile-handle" className={`form-control${handleErrors.length > 0 ? ' is-invalid' : ''}`} autoComplete="off" spellCheck={false}
+                maxLength={31} value={handle} onChange={(e) => setHandle(e.target.value)} aria-describedby="profile-handle-hint"
+                aria-invalid={handleErrors.length > 0 || undefined} />
+            </div>
+            {handleErrors.length > 0 && <div className="invalid-feedback d-block">{handleErrors.join(' ')}</div>}
+            <div id="profile-handle-hint" className="form-text">{t('profile.details.handleHint')}</div>
+          </div>
+          <div className="mb-3">
             <label className="form-label" htmlFor="profile-email">{t('auth.fields.email')}</label>
             <div className="cx-locked-field">
               <NavIcon name="lock" size={16} />
               <input id="profile-email" className="form-control" value={user.email} readOnly aria-describedby="profile-email-hint" />
             </div>
-            <div id="profile-email-hint" className="form-text">{t('profile.details.emailHint')}</div>
+            <div id="profile-email-hint" className="form-text">
+              {t(user.preferences.shareEmailWithContacts ? 'profile.details.emailHintShared' : 'profile.details.emailHint')}
+            </div>
+            <div className="form-check form-switch mt-2">
+              <input id="profile-share-email" className="form-check-input" type="checkbox" role="switch"
+                checked={!!user.preferences.shareEmailWithContacts} onChange={(e) => void shareEmail(e.target.checked)} />
+              <label className="form-check-label" htmlFor="profile-share-email">{t('profile.details.shareEmail')}</label>
+            </div>
           </div>
           <div className="cx-profile-photo-row">
             <Avatar user={user} size="lg" />
@@ -258,7 +291,7 @@ function ProfileTab({ sessions, onChangePhoto, onSessions }: { sessions: Session
             </div>
             <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onChangePhoto}>{t('profile.photo.changeShort')}</button>
           </div>
-          <button type="submit" className="btn btn-primary" disabled={busy || displayName.trim() === user.displayName}>
+          <button type="submit" className="btn btn-primary" disabled={busy || (displayName.trim() === user.displayName && !handleChanged)}>
             {t('profile.details.save')}
           </button>
         </form>

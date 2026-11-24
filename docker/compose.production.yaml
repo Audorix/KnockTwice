@@ -74,6 +74,13 @@ services:
       - "127.0.0.1:${CHATX_WEB_PORT:-8080}:8080"
     depends_on:
       - api
+    # Healthy when nginx and the API behind it answer (see docker/web.Dockerfile).
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/health/live || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     networks: [chatx]
     restart: unless-stopped
 

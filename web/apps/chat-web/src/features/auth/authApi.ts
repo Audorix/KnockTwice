@@ -65,8 +65,9 @@ export async function resetPassword(userId: string, token: string, newPassword: 
   await sendJson('POST', '/api/v1/auth/reset-password', { userId, token, newPassword });
 }
 
-export async function updateProfile(displayName: string): Promise<CurrentUserResponse> {
-  return (await sendJson<CurrentUserResponse>('PUT', '/api/v1/users/me', { displayName }))!;
+/** The display name and, when given, a new Display ID (`handle`). */
+export async function updateProfile(displayName: string, handle?: string): Promise<CurrentUserResponse> {
+  return (await sendJson<CurrentUserResponse>('PUT', '/api/v1/users/me', handle === undefined ? { displayName } : { displayName, handle }))!;
 }
 
 export async function updatePreferences(uiLanguage: string): Promise<CurrentUserResponse> {

@@ -19,7 +19,7 @@ internal static class UserEndpoints
     {
         var me = v1.MapGroup("/users/me").RequireAuthorization().WithTags("Users");
         me.MapGet(string.Empty, GetMeAsync).WithSummary("The signed-in user's account, profile and preferences.");
-        me.MapPut(string.Empty, UpdateProfileAsync).WithSummary("Updates the display name.");
+        me.MapPut(string.Empty, UpdateProfileAsync).WithSummary("Updates the display name and, when given, the Display ID (handle; 400 handle_invalid or handle_taken).");
         me.MapPut("/preferences", UpdatePreferencesAsync).WithSummary("Updates user preferences (language, theme, desktop notifications); omitted fields stay unchanged.");
         me.MapPost("/password", ChangePasswordAsync).WithSummary("Changes the password and signs out other sessions.");
         // Profile photo and links (redesign 2026-11).
@@ -121,18 +121,19 @@ internal static class UserEndpoints
         user.Profile.DisplayName,
         new AvatarResponse(user.Profile.Initials, user.Profile.HasPhoto ? PhotoUrl(user.Profile.UserId, user.Profile.PhotoVersion) : null),
         new UserPreferencesResponse(user.Profile.UiLanguage, user.Profile.Theme, user.Profile.DesktopNotifications, user.Profile.NotificationPreviews,
-            user.Profile.EmailNotifications),
+            user.Profile.EmailNotifications, user.Profile.ShareEmailWithContacts),
         user.Account.HasPassword,
         user.Account.ExternalProviders.Select(p => ExternalProviders.FindByScheme(p)?.Name ?? p.ToLowerInvariant()).ToList(),
         user.Account.Roles,
-        Permissions.All.Where(p => Permissions.IsGrantedBy(user.Account.Roles, p)).ToList());
+        Permissions.All.Where(p => Permissions.IsGrantedBy(user.Account.Roles, p)).ToList(),
+        user.Profile.Handle);
 
     private static async Task<Ok<CurrentUserResponse>> GetMeAsync(HttpContext context, UserProfileService profiles, CancellationToken cancellationToken) =>
         TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(context.User.RequireUserId(), cancellationToken).ConfigureAwait(false)));
 
     private static async Task<Ok<CurrentUserResponse>> UpdateProfileAsync(
         UpdateProfileRequest request, HttpContext context, UserProfileService profiles, CancellationToken cancellationToken) =>
-        TypedResults.Ok(ToResponse(await profiles.UpdateProfileAsync(context.User.RequireUserId(), request.DisplayName ?? string.Empty, cancellationToken)
+        TypedResults.Ok(ToResponse(await profiles.UpdateProfileAsync(context.User.RequireUserId(), request.DisplayName ?? string.Empty, cancellationToken, request.Handle)
             .ConfigureAwait(false)));
 
     private static async Task<Ok<CurrentUserResponse>> UpdatePreferencesAsync(
@@ -140,12 +141,13 @@ internal static class UserEndpoints
         TypedResults.Ok(ToResponse(await profiles.UpdatePreferencesAsync(
             context.User.RequireUserId(),
             // An empty request is still a (failed) language change, as before Phase 8.
-            request is { Theme: null, DesktopNotifications: null, NotificationPreviews: null, EmailNotifications: null } ? request.UiLanguage ?? string.Empty : request.UiLanguage,
+            request is { Theme: null, DesktopNotifications: null, NotificationPreviews: null, EmailNotifications: null, ShareEmailWithContacts: null } ? request.UiLanguage ?? string.Empty : request.UiLanguage,
             cancellationToken,
             request.Theme,
             request.DesktopNotifications,
             request.NotificationPreviews,
-            request.EmailNotifications).ConfigureAwait(false)));
+            request.EmailNotifications,
+            request.ShareEmailWithContacts).ConfigureAwait(false)));
 
     private static async Task<NoContent> ChangePasswordAsync(
         ChangePasswordRequest request,

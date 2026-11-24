@@ -97,6 +97,12 @@ public sealed class OrganizationDeletionService(
             await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
         }
 
+        // The organization's picture and background image go with it.
+        foreach (var key in new[] { organization.PhotoKey, organization.BannerKey }.OfType<string>())
+        {
+            await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
+        }
+
         await removal.DeleteAsync(organization.Id, cancellationToken).ConfigureAwait(false);
 
         // Visitors only existed for this organization's widgets: erase their stand-in accounts.

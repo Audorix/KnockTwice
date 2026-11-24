@@ -1353,6 +1353,20 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("id");
 
+                    b.Property<string>("BannerContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("banner_content_type");
+
+                    b.Property<string>("BannerKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("banner_key");
+
+                    b.Property<int>("BannerVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("banner_version");
+
                     b.Property<string>("ChannelCreation")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1384,6 +1398,20 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
                         .HasColumnName("name");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("photo_content_type");
+
+                    b.Property<string>("PhotoKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("photo_key");
+
+                    b.Property<int>("PhotoVersion")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("photo_version");
 
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("TEXT")
@@ -1838,6 +1866,11 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("email_notifications");
 
+                    b.Property<string>("Handle")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasColumnName("handle");
+
                     b.Property<DateTimeOffset?>("LastNotificationEmailAtUtc")
                         .HasColumnType("TEXT")
                         .HasColumnName("last_notification_email_at_utc");
@@ -1860,6 +1893,10 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("photo_version");
 
+                    b.Property<bool>("ShareEmailWithContacts")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("share_email_with_contacts");
+
                     b.Property<string>("Theme")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -1878,6 +1915,10 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
 
                     b.HasKey("UserId")
                         .HasName("pk_user_profiles");
+
+                    b.HasIndex("Handle")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_profiles_handle");
 
                     b.ToTable("user_profiles", null, t =>
                         {

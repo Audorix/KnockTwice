@@ -31,6 +31,7 @@ export function mentionsOf(entry: ConversationEntryResponse, names: Map<string, 
   };
 }
 import { Avatar } from '../../shared/components/Avatar';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { FormAlert } from '../../shared/components/Field';
 import { LockGlyph } from '../../shared/components/LockGlyph';
 import { NavIcon } from '../../shared/components/NavIcon';
@@ -443,6 +444,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     if (atBottom.current) setShowJump(false);
   };
 
+  const [confirm, confirmDialog] = useConfirm();
   const act = async (action: () => Promise<unknown>) => {
     setError(null);
     try {
@@ -632,6 +634,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
 
   return (
     <section className="cx-card cx-conversation-view" aria-labelledby="conversation-title">
+      {confirmDialog}
       <div className="cx-card-header cx-chat-header">
         <button type="button" className="btn btn-sm cx-back" onClick={() => navigate('/conversations')}>
           <NavIcon name="back" size={18} />
@@ -821,9 +824,11 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
                   setEditing(entry);
                   setDraft(entry.body ?? '');
                 }}
-                onDelete={() => {
-                  if (window.confirm(t('messages.deleteConfirm'))) void act(() => api.deleteMessage(c.id, entry.id));
-                }}
+                onDelete={() => void confirm({
+                  title: t('confirm.deleteMessage.title'),
+                  text: t('confirm.deleteMessage.text'),
+                  confirmLabel: t('confirm.deleteMessage.action'),
+                }).then((ok) => { if (ok) void (act(() => api.deleteMessage(c.id, entry.id))); })}
               />
             ) : (
               <li key={entry.id} className="cx-history-entry">

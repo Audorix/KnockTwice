@@ -31,6 +31,36 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   **Audorix.ChatX**: namespaces, projects, packages, the `ChatXWidget` JavaScript API, `X-ChatX-*`
   headers and data-protection names are unchanged, so existing installations, sign-ins, stored
   secrets and embedded website chats keep working.
+- **No more browser dialogs:** every confirmation (disable or delete an account, remove a member or
+  guest, leave or archive a channel, leave a group or organization, delete a message or team, block
+  someone, rebuild the search index, replace a widget secret, clear demo data) asks in the app's own
+  dialog, with a title, an explanation and a clear action; the safe choice has focus. Deleting an
+  organization asks you to type its name in that dialog instead of a browser prompt.
+- **Organization and channel pages** use the page header with a breadcrumb like the other pages.
+- **Unknown addresses** show "Page not found" with a way home instead of the home page; a trailing
+  slash no longer matters.
+- **Docker:** the web image and the production Compose file have a health check (nginx and the API
+  behind it). CI uses Node 24 like the image and type-checks the website chat package.
+- **Organization page redesign:** a header with the organization's picture, background image, name,
+  role and counts, then tabs for Profile, Members, Workspaces, Channels & guests, Website chat and
+  Settings (only those your role can use; the tab is in the address). The Profile tab has the name,
+  picture and background image, "At a glance" counts and quick actions. Owners and administrators
+  set the **picture** (square, up to 1 MB) and the **background image** (wide, 4:1, up to 2 MB) in a
+  crop dialog; the organizations list shows the picture. API: `photoUrl`/`bannerUrl` on
+  organizations, `POST`/`DELETE`/`GET /api/v1/organizations/{id}/photo|banner`; deleting an
+  organization deletes both files. Migration AddOrganizationImages.
+- **Contact profile drawer redesign:** photo and status at the top, Message and View full profile
+  side by side, contact details with one-click copy for the email address and Display ID, shared
+  organizations and the contact date; Remove contact and Block contact are under "Manage contact".
+  "View full profile" opens a new page (`/person?id=`) that also shows profile links.
+- **Display ID:** every account has a unique `@handle`, made from the name the first time it is
+  needed (`@aaronmedina`, then `@aaronmedina2`), changeable in My profile. **Email sharing:** a new
+  "Show my email address to my contacts" switch (off by default; on for demo people); otherwise the
+  drawer says "Email not shared". API: `handle` on `GET /api/v1/users/me` and in
+  `PUT /api/v1/users/me` (400 `handle_invalid` or `handle_taken`), `shareEmailWithContacts` in the
+  preferences, `GET /api/v1/contacts/{userId}/details`. Migration AddDisplayIdAndEmailSharing.
+- **Phones:** Support, Private and Admin moved from the bottom tab bar into a "More" (⋯) menu at
+  its end, which shows the private chat invitation count.
 - **Version 1.0.0:** `GET /api/v1/meta` reports product `Knock Twice` and stage `stable`; Docker
   image tags are `1.0.0`.
 - **Upgrading from 0.1.0:** back up, then run `migrate` (see

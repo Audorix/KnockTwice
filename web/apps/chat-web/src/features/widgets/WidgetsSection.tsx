@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UserSummary, WidgetLanguage, WidgetPosition, WidgetResponse } from '../../shared/api/contracts';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { Field, FormAlert } from '../../shared/components/Field';
 import { errorMessage } from '../auth/errors';
 import * as api from './widgetsApi';
@@ -138,6 +139,7 @@ function WidgetEditor({
   }));
   const [error, setError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setSaved(false);
     setForm((current) => ({ ...current, [key]: value }));
@@ -168,7 +170,12 @@ function WidgetEditor({
   };
 
   const rotate = async () => {
-    if (!window.confirm(t('widgets.rotateConfirm'))) return;
+    const ok = await confirm({
+      title: t('confirm.rotateSecret.title'),
+      text: t('confirm.rotateSecret.text'),
+      confirmLabel: t('confirm.rotateSecret.action'),
+    });
+    if (!ok) return;
     setError(null);
     try {
       const result = await api.rotateSecret(organizationId, widget.id);
@@ -184,6 +191,7 @@ function WidgetEditor({
 
   return (
     <form id="widget-editor" className="cx-subpanel" onSubmit={(e) => void save(e)} noValidate aria-label={t('widgets.editorFor', { name: widget.name })}>
+      {confirmDialog}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {saved && <FormAlert tone="success">{t('widgets.saved')}</FormAlert>}
 

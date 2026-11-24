@@ -717,7 +717,7 @@
         "tags": [
           "Users"
         ],
-        "summary": "Updates the display name.",
+        "summary": "Updates the display name and, when given, the Display ID (handle; 400 handle_invalid or handle_taken).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1107,6 +1107,37 @@
         }
       }
     },
+    "/api/v1/contacts/{userId}/details": {
+      "get": {
+        "tags": [
+          "Contacts"
+        ],
+        "summary": "A contact's Display ID, and their email address when they share it with contacts (otherwise null, emailShared false).",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactDetailsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contacts/requests": {
       "get": {
         "tags": [
@@ -1445,6 +1476,127 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationId}/{kind}": {
+      "post": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Sets the organization's picture (photo: square, up to 1 MB) or background image (banner: wide, up to 2 MB); multipart/form-data, field 'file', PNG, JPEG or WebP, already cropped. Owners and administrators.",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(photo|banner)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "Removes the picture (initials show again) or the background image. Owners and administrators.",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(photo|banner)$",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Organizations"
+        ],
+        "summary": "The organization's picture or background image (members). 404 when there is none.",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "pattern": "^(photo|banner)$",
+              "type": "string"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -8096,6 +8248,31 @@
           }
         }
       },
+      "ContactDetailsResponse": {
+        "required": [
+          "handle",
+          "email",
+          "emailShared"
+        ],
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "email": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "emailShared": {
+            "type": "boolean"
+          }
+        }
+      },
       "ContactRequestResponse": {
         "required": [
           "id",
@@ -8942,6 +9119,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "handle": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -9749,6 +9932,18 @@
           "channelCreation": {
             "type": "string",
             "default": "members"
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "bannerUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -11695,6 +11890,12 @@
               "null",
               "string"
             ]
+          },
+          "shareEmailWithContacts": {
+            "type": [
+              "null",
+              "boolean"
+            ]
           }
         }
       },
@@ -11705,6 +11906,12 @@
         "type": "object",
         "properties": {
           "displayName": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "handle": {
             "type": [
               "null",
               "string"
@@ -11860,6 +12067,10 @@
           "emailNotifications": {
             "type": "string",
             "default": "batched"
+          },
+          "shareEmailWithContacts": {
+            "type": "boolean",
+            "default": false
           }
         }
       },

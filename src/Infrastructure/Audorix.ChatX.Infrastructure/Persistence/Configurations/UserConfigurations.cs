@@ -25,6 +25,8 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
         builder.Ignore(p => p.IsDeleted);
 
         // Profile photo (redesign 2026-11): a storage key, its type and a version for cache busting.
+        builder.Property(p => p.Handle).HasMaxLength(UserProfile.HandleMaxLength);
+        builder.HasIndex(p => p.Handle).IsUnique();
         builder.Property(p => p.PhotoKey).HasMaxLength(200);
         builder.Property(p => p.PhotoContentType).HasMaxLength(32);
         builder.Ignore(p => p.HasPhoto);

@@ -88,6 +88,12 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         }
 
         await SaveAsync(cancellationToken).ConfigureAwait(false);
+
+        // Demo people show their email address to their contacts (contact drawer, 2026-11-24), also
+        // when they were loaded before that setting existed.
+        var demoIds = users.Values.ToList();
+        await db.UserProfiles.Where(p => demoIds.Contains(p.UserId) && !p.ShareEmailWithContacts && p.DeletedAtUtc == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.ShareEmailWithContacts, true), cancellationToken).ConfigureAwait(false);
         return users;
     }
 
@@ -549,10 +555,13 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         var files = await db.Attachments
             .Where(a => !a.ContentRemoved && (conversations.Contains(a.ConversationId) || users.Contains(a.OwnerUserId)))
             .Select(a => a.StorageKey).ToListAsync(cancellationToken).ConfigureAwait(false);
-        // Demo people's profile photos go with them.
+        // Demo people's profile photos go with them, and so do the pictures of removed organizations.
         var photos = await db.UserProfiles.Where(p => p.PhotoKey != null && users.Contains(p.UserId))
             .Select(p => p.PhotoKey!).ToListAsync(cancellationToken).ConfigureAwait(false);
-        return [.. files, .. photos];
+        var (_, organizations, _) = Scope();
+        var organizationImages = await db.Organizations.Where(o => organizations.Contains(o.Id) && (o.PhotoKey != null || o.BannerKey != null))
+            .Select(o => new { o.PhotoKey, o.BannerKey }).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return [.. files, .. photos, .. organizationImages.SelectMany(o => new[] { o.PhotoKey, o.BannerKey }).OfType<string>()];
     }
 
     /// <summary>

@@ -6,7 +6,7 @@ import type {
   WorkspaceMemberResponse,
   WorkspaceResponse,
 } from '../../shared/api/contracts';
-import { getJson, sendJson } from '../../shared/api/httpClient';
+import { getJson, sendJson, uploadFile } from '../../shared/api/httpClient';
 
 /** Typed calls to /api/v1/organizations. */
 
@@ -26,6 +26,17 @@ export async function getOrganization(organizationId: string): Promise<Organizat
 
 export async function renameOrganization(organizationId: string, name: string): Promise<OrganizationResponse> {
   return (await sendJson<OrganizationResponse>('PUT', base(organizationId), { name }))!;
+}
+
+/** The square picture ("photo") or the wide background image ("banner"), already cropped. */
+export type OrganizationImage = 'photo' | 'banner';
+
+export function uploadOrganizationImage(organizationId: string, kind: OrganizationImage, image: Blob, fileName: string): Promise<OrganizationResponse> {
+  return uploadFile<OrganizationResponse>(`${base(organizationId)}/${kind}`, image, fileName);
+}
+
+export async function removeOrganizationImage(organizationId: string, kind: OrganizationImage): Promise<OrganizationResponse> {
+  return (await sendJson<OrganizationResponse>('DELETE', `${base(organizationId)}/${kind}`))!;
 }
 
 export async function listMembers(organizationId: string): Promise<OrganizationMembersResponse> {

@@ -1,4 +1,4 @@
-import type { ContactRequestResponse, ContactResponse, UserSummary } from '../../shared/api/contracts';
+import type { ContactDetailsResponse, ContactRequestResponse, ContactResponse, UserSummary } from '../../shared/api/contracts';
 import { getJson, sendJson } from '../../shared/api/httpClient';
 
 /** Typed calls to /api/v1/contacts and user discovery. */
@@ -31,3 +31,8 @@ export const cancelRequest = (requestId: string) => sendJson('DELETE', `/api/v1/
 export const removeContact = (userId: string) => sendJson('DELETE', `/api/v1/contacts/${id(userId)}`);
 export const blockUser = (userId: string) => sendJson('POST', `/api/v1/contacts/${id(userId)}/block`);
 export const unblockUser = (userId: string) => sendJson('DELETE', `/api/v1/contacts/${id(userId)}/block`);
+
+/** A contact's Display ID, and their email address when they share it (contact drawer, 2026-11-24). */
+export async function getContactDetails(userId: string): Promise<ContactDetailsResponse> {
+  return (await getJson<ContactDetailsResponse>(`/api/v1/contacts/${encodeURIComponent(userId)}/details`)).body!;
+}

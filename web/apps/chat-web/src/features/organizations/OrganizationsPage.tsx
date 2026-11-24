@@ -8,6 +8,7 @@ import { Pagination } from '../../shared/components/Pagination';
 import { errorMessage, fieldErrors } from '../auth/errors';
 import { RequireUser, useAction } from '../auth/RequireUser';
 import * as api from './organizationsApi';
+import { OrganizationMark } from './OrganizationMark';
 
 /**
  * Organizations (redesigned to the owner's mockup 2026-11-24): invitations addressed to the caller,
@@ -172,7 +173,7 @@ function Organizations() {
                     <tr key={o.id} className={o.myRole === 'owner' ? 'is-owned' : undefined}>
                       <td data-label={t('organizations.columns.organization')}>
                         <div className="cx-organization-cell">
-                          <span className="cx-organization-mark" aria-hidden="true">{initialsOf(o.name)}</span>
+                          <OrganizationMark organization={o} />
                           <span className="min-w-0">
                             <strong className="d-block text-truncate">{o.name}</strong>
                             <span className="cx-muted small" title={t('organizations.since', { date: formatDay(o.createdAtUtc, i18n.language) })}>
@@ -292,7 +293,6 @@ function CreateOrganization({ onClose }: { onClose: () => void }) {
   );
 }
 
-const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
 function formatDay(value: string, language: string) {
   return new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(value));

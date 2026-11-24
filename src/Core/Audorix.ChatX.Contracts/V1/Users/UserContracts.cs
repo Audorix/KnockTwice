@@ -11,7 +11,8 @@ public sealed record CurrentUserResponse(
     bool HasPassword,
     IReadOnlyList<string> ExternalProviders,
     IReadOnlyList<string> Roles,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    string? Handle = null);
 
 /// <summary>Another user as shown to the caller. Never includes the email address.</summary>
 /// <param name="Deleted">The account was deleted; show a localized "Deleted user" instead of <paramref name="DisplayName"/>.</param>
@@ -47,13 +48,17 @@ public sealed record ProfileLinkRequest(string? Platform, string? Url, string? V
 /// <param name="DesktopNotifications">Browser notifications switched on (each browser also asks for permission).</param>
 /// <param name="NotificationPreviews">Desktop notifications may include message text.</param>
 /// <param name="EmailNotifications"><c>batched</c> (default: soon after messages stay unread, at most hourly), <c>daily</c> or <c>off</c> (Phase 15).</param>
+/// <param name="ShareEmailWithContacts">Contacts see the email address in your profile drawer (off by default).</param>
 public sealed record UserPreferencesResponse(
-    string UiLanguage, string Theme = "system", bool DesktopNotifications = false, bool NotificationPreviews = true, string EmailNotifications = "batched");
+    string UiLanguage, string Theme = "system", bool DesktopNotifications = false, bool NotificationPreviews = true, string EmailNotifications = "batched",
+    bool ShareEmailWithContacts = false);
 
-public sealed record UpdateProfileRequest(string? DisplayName);
+/// <param name="Handle">New Display ID (unique; 3-30 of a-z, 0-9, dots and underscores; a leading @ is ignored); null keeps it.</param>
+public sealed record UpdateProfileRequest(string? DisplayName, string? Handle = null);
 
 /// <summary>Null fields are left unchanged.</summary>
 public sealed record UpdatePreferencesRequest(
-    string? UiLanguage, string? Theme = null, bool? DesktopNotifications = null, bool? NotificationPreviews = null, string? EmailNotifications = null);
+    string? UiLanguage, string? Theme = null, bool? DesktopNotifications = null, bool? NotificationPreviews = null, string? EmailNotifications = null,
+    bool? ShareEmailWithContacts = null);
 
 public sealed record ChangePasswordRequest(string? CurrentPassword, string? NewPassword);

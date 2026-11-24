@@ -28,6 +28,11 @@ internal static class ContactEndpoints
             await service.RemoveContactAsync(http.User.RequireUserId(), userId, ct);
             return TypedResults.NoContent();
         }).WithSummary("Removes a contact (either side may remove).");
+        contacts.MapGet("/{userId:guid}/details", async (Guid userId, HttpContext http, UserProfileService profiles, CancellationToken ct) =>
+        {
+            var details = await profiles.GetContactDetailsAsync(http.User.RequireUserId(), userId, ct);
+            return TypedResults.Ok(new ContactDetailsResponse(details.Handle, details.Email, details.Email is not null));
+        }).WithSummary("A contact's Display ID, and their email address when they share it with contacts (otherwise null, emailShared false).");
 
         contacts.MapGet("/requests", async (HttpContext http, ContactService service, CancellationToken ct) =>
             TypedResults.Ok((await service.ListRequestsAsync(http.User.RequireUserId(), ct)).Select(ToResponse).ToList()))

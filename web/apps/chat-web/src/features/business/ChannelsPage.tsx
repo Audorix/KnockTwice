@@ -6,6 +6,7 @@ import type { ChannelResponse, ChannelVisibility, MyGuestInvitationResponse, Org
 import { Field, FormAlert } from '../../shared/components/Field';
 import { NavIcon } from '../../shared/components/NavIcon';
 import { RowMenu, type RowMenuItem } from '../../shared/components/RowMenu';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { errorMessage } from '../auth/errors';
 import { RequireUser } from '../auth/RequireUser';
 import { listConversations } from '../conversations/conversationsApi';
@@ -85,6 +86,7 @@ function Channels() {
   const select = (org: string, ws?: string) => navigate(`/channels?org=${encodeURIComponent(org)}${ws ? `&ws=${encodeURIComponent(ws)}` : ''}`, { replace: true });
   const open = (channel: ChannelResponse) => navigate(`/conversations?id=${encodeURIComponent(channel.id)}`);
 
+  const [confirm, confirmDialog] = useConfirm();
   const act = async (action: () => Promise<unknown>, after?: () => void) => {
     setError(null);
     try {
@@ -97,11 +99,21 @@ function Channels() {
   };
 
   const join = (channel: ChannelResponse) => act(() => api.joinChannel(channel.id), () => open(channel));
-  const leave = (channel: ChannelResponse) => {
-    if (window.confirm(t('channels.leaveConfirm', { name: channel.name }))) void act(() => api.leaveChannel(channel.id));
-  };
-  const archive = (channel: ChannelResponse, archived: boolean) => {
-    if (!archived || window.confirm(t('channels.archiveConfirm', { name: channel.name }))) void act(() => api.setChannelArchived(channel.id, archived));
+  const leave = (channel: ChannelResponse) =>
+    void confirm({
+      title: t('confirm.leaveChannel.title', { name: channel.name }),
+      text: t('confirm.leaveChannel.text'),
+      confirmLabel: t('confirm.leaveChannel.action'),
+    }).then((ok) => { if (ok) void (act(() => api.leaveChannel(channel.id))); });
+  const archive = async (channel: ChannelResponse, archived: boolean) => {
+    // Restoring needs no confirmation; archiving makes the channel read-only for everyone.
+    const ok = !archived || await confirm({
+      title: t('confirm.archiveChannel.title', { name: channel.name }),
+      text: t('confirm.archiveChannel.text'),
+      confirmLabel: t('confirm.archiveChannel.action'),
+      tone: 'primary',
+    });
+    if (ok) void act(() => api.setChannelArchived(channel.id, archived));
   };
 
   const all = useMemo(() => channels ?? [], [channels]);
@@ -122,6 +134,7 @@ function Channels() {
 
   return (
     <div className="cx-channels">
+      {confirmDialog}
       <header className="cx-page-header">
         <div>
           <nav aria-label={t('nav.label')} className="cx-breadcrumb">

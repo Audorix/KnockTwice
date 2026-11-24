@@ -38,7 +38,6 @@ describe('AdminPage', () => {
 
   it('lets an administrator disable a user after confirming', async () => {
     window.history.replaceState(null, '', '/admin?tab=users');
-    vi.stubGlobal('confirm', () => true);
     const calls: string[] = [];
     mockFetch({
       'GET /api/v1/auth/config': () => json(200, authConfig),
@@ -76,6 +75,11 @@ describe('AdminPage', () => {
     await user.click(within(row).getByRole('button', { name: 'More actions for Ana' }));
     expect(screen.getByRole('menuitem', { name: 'View details' })).toBeInTheDocument();
     await user.click(screen.getByRole('menuitem', { name: 'Disable account' }));
+    // A dialog asks first (not the browser's confirm box); Cancel has focus.
+    const dialog = screen.getByRole('alertdialog', { name: 'Disable Ana?' });
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    expect(calls).toEqual([]);
+    await user.click(within(dialog).getByRole('button', { name: 'Disable account' }));
     expect(await within(row).findByText('Disabled')).toBeInTheDocument();
     await user.click(within(row).getByRole('button', { name: 'More actions for Ana' }));
     expect(screen.getByRole('menuitem', { name: 'Enable account' })).toBeInTheDocument();

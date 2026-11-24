@@ -20,9 +20,12 @@ public static class WorkspaceRoles
 /// <param name="SupportAgent">The caller holds the Support Agent role (Phase 11).</param>
 /// <param name="GuestsEnabled">Organization setting: guests may be invited to channels.</param>
 /// <param name="ChannelCreation"><c>members</c> or <c>administrators</c>.</param>
+/// <param name="PhotoUrl">The organization's square picture (null: show its initials); the address changes with every new picture.</param>
+/// <param name="BannerUrl">The wide background image of its header (null: none).</param>
 public sealed record OrganizationResponse(
     Guid Id, string Name, string MyRole, DateTimeOffset CreatedAtUtc, IReadOnlyList<string> MyPermissions,
-    bool SupportAgent = false, bool GuestsEnabled = true, string ChannelCreation = "members");
+    bool SupportAgent = false, bool GuestsEnabled = true, string ChannelCreation = "members",
+    string? PhotoUrl = null, string? BannerUrl = null);
 
 /// <summary>Organization-specific configuration (Phase 11). Null fields stay unchanged.</summary>
 public sealed record UpdateOrganizationSettingsRequest(bool? GuestsEnabled, string? ChannelCreation);

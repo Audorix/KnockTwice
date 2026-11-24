@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GuestInvitationResponse, GuestResponse, OrganizationResponse, TeamMemberResponse, TeamResponse, WorkspaceMemberResponse } from '../../shared/api/contracts';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { Field, FormAlert } from '../../shared/components/Field';
 import { errorMessage } from '../auth/errors';
 import * as api from './businessApi';
@@ -70,9 +71,11 @@ export function GuestsSection({ organizationId }: { organizationId: string }) {
     setError(null);
     void action().then(reload, setError);
   };
+  const [confirm, confirmDialog] = useConfirm();
 
   return (
     <section className="cx-card mt-3" aria-labelledby="guests-title">
+      {confirmDialog}
       <h2 id="guests-title" className="cx-card-title">{t('business.guestsTitle')}</h2>
       <p className="cx-muted">{t('business.guestsIntro')}</p>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
@@ -86,7 +89,11 @@ export function GuestsSection({ organizationId }: { organizationId: string }) {
                 {g.user.displayName} <span className="cx-meta">· {g.channels.map((c) => `#${c.name}`).join(', ') || t('business.noChannels')}</span>
               </span>
               <button type="button" className="btn btn-sm btn-outline-danger" aria-label={t('business.removeGuestNamed', { name: g.user.displayName })}
-                onClick={() => window.confirm(t('business.removeGuestConfirm', { name: g.user.displayName })) && act(() => api.removeGuest(organizationId, g.user.id))}>
+                onClick={() => void confirm({
+                  title: t('confirm.removeGuest.title', { name: g.user.displayName }),
+                  text: t('confirm.removeGuest.text'),
+                  confirmLabel: t('confirm.removeGuest.action'),
+                }).then((ok) => { if (ok) void (act(() => api.removeGuest(organizationId, g.user.id))); })}>
                 {t('contacts.remove')}
               </button>
             </li>
@@ -141,9 +148,11 @@ export function TeamsSection({ organizationId, workspaceId, canManageWorkspace, 
     }
   };
 
+  const [confirm, confirmDialog] = useConfirm();
   const openTeam = teams.find((team) => team.id === open);
   return (
     <div className="mt-3">
+      {confirmDialog}
       <h3 className="h6">{t('business.teamsTitle')}</h3>
       <p className="cx-meta">{t('business.teamsIntro')}</p>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
@@ -163,8 +172,11 @@ export function TeamsSection({ organizationId, workspaceId, canManageWorkspace, 
                 </button>
                 {canManageWorkspace && (
                   <button type="button" className="btn btn-sm btn-outline-danger" aria-label={t('business.deleteTeamNamed', { name: team.name })}
-                    onClick={() => window.confirm(t('business.deleteTeamConfirm', { name: team.name })) &&
-                      void api.deleteTeam(organizationId, workspaceId, team.id).then(reload, setError)}>
+                    onClick={() => void confirm({
+                      title: t('confirm.deleteTeam.title', { name: team.name }),
+                      text: t('confirm.deleteTeam.text'),
+                      confirmLabel: t('confirm.deleteTeam.action'),
+                    }).then((ok) => { if (ok) void (api.deleteTeam(organizationId, workspaceId, team.id).then(reload, setError)); })}>
                     {t('business.deleteTeam')}
                   </button>
                 )}

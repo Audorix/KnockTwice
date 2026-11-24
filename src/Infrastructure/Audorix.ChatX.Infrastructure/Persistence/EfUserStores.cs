@@ -12,6 +12,12 @@ internal sealed class EfUserProfileStore(ChatXDbContext db) : IUserProfileStore
         db.UserProfiles.SingleOrDefaultAsync(p => p.UserId == userId, cancellationToken);
 
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
+
+    public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => db.TrySaveChangesAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<string>> ListHandlesStartingWithAsync(string prefix, CancellationToken cancellationToken) =>
+        await db.UserProfiles.AsNoTracking().Where(p => p.Handle != null && p.Handle.StartsWith(prefix))
+            .Select(p => p.Handle!).ToListAsync(cancellationToken).ConfigureAwait(false);
 }
 
 internal sealed class EfProfileLinkStore(ChatXDbContext db) : IProfileLinkStore

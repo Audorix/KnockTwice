@@ -18,6 +18,10 @@ internal sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organ
         builder.Property(o => o.Name).HasMaxLength(Organization.NameMaxLength).IsRequired();
         builder.Property(o => o.GuestsEnabled).HasDefaultValue(true);
         builder.Property(o => o.ChannelCreation).HasConversion<string>().HasMaxLength(16).HasDefaultValue(ChannelCreationPolicy.Members);
+        builder.Property(o => o.PhotoKey).HasMaxLength(200);
+        builder.Property(o => o.PhotoContentType).HasMaxLength(32);
+        builder.Property(o => o.BannerKey).HasMaxLength(200);
+        builder.Property(o => o.BannerContentType).HasMaxLength(32);
         builder.HasOne<ChatXUser>().WithMany().HasForeignKey(o => o.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -38,6 +38,37 @@ internal static class OrganizationEndpoints
             return TypedResults.NoContent();
         }).WithSummary("Deletes the organization and everything in it (owners only; confirmName repeats its name). Cannot be undone.");
 
+        // Picture and background image (redesign 2026-11-24): {kind} is "photo" or "banner".
+        orgs.MapPost("/{organizationId:guid}/{kind:regex(^(photo|banner)$)}", async (
+            Guid organizationId, string kind, HttpContext http, OrganizationMediaService media, CancellationToken ct) =>
+        {
+            var image = ParseImage(kind);
+            var view = await MultipartUpload.ReadFileAsync(http, OrganizationMediaService.MaxBytes(image),
+                (_, _, stream) => media.SetImageAsync(http.User.RequireUserId(), organizationId, image, stream, ct), ct);
+            return TypedResults.Ok(ToResponse(view));
+        }).WithSummary("Sets the organization's picture (photo: square, up to 1 MB) or background image (banner: wide, up to 2 MB); multipart/form-data, field 'file', PNG, JPEG or WebP, already cropped. Owners and administrators.");
+        orgs.MapDelete("/{organizationId:guid}/{kind:regex(^(photo|banner)$)}", async (
+            Guid organizationId, string kind, HttpContext http, OrganizationMediaService media, CancellationToken ct) =>
+            TypedResults.Ok(ToResponse(await media.RemoveImageAsync(http.User.RequireUserId(), organizationId, ParseImage(kind), ct))))
+            .WithSummary("Removes the picture (initials show again) or the background image. Owners and administrators.");
+        orgs.MapGet("/{organizationId:guid}/{kind:regex(^(photo|banner)$)}", async (
+            Guid organizationId, string kind, int? v, HttpContext http, OrganizationMediaService media, CancellationToken ct) =>
+        {
+            var image = await media.OpenImageAsync(http.User.RequireUserId(), organizationId, ParseImage(kind), ct);
+            if (image is null)
+            {
+                return Results.NotFound();
+            }
+
+            AttachmentEndpoints.SetDownloadHeaders(http.Response, kind, image.ContentType, forceDownload: false, cacheable: true);
+            if (v == image.Version)
+            {
+                http.Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+            }
+
+            return Results.Stream(image.Content, image.ContentType);
+        }).WithSummary("The organization's picture or background image (members). 404 when there is none.");
+
         orgs.MapGet("/{organizationId:guid}/members", async (Guid organizationId, HttpContext http, OrganizationService service, CancellationToken ct) =>
         {
             var view = await service.ListMembersAsync(http.User.RequireUserId(), organizationId, ct);
@@ -164,7 +195,20 @@ internal static class OrganizationEndpoints
             .ToList(),
         view.IsSupportAgent,
         view.Organization.GuestsEnabled,
-        view.Organization.ChannelCreation == ChannelCreationPolicy.Administrators ? "administrators" : "members");
+        view.Organization.ChannelCreation == ChannelCreationPolicy.Administrators ? "administrators" : "members",
+        ImageUrl(view.Organization.Id, "photo", view.Organization.PhotoKey, view.Organization.PhotoVersion),
+        ImageUrl(view.Organization.Id, "banner", view.Organization.BannerKey, view.Organization.BannerVersion));
+
+    /// <summary>Versioned, so a browser may cache it for good.</summary>
+    private static string? ImageUrl(Guid organizationId, string kind, string? key, int version) =>
+        key is null ? null : $"/api/v1/organizations/{organizationId}/{kind}?v={version}";
+
+    private static OrganizationImage ParseImage(string kind) => kind switch
+    {
+        "photo" => OrganizationImage.Photo,
+        "banner" => OrganizationImage.Banner,
+        _ => throw new ResourceNotFoundException("not_found"),
+    };
 
     private static ChannelCreationPolicy? ParseChannelCreation(string? value) => value?.Trim().ToLowerInvariant() switch
     {

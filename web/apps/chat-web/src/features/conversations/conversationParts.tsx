@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { navigate } from '../../app/router';
 import type { ConversationDetailResponse, ConversationEntryResponse, ParticipantRole, UserSummary } from '../../shared/api/contracts';
 import { Avatar } from '../../shared/components/Avatar';
+import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { Field } from '../../shared/components/Field';
 import { useAuth } from '../auth/AuthContext';
 import { listContacts } from '../contacts/contactsApi';
@@ -90,9 +91,11 @@ export function GroupDetails({
   const [description, setDescription] = useState(detail.description ?? '');
   const [adding, setAdding] = useState<string[]>([]);
   const candidates = useCandidates(c.organizationId ?? '').filter((p) => !detail.participants.some((x) => x.user.id === p.id));
+  const [confirm, confirmDialog] = useConfirm();
 
   return (
     <div className="cx-subpanel mb-3">
+      {confirmDialog}
       {canManage && (
         <form
           className="mb-3"
@@ -176,11 +179,11 @@ export function GroupDetails({
       <button
         type="button"
         className="btn btn-sm btn-outline-danger mt-3"
-        onClick={() => {
-          if (window.confirm(t('conversations.leaveConfirm', { name: c.title }))) {
-            void act(() => api.leaveConversation(c.id)).then(() => navigate('/conversations'));
-          }
-        }}
+        onClick={() => void confirm({
+          title: t('confirm.leaveConversation.title', { name: c.title }),
+          text: t('confirm.leaveConversation.text'),
+          confirmLabel: t('confirm.leaveConversation.action'),
+        }).then((ok) => { if (ok) void (act(() => api.leaveConversation(c.id)).then(() => navigate('/conversations'))); })}
       >
         {t('conversations.leave')}
       </button>
