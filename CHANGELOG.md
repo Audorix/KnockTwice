@@ -7,6 +7,7 @@ they are called out here.
 
 ## [Unreleased]
 
+Phase 23, send-path speed ([delivery record](docs/releases/phase-23-send-path.md)),
 Phase 22, performance ([delivery record](docs/releases/phase-22-performance.md)),
 Phase 21, release readiness ([delivery record](docs/releases/phase-21-release-readiness.md)),
 Phase 20, drafts, scheduled messages and reminders ([delivery record](docs/releases/phase-20-planning.md)),
@@ -17,6 +18,15 @@ threads ([delivery record](docs/releases/phase-16-reactions-threads.md)),
 Phase 15, notifications ([delivery record](docs/releases/phase-15-notifications.md)), Phase 14,
 message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 13, 1.0 hardening
 ([delivery record](docs/releases/phase-13-hardening.md)).
+
+### Changed (Phase 23)
+
+- **Faster sending:** a text message runs 8 database statements instead of 22 (it is described once
+  and published from memory), and an active session is re-read at most every 15 seconds.
+- **Fewer "try again" errors in busy groups:** simultaneous sends retry up to 8 times with a short
+  random pause before answering 409 (was 3).
+- **Sign-out on other servers:** with several API instances, a revoked session can still be accepted
+  by another instance for up to 15 seconds (same server: at once).
 
 ### Added (Phase 22)
 

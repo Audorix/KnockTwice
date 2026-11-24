@@ -142,7 +142,8 @@ public sealed class MessagingService(
     Users.IUserDirectory directory,
     PresenceDirectory presence)
 {
-    private const int SaveAttempts = 3;
+    /// <summary>Phase 23: more tries (was 3) with a random back-off, so busy groups rarely see a 409.</summary>
+    internal const int SaveAttempts = 8;
 
     /// <summary>
     /// Sends a message, optionally with ready attachments the sender uploaded into the conversation
@@ -225,8 +226,11 @@ public sealed class MessagingService(
 
             if (await store.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false))
             {
-                await DispatchAsync(outbox.Id, cancellationToken).ConfigureAwait(false);
-                return (await ViewAsync(entry, cancellationToken).ConfigureAwait(false), true);
+                // Phase 23: describe the new message once and publish that same view, instead of
+                // re-reading the outbox row and the message and describing it twice.
+                var view = await conversations.DescribeNewAsync(entry, files.Count > 0, mentions.Count > 0, cancellationToken).ConfigureAwait(false);
+                await PublishNowAsync(outbox, entry, view, cancellationToken).ConfigureAwait(false);
+                return (view, true);
             }
 
             if (attempt == SaveAttempts)
@@ -234,8 +238,39 @@ public sealed class MessagingService(
                 throw new ConflictException("conflict");
             }
 
-            // Lost a race: either the sequence moved or the same client id was saved concurrently; re-evaluate.
+            // Lost a race: either the sequence moved or the same client id was saved concurrently; re-evaluate
+            // after a short random pause, so racing senders in a busy conversation do not collide again.
+            await Task.Delay(ConflictBackoff(attempt), cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Phase 23: up to <see cref="SaveAttempts"/> tries, waiting 5–20 ms, then 10–40 ms, … (capped at 200 ms).</summary>
+    internal static TimeSpan ConflictBackoff(int attempt) =>
+        TimeSpan.FromMilliseconds(Math.Min(200, 5 * (1 << Math.Min(attempt - 1, 5))) * (1 + (3 * Random.Shared.NextDouble())));
+
+    /// <summary>
+    /// Publishes a just-committed message with its view already built (the outbox row stays as the
+    /// safety net if publishing fails, exactly like <see cref="DispatchAsync"/>).
+    /// </summary>
+    private async Task PublishNowAsync(OutboxMessage row, ConversationEvent entry, HistoryEntryView view, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var recipients = await store.ListRecipientsAsync(row.ConversationId, entry.Sequence, cancellationToken).ConfigureAwait(false);
+            if (recipients.Count > 0)
+            {
+                await publisher.PublishToUsersAsync(recipients, new MessageChanged(row.Id, row.Type, view), cancellationToken).ConfigureAwait(false);
+            }
+
+            store.Remove(row);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            row.Failed(time.GetUtcNow(), settings.Value.OutboxRetryDelay); // the dispatcher retries it
+        }
+
+        // A concurrent dispatcher may have removed the row first; that is fine (at least once).
+        await store.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

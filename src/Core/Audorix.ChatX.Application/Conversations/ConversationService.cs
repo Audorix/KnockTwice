@@ -498,7 +498,23 @@ public sealed partial class ConversationService(
     }
 
     /// <summary>People and reply previews for history entries (used by history and message events).</summary>
-    public async Task<IReadOnlyList<HistoryEntryView>> DescribeAsync(IReadOnlyList<ConversationEvent> entries, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<HistoryEntryView>> DescribeAsync(IReadOnlyList<ConversationEvent> entries, CancellationToken cancellationToken) =>
+        DescribeAsync(entries, NewEntry.None, cancellationToken);
+
+    /// <summary>
+    /// Describes a message saved a moment ago (Phase 23): it cannot have reactions, pins or thread
+    /// replies yet, and it has files or mentions only when the send added them, so those lookups are
+    /// skipped. Sending a message reads far less than reading it back from history.
+    /// </summary>
+    public async Task<HistoryEntryView> DescribeNewAsync(ConversationEvent entry, bool hasFiles, bool hasMentions, CancellationToken cancellationToken) =>
+        (await DescribeAsync([entry], new NewEntry(true, hasFiles, hasMentions), cancellationToken).ConfigureAwait(false))[0];
+
+    private readonly record struct NewEntry(bool IsNew, bool HasFiles, bool HasMentions)
+    {
+        public static NewEntry None => default;
+    }
+
+    private async Task<IReadOnlyList<HistoryEntryView>> DescribeAsync(IReadOnlyList<ConversationEvent> entries, NewEntry fresh, CancellationToken cancellationToken)
     {
         var replyIds = entries.Where(e => e.ReplyToEntryId is not null).Select(e => e.ReplyToEntryId!.Value).Distinct().ToList();
         var targets = replyIds.Count == 0
@@ -511,22 +527,24 @@ public sealed partial class ConversationService(
             .Distinct().ToList();
         var users = await directory.GetSummariesAsync(userIds, cancellationToken).ConfigureAwait(false);
         var messageIds = entries.Where(e => e is { IsMessage: true, IsDeleted: false }).Select(e => e.Id).ToList();
-        var files = messageIds.Count == 0
+        var files = messageIds.Count == 0 || (fresh.IsNew && !fresh.HasFiles)
             ? []
             : (await attachments.ListReadyForMessagesAsync(messageIds, cancellationToken).ConfigureAwait(false))
                 .GroupBy(a => a.MessageEntryId!.Value)
                 .ToDictionary(g => g.Key, g => g.OrderBy(a => a.CreatedAtUtc).ThenBy(a => a.Id).Select(Attachments.AttachmentService.ToView).ToList());
-        var reactions = (await store.ListReactionsAsync(messageIds, cancellationToken).ConfigureAwait(false))
-            .GroupBy(r => r.EntryId)
-            .ToDictionary(g => g.Key, g => (IReadOnlyList<ReactionView>)g
-                .GroupBy(r => r.Emoji, StringComparer.Ordinal)
-                .OrderBy(e => e.Min(r => r.CreatedAtUtc))
-                .Select(e => new ReactionView(e.Key, e.OrderBy(r => r.CreatedAtUtc).Select(r => r.UserId).ToList()))
-                .ToList());
-        var mentions = messageIds.Count == 0
+        var reactions = messageIds.Count == 0 || fresh.IsNew
+            ? []
+            : (await store.ListReactionsAsync(messageIds, cancellationToken).ConfigureAwait(false))
+                .GroupBy(r => r.EntryId)
+                .ToDictionary(g => g.Key, g => (IReadOnlyList<ReactionView>)g
+                    .GroupBy(r => r.Emoji, StringComparer.Ordinal)
+                    .OrderBy(e => e.Min(r => r.CreatedAtUtc))
+                    .Select(e => new ReactionView(e.Key, e.OrderBy(r => r.CreatedAtUtc).Select(r => r.UserId).ToList()))
+                    .ToList());
+        var mentions = messageIds.Count == 0 || (fresh.IsNew && !fresh.HasMentions)
             ? new Dictionary<Guid, MentionsView>()
             : await store.DescribeMentionsAsync(messageIds, cancellationToken).ConfigureAwait(false);
-        var pinned = messageIds.Count == 0 ? [] : (await store.ListPinnedEntryIdsAsync(messageIds, cancellationToken).ConfigureAwait(false)).ToHashSet();
+        var pinned = messageIds.Count == 0 || fresh.IsNew ? [] : (await store.ListPinnedEntryIdsAsync(messageIds, cancellationToken).ConfigureAwait(false)).ToHashSet();
         return entries.Select(e =>
         {
             ReplyPreview? reply = null;

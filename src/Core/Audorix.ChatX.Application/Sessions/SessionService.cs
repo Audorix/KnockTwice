@@ -27,7 +27,7 @@ public interface ISessionStore
 /// Session lifecycle: start on sign-in, validate on every authenticated request, list and revoke.
 /// Activity is written at most every <see cref="TouchInterval"/> to avoid a write per request.
 /// </summary>
-public sealed class SessionService(ISessionStore store, TimeProvider time, IOptions<AccountSettings> settings)
+public sealed class SessionService(ISessionStore store, TimeProvider time, IOptions<AccountSettings> settings, SessionCheckCache cache)
 {
     public static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(5);
 
@@ -43,10 +43,17 @@ public sealed class SessionService(ISessionStore store, TimeProvider time, IOpti
     /// <summary>True when the session exists, belongs to the user, is not revoked and has not expired.</summary>
     public async Task<bool> ValidateAsync(Guid sessionId, Guid userId, CancellationToken cancellationToken)
     {
+        // Phase 23: a session validated moments ago is not read again (see SessionCheckCache).
+        if (cache.IsKnownActive(sessionId, userId, TouchInterval))
+        {
+            return true;
+        }
+
         var session = await store.FindAsync(sessionId, cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow();
         if (session is null || session.UserId != userId || !session.IsActive(now))
         {
+            cache.Forget(sessionId);
             return false;
         }
 
@@ -56,6 +63,7 @@ public sealed class SessionService(ISessionStore store, TimeProvider time, IOpti
             await store.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        cache.Remember(sessionId, userId, session.ExpiresAtUtc, session.LastSeenAtUtc);
         return true;
     }
 
@@ -72,6 +80,7 @@ public sealed class SessionService(ISessionStore store, TimeProvider time, IOpti
         }
 
         session.Revoke(time.GetUtcNow());
+        cache.Forget(sessionId);
         await store.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -84,6 +93,7 @@ public sealed class SessionService(ISessionStore store, TimeProvider time, IOpti
         foreach (var session in sessions.Where(s => s.Id != keepSessionId))
         {
             session.Revoke(now);
+            cache.Forget(session.Id);
             revoked++;
         }
 

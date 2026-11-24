@@ -537,6 +537,23 @@ Acceptance criteria:
 - Pages of the conversation list together equal the full list, in order.
 - The load test runs at the targets (2,000 connected people, 100 messages a second, p95 send < 300 ms, p95 history < 200 ms, no errors) and its results are recorded.
 
+### Phase 23 — Send-path speed
+
+Added by the project owner on 2026-11-23 after the Phase 22 baseline (ADR-037). Scope: fix the known costs, measure, record; deeper changes need the owner's go-ahead.
+
+Deliverables:
+
+- Describe a new message once and reuse the view for publishing and the response; skip lookups a new message cannot need.
+- A short-lived cache of validated sign-in sessions, cleared on revocation.
+- More retries with a random back-off for per-conversation sequence conflicts.
+- Load-test runs at 25, 50 and 100 messages a second, compared with Phase 22.
+
+Acceptance criteria:
+
+- Behaviour unchanged: all tests pass on both databases; a revoked session is refused at once on the same server.
+- Fewer statements per send, measured.
+- Load-test results recorded against the Phase 22 baseline.
+
 ## 4. Initial API contracts
 
 Base path:

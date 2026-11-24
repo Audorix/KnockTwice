@@ -95,15 +95,22 @@ internal sealed class LoadRun(LoadTestOptions options)
         var connectedAtEnd = users.Count(u => u.Hub?.State == Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected);
         var hubClosed = Volatile.Read(ref _hubClosed); // closing the connections below is not a failure
 
-        foreach (var user in users)
+        // Report first: closing thousands of connections takes a while, and the figures must not
+        // depend on it. Then close them in parallel, giving up after 30 s.
+        var exitCode = Report(connectedAtStart, connectedAtEnd, missing, hubClosed);
+        Console.WriteLine("Closing connections...");
+        using var closing = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        try
         {
-            if (user.Hub is { } hub)
-            {
-                await hub.DisposeAsync();
-            }
+            await Parallel.ForEachAsync(users.Where(u => u.Hub is not null), new ParallelOptions { MaxDegreeOfParallelism = 64, CancellationToken = closing.Token },
+                async (user, _) => await user.Hub!.DisposeAsync());
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("  some connections were still closing after 30 s; the process exit closes them.");
         }
 
-        return Report(connectedAtStart, connectedAtEnd, missing, hubClosed);
+        return exitCode;
     }
 
     private async Task CheckServerAsync(HttpClient http, CancellationToken ct)

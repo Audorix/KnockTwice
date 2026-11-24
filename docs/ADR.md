@@ -538,6 +538,20 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 
 **Consequences:** The change log grows with message volume (one small row per change) and is pruned after a day. The feed covers history entries and reactions; receipts, membership and conversation settings are refreshed by reloading the conversation and list, as before. The list endpoint still reads all of a person's memberships and pages after sorting, which keeps the response and profile lookups small but not the query; a database-side page is a later step if lists of thousands of conversations appear. **The targets are not met yet:** the first baseline ([Phase 22 record](releases/phase-22-performance.md)) sustained about 25 messages a second with 2,000 people on a shared workstation. It also showed that presence announcements grew with the square of an organization's size, which the presence decision above removes; throughput remains follow-up work. People who only share an organization no longer see each other online; they see each other once they talk.
 
+### ADR-037: A lighter send path
+
+**Status:** Accepted — 2026-11-23, by the project owner, for Phase 23 (send-path speed; scope: fix the known costs, deeper changes only with the owner's go-ahead).
+
+**Context:** The Phase 22 baseline sustained about 25 messages a second with 2,000 people. One send ran 22 statements inside the request: the session check, access checks, the save, then the inline publish re-read the outbox row and the message and described it, and the response described it a second time. Under load, concurrent sends in one group lost the sequence race three times and reached clients as 409.
+
+**Decision:**
+
+- *Describe once.* After saving, a new message is described once and that view is both published and returned; the outbox row stays as the safety net and is removed after publishing, exactly as before. A message saved a moment ago cannot have reactions, pins or thread replies, and has files or mentions only when the send added them, so those lookups are skipped (`ConversationService.DescribeNewAsync`). History, edits and the background dispatcher still describe in full.
+- *Session check cache.* `SessionCheckCache` (singleton) trusts a session validated within the last 15 seconds, never past its expiry and never when its activity write (every 5 minutes) is due. Revoking through `SessionService` (sign-out, "sign out other sessions", password change, administration, account deletion) removes the entry at once. With several API instances another instance may accept a revoked session for up to 15 seconds; realtime connections were already re-checked every 30 seconds.
+- *Sequence conflicts.* A send retries up to 8 times (was 3) with a random back-off of 5–20 ms doubling up to 200 ms, before answering 409.
+
+**Consequences:** A plain text send runs 8 statements (was 22). On the Phase 22 workstation, 2,000 people now meet every target at 50 messages a second (send p95 80 ms) and reach 42.8 of 100 messages a second when overloaded ([Phase 23 record](releases/phase-23-send-path.md)); 100 is not met yet. Revocation on other instances is delayed by up to 15 seconds when scale-out is used. The background push and search queues still work per message and are the next candidates.
+
 ## Decision register requiring product input
 
 | Decision | Current source / uncertainty | Recommended point of resolution |
