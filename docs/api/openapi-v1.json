@@ -5492,7 +5492,7 @@
         "tags": [
           "Support"
         ],
-        "summary": "Website conversations: all of them for support agents and administrators, the caller's own for responders. Filter by status (open/closed) and mine=true.",
+        "summary": "Website conversations: all of them for support agents and administrators, the caller's own for responders. Filter by status (open/pending/closed) and mine=true.",
         "parameters": [
           {
             "name": "organizationId",
@@ -5528,6 +5528,96 @@
                   "items": {
                     "$ref": "#/components/schemas/SupportConversationResponse"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organizationId}/support/inbox": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "One page of the support inbox: status (open/pending/closed/all), mine=true, assignment (anyone/assigned/unassigned), q (customer name or subject), sort (oldest: longest waiting first, or newest), skip and take (1-100). Includes totals per status and each conversation's newest message.",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "assignment",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportInboxPageResponse"
                 }
               }
             }
@@ -5612,7 +5702,7 @@
         "tags": [
           "Support"
         ],
-        "summary": "Closes or reopens the conversation. A visitor's new message reopens it.",
+        "summary": "Sets the status: open, pending (waiting for the customer) or closed (resolved). A visitor's new message opens it again.",
         "parameters": [
           {
             "name": "conversationId",
@@ -5641,6 +5731,201 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SupportConversationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/conversations/{conversationId}/subject": {
+      "put": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Sets or clears what the conversation is about (internal; the customer does not see it).",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSupportSubjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportConversationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/conversations/{conversationId}/join": {
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Joins the conversation (whole history) to reply, without changing who it is assigned to.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportConversationResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/conversations/{conversationId}/history": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "The whole history for support staff, whether or not they take part; same shape as the conversation history.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/conversations/{conversationId}/notes": {
+      "get": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Internal notes, oldest first. Never shown to the customer.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SupportNoteResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Support"
+        ],
+        "summary": "Adds an internal note for the support team.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSupportNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportNoteResponse"
                 }
               }
             }
@@ -8357,6 +8642,20 @@
           }
         }
       },
+      "CreateSupportNoteRequest": {
+        "required": [
+          "body"
+        ],
+        "type": "object",
+        "properties": {
+          "body": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "CreateTeamRequest": {
         "required": [
           "name",
@@ -8598,6 +8897,15 @@
               "string"
             ],
             "format": "int32"
+          },
+          "support": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32",
+            "default": 0
           }
         }
       },
@@ -10474,6 +10782,20 @@
           }
         }
       },
+      "SetSupportSubjectRequest": {
+        "required": [
+          "subject"
+        ],
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "SetupStatusResponse": {
         "required": [
           "required",
@@ -10647,6 +10969,168 @@
             "format": "date-time"
           },
           "lastActivityAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subject": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SupportInboxCountsResponse": {
+        "required": [
+          "open",
+          "pending",
+          "closed",
+          "all"
+        ],
+        "type": "object",
+        "properties": {
+          "open": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "pending": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "closed": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "all": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "SupportInboxItemResponse": {
+        "required": [
+          "conversation",
+          "title",
+          "lastMessage"
+        ],
+        "type": "object",
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/SupportConversationResponse"
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastMessage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SupportPreviewResponse"
+              }
+            ]
+          }
+        }
+      },
+      "SupportInboxPageResponse": {
+        "required": [
+          "items",
+          "total",
+          "counts"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportInboxItemResponse"
+            }
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/SupportInboxCountsResponse"
+          }
+        }
+      },
+      "SupportNoteResponse": {
+        "required": [
+          "id",
+          "conversationId",
+          "author",
+          "body",
+          "createdAtUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserSummaryResponse"
+              }
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SupportPreviewResponse": {
+        "required": [
+          "text",
+          "fromCustomer",
+          "sentAtUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "fromCustomer": {
+            "type": "boolean"
+          },
+          "sentAtUtc": {
             "type": "string",
             "format": "date-time"
           }

@@ -435,6 +435,11 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasColumnType("character varying(16)")
                         .HasColumnName("scope");
 
+                    b.Property<string>("Subject")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("subject");
+
                     b.Property<string>("SupportStatus")
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
@@ -1080,6 +1085,42 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasDatabaseName("ix_scheduled_message_files_attachment_id");
 
                     b.ToTable("scheduled_message_files", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.ChatX.Domain.Conversations.SupportNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AuthorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_user_id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("body");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_support_notes");
+
+                    b.HasIndex("AuthorUserId")
+                        .HasDatabaseName("ix_support_notes_author_user_id");
+
+                    b.HasIndex("ConversationId")
+                        .HasDatabaseName("ix_support_notes_conversation_id");
+
+                    b.ToTable("support_notes", (string)null);
                 });
 
             modelBuilder.Entity("Audorix.ChatX.Domain.Conversations.ThreadFollow", b =>
@@ -2754,6 +2795,23 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_scheduled_message_files_scheduled_messages_scheduled_messag~");
+                });
+
+            modelBuilder.Entity("Audorix.ChatX.Domain.Conversations.SupportNote", b =>
+                {
+                    b.HasOne("Audorix.ChatX.Infrastructure.Identity.ChatXUser", null)
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_support_notes_users_author_user_id");
+
+                    b.HasOne("Audorix.ChatX.Domain.Conversations.Conversation", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_support_notes_conversations_conversation_id");
                 });
 
             modelBuilder.Entity("Audorix.ChatX.Domain.Conversations.ThreadFollow", b =>

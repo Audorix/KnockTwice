@@ -16,13 +16,13 @@ namespace Audorix.ChatX.Infrastructure.Persistence;
 /// with one shared password hash, which deliberately bypasses the password policy: demo data only
 /// exists where <c>DemoData:Enabled</c> is on.
 /// </summary>
-internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
+internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Widgets.IWidgetSecretProtector secrets) : IDemoDataStore
 {
     private const int Batch = 1000;
 
     public async Task<DemoDataCounts> PopulateAsync(DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
-        var created = new int[6];
+        var created = new int[7];
         var start = nowUtc.AddDays(-DemoDataPlan.PeriodDays - 1);
         var users = await EnsureUsersAsync(plan, password, start, created, cancellationToken).ConfigureAwait(false);
         users[DemoDataPlan.Me] = callerId;
@@ -37,7 +37,8 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
 
         await EnsureMessagesAsync(plan, users, conversations, start, created, cancellationToken).ConfigureAwait(false);
         await EnsureActivityAsync(plan, users, conversations, nowUtc, created, cancellationToken).ConfigureAwait(false);
-        return new DemoDataCounts(created[0], created[1], created[2], created[3], created[4], created[5]);
+        await EnsureSupportAsync(plan, users, start, created, cancellationToken).ConfigureAwait(false);
+        return new DemoDataCounts(created[0], created[1], created[2], created[3], created[4], created[5], created[6]);
     }
 
     // ---- People ------------------------------------------------------------------------------
@@ -528,7 +529,7 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
         var demoUsers = db.Users.Where(u => u.IsDemo).Select(u => u.Id);
         var demoConversations = db.Conversations.Where(c => c.IsDemo).Select(c => c.Id);
         return new DemoDataCounts(
-            await db.Users.CountAsync(u => u.IsDemo, cancellationToken).ConfigureAwait(false),
+            await db.Users.CountAsync(u => u.IsDemo && !u.IsVisitor, cancellationToken).ConfigureAwait(false),
             await db.Organizations.CountAsync(o => o.IsDemo, cancellationToken).ConfigureAwait(false),
             await db.Contacts.CountAsync(c => demoUsers.Contains(c.UserLowId) || demoUsers.Contains(c.UserHighId), cancellationToken).ConfigureAwait(false),
             await db.Conversations.CountAsync(c => c.IsDemo, cancellationToken).ConfigureAwait(false),
@@ -537,7 +538,8 @@ internal sealed class EfDemoDataStore(ChatXDbContext db) : IDemoDataStore
             await db.MessageMentions.CountAsync(m => demoConversations.Contains(m.ConversationId), cancellationToken).ConfigureAwait(false)
             + await db.SavedMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false)
             + await db.Reminders.CountAsync(r => demoConversations.Contains(r.ConversationId), cancellationToken).ConfigureAwait(false)
-            + await db.ScheduledMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false));
+            + await db.ScheduledMessages.CountAsync(s => demoConversations.Contains(s.ConversationId), cancellationToken).ConfigureAwait(false),
+            await db.Conversations.CountAsync(c => c.IsDemo && c.Type == ConversationType.Website, cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<IReadOnlyList<string>> ListAttachmentKeysAsync(CancellationToken cancellationToken)

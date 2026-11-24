@@ -224,7 +224,7 @@ export interface ConversationSummaryResponse {
   workspaceId?: string | null;
   visibility?: 'public' | 'private' | null;
   /** Website conversations (Phase 11 support). */
-  supportStatus?: 'open' | 'closed' | null;
+  supportStatus?: 'open' | 'pending' | 'closed' | null;
   /** Phase 17: what notifies you here; `muted` is true for anything but "all". */
   notificationLevel?: NotificationLevel;
   /** Redesign 2026-11: pinned to the top of your own list. */
@@ -725,7 +725,8 @@ export interface GuestResponse {
   channels: { id: string; name: string }[];
 }
 
-export type SupportStatus = 'open' | 'closed';
+/** `closed` is shown as "Resolved"; `pending` waits for the customer (redesign 2026-11). */
+export type SupportStatus = 'open' | 'pending' | 'closed';
 
 export interface SupportConversationResponse {
   conversationId: string;
@@ -738,4 +739,28 @@ export interface SupportConversationResponse {
   unreadCount: number;
   createdAtUtc: string;
   lastActivityAtUtc: string;
+  /** What the conversation is about, set by support staff. */
+  subject?: string | null;
+}
+
+export interface SupportInboxItemResponse {
+  conversation: SupportConversationResponse;
+  /** The subject, or the first message while there is none. */
+  title: string | null;
+  lastMessage: { text: string; fromCustomer: boolean; sentAtUtc: string } | null;
+}
+
+export interface SupportInboxPageResponse {
+  items: SupportInboxItemResponse[];
+  total: number;
+  counts: { open: number; pending: number; closed: number; all: number };
+}
+
+/** An internal note: visible to the support team, never to the customer. */
+export interface SupportNoteResponse {
+  id: string;
+  conversationId: string;
+  author: UserSummary | null;
+  body: string;
+  createdAtUtc: string;
 }

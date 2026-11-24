@@ -165,7 +165,33 @@ internal static class BusinessEndpoints
             var items = await service.ListInboxAsync(http.User.RequireUserId(), organizationId, ParseStatus(status), mine == true, ct);
             var names = (await widgets.ListForOrganizationAsync(organizationId, ct)).ToDictionary(w => w.Id, w => w.Name);
             return TypedResults.Ok(items.Select(i => ToResponse(i, names)).ToList());
-        }).WithSummary("Website conversations: all of them for support agents and administrators, the caller's own for responders. Filter by status (open/closed) and mine=true.");
+        }).WithSummary("Website conversations: all of them for support agents and administrators, the caller's own for responders. Filter by status (open/pending/closed) and mine=true.");
+
+        support.MapGet("/inbox", async (
+            Guid organizationId, string? status, bool? mine, string? assignment, string? q, string? sort, int? skip, int? take,
+            HttpContext http, ConversationService service, IWidgetStore widgets, CancellationToken ct) =>
+        {
+            var oldest = sort?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "oldest" => true,
+                "newest" => false,
+                _ => throw new RequestValidationException("sort", "sort_invalid"),
+            };
+            bool? assigned = assignment?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "anyone" => null,
+                "assigned" => true,
+                "unassigned" => false,
+                _ => throw new RequestValidationException("assignment", "value_invalid"),
+            };
+            var page = await service.ListInboxPageAsync(http.User.RequireUserId(), organizationId,
+                new SupportInboxQuery(ParseStatus(status), mine == true, q, oldest, skip ?? 0, take ?? 25, assigned), ct);
+            var names = (await widgets.ListForOrganizationAsync(organizationId, ct)).ToDictionary(w => w.Id, w => w.Name);
+            return TypedResults.Ok(new SupportInboxPageResponse(
+                page.Items.Select(i => ToResponse(i, names)).ToList(),
+                page.Total,
+                new SupportInboxCountsResponse(page.Counts.Open, page.Counts.Pending, page.Counts.Closed, page.Counts.All)));
+        }).WithSummary("One page of the support inbox: status (open/pending/closed/all), mine=true, assignment (anyone/assigned/unassigned), q (customer name or subject), sort (oldest: longest waiting first, or newest), skip and take (1-100). Includes totals per status and each conversation's newest message.");
 
         var conversation = v1.MapGroup("/support/conversations/{conversationId:guid}").RequireAuthorization().WithTags("Support");
         conversation.MapPost("/claim", async (Guid conversationId, HttpContext http, ConversationService service, IWidgetStore widgets, CancellationToken ct) =>
@@ -179,7 +205,32 @@ internal static class BusinessEndpoints
             Guid conversationId, SetSupportStatusRequest request, HttpContext http, ConversationService service, IWidgetStore widgets, CancellationToken ct) =>
             TypedResults.Ok(await RespondAsync(await service.SetSupportStatusAsync(http.User.RequireUserId(), conversationId,
                 ParseStatus(request.Status) ?? throw new RequestValidationException("status", "value_invalid"), ct), widgets, ct)))
-            .WithSummary("Closes or reopens the conversation. A visitor's new message reopens it.");
+            .WithSummary("Sets the status: open, pending (waiting for the customer) or closed (resolved). A visitor's new message opens it again.");
+        conversation.MapPut("/subject", async (
+            Guid conversationId, SetSupportSubjectRequest request, HttpContext http, ConversationService service, IWidgetStore widgets, CancellationToken ct) =>
+            TypedResults.Ok(await RespondAsync(await service.SetSupportSubjectAsync(http.User.RequireUserId(), conversationId, request.Subject, ct), widgets, ct)))
+            .WithSummary("Sets or clears what the conversation is about (internal; the customer does not see it).");
+        conversation.MapPost("/join", async (Guid conversationId, HttpContext http, ConversationService service, IWidgetStore widgets, CancellationToken ct) =>
+            TypedResults.Ok(await RespondAsync(await service.JoinSupportAsync(http.User.RequireUserId(), conversationId, ct), widgets, ct)))
+            .WithSummary("Joins the conversation (whole history) to reply, without changing who it is assigned to.");
+        conversation.MapGet("/history", async (
+            Guid conversationId, string? before, int? limit, HttpContext http, ConversationService service, CancellationToken ct) =>
+        {
+            var page = await service.GetSupportHistoryAsync(http.User.RequireUserId(), conversationId, ConversationEndpoints.DecodeCursor(before), limit, ct);
+            return TypedResults.Ok(new Contracts.V1.Conversations.ConversationHistoryResponse(
+                page.Items.Select(ConversationEndpoints.ToEntry).ToList(),
+                page.NextBeforeSequence is { } next ? ConversationEndpoints.EncodeCursor(next) : null,
+                page.HasMore));
+        }).WithSummary("The whole history for support staff, whether or not they take part; same shape as the conversation history.");
+        conversation.MapGet("/notes", async (Guid conversationId, HttpContext http, ConversationService service, CancellationToken ct) =>
+            TypedResults.Ok((await service.ListSupportNotesAsync(http.User.RequireUserId(), conversationId, ct)).Select(ToResponse).ToList()))
+            .WithSummary("Internal notes, oldest first. Never shown to the customer.");
+        conversation.MapPost("/notes", async (
+            Guid conversationId, CreateSupportNoteRequest request, HttpContext http, ConversationService service, CancellationToken ct) =>
+        {
+            var note = ToResponse(await service.AddSupportNoteAsync(http.User.RequireUserId(), conversationId, request.Body, ct));
+            return TypedResults.Created($"/api/v1/support/conversations/{conversationId}/notes/{note.Id}", note);
+        }).WithSummary("Adds an internal note for the support team.");
     }
 
     // ---- Mapping ---------------------------------------------------------------------------------
@@ -221,9 +272,37 @@ internal static class BusinessEndpoints
         var c = item.Conversation;
         return new SupportConversationResponse(c.Id, c.Title ?? string.Empty, c.WidgetId,
             c.WidgetId is { } w ? widgetNames.GetValueOrDefault(w) : null,
-            c.SupportStatus == SupportStatus.Closed ? "closed" : "open",
-            item.Assignee is null ? null : ToUser(item.Assignee), item.Participating, item.UnreadCount, c.CreatedAtUtc, c.LastActivityAtUtc);
+            StatusName(c.SupportStatus),
+            item.Assignee is null ? null : ToUser(item.Assignee), item.Participating, item.UnreadCount, c.CreatedAtUtc, c.LastActivityAtUtc, c.Subject);
     }
+
+    private static string StatusName(SupportStatus? status) => status switch
+    {
+        SupportStatus.Closed => "closed",
+        SupportStatus.Pending => "pending",
+        _ => "open",
+    };
+
+    private const int TitleLength = 120;
+
+    private static SupportInboxItemResponse ToResponse(SupportInboxItem item, IReadOnlyDictionary<Guid, string> widgetNames)
+    {
+        var conversation = item.Item.Conversation;
+        var title = conversation.Subject ?? FirstLine(item.FirstMessage?.Body);
+        return new SupportInboxItemResponse(ToResponse(item.Item, widgetNames), title,
+            item.LastMessage is { } last
+                ? new SupportPreviewResponse(last.Body ?? string.Empty, last.ActorUserId == conversation.CreatedByUserId, last.CreatedAtUtc)
+                : null);
+    }
+
+    private static string? FirstLine(string? text)
+    {
+        var line = text?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+        return string.IsNullOrEmpty(line) ? null : line.Length <= TitleLength ? line : line[..(TitleLength - 1)] + "…";
+    }
+
+    private static SupportNoteResponse ToResponse(SupportNoteView view) =>
+        new(view.Note.Id, view.Note.ConversationId, view.Author is null ? null : ToUser(view.Author), view.Note.Body, view.Note.CreatedAtUtc);
 
     private static async Task<SupportConversationResponse> RespondAsync(SupportItemView item, IWidgetStore widgets, CancellationToken ct)
     {
@@ -253,7 +332,8 @@ internal static class BusinessEndpoints
     {
         null or "" or "all" => null,
         "open" => SupportStatus.Open,
-        "closed" => SupportStatus.Closed,
+        "pending" => SupportStatus.Pending,
+        "closed" or "resolved" => SupportStatus.Closed,
         _ => throw new RequestValidationException("status", "value_invalid"),
     };
 }

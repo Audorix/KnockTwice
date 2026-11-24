@@ -57,6 +57,21 @@ internal sealed class ConversationConfiguration : IEntityTypeConfiguration<Conve
         builder.HasIndex(c => new { c.OrganizationId, c.Type, c.SupportStatus });
         builder.HasOne<ChatXUser>().WithMany().HasForeignKey(c => c.AssignedToUserId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne<ChatXUser>().WithMany().HasForeignKey(c => c.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.Property(c => c.Subject).HasMaxLength(Conversation.SubjectMaxLength);
+    }
+}
+
+/// <summary>Internal notes of support conversations (redesign 2026-11); removed with the conversation.</summary>
+internal sealed class SupportNoteConfiguration : IEntityTypeConfiguration<SupportNote>
+{
+    public void Configure(EntityTypeBuilder<SupportNote> builder)
+    {
+        builder.ToTable("support_notes");
+        builder.Property(n => n.Id).ValueGeneratedNever();
+        builder.Property(n => n.Body).HasMaxLength(SupportNote.BodyMaxLength);
+        builder.HasIndex(n => n.ConversationId);
+        builder.HasOne<Conversation>().WithMany().HasForeignKey(n => n.ConversationId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<ChatXUser>().WithMany().HasForeignKey(n => n.AuthorUserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 

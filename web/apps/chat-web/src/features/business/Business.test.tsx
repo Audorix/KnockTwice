@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
@@ -176,21 +176,57 @@ describe('business communication', () => {
     expect(window.location.search).toBe('?id=c-7');
   });
 
-  it('lets a support agent take a website conversation', async () => {
+  it('works the support inbox: tabs, search, notes, replies and status', async () => {
     window.history.replaceState(null, '', '/support');
-    let assigned = false;
-    const item = () => ({
-      conversationId: 'cv-1', visitorName: 'Visitor 1A2B', widgetId: 'wg-1', widgetName: 'Shop', status: 'open',
-      assignedTo: assigned ? { id: 'u-ana', displayName: 'Ana', avatar: { initials: 'A' } } : null, participating: assigned, unreadCount: 0,
-      createdAtUtc: '2026-11-23T10:00:00Z', lastActivityAtUtc: '2026-11-23T10:00:00Z',
+    const calls: string[] = [];
+    let status = 'open';
+    const ana = { id: 'u-ana', displayName: 'Ana', avatar: { initials: 'A' } };
+    const emma = { id: 'v-emma', displayName: 'Emma Miller', avatar: { initials: 'EM' } };
+    const conversation = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+      conversationId: id, visitorName: name, widgetId: 'wg-1', widgetName: 'Website chat', status, assignedTo: null, participating: false,
+      unreadCount: 0, createdAtUtc: new Date(Date.now() - 20 * 60_000).toISOString(), lastActivityAtUtc: new Date().toISOString(), subject: null, ...extra,
+    });
+    const items = () => [
+      { conversation: conversation('cv-1', 'Emma Miller', { subject: 'Unable to upload a document', unreadCount: 1 }), title: 'Unable to upload a document',
+        lastMessage: { text: 'It stops at 80% every time.', fromCustomer: true, sentAtUtc: new Date(Date.now() - 12 * 60_000).toISOString() } },
+      { conversation: conversation('cv-2', 'James Wilson', { assignedTo: ana, widgetName: 'In-app' }), title: 'Invite link has expired',
+        lastMessage: { text: 'Could you send me a new invitation?', fromCustomer: true, sentAtUtc: new Date(Date.now() - 18 * 60_000).toISOString() } },
+    ];
+    const page = () => json(200, { items: items(), total: 2, counts: { open: 2, pending: 3, closed: 10, all: 15 } });
+    const entry = (id: string, sequence: number, actor: typeof ana, body: string) => ({
+      id, sequence, kind: 'message', actor, subject: null, text: null, body, createdAtUtc: new Date(Date.now() - (30 - sequence) * 60_000).toISOString(), attachments: [],
     });
     mockFetch({
       ...signedIn,
       'GET /api/v1/organizations': () => json(200, [acme]),
-      'GET /api/v1/organizations/o-1/support?status=open': () => json(200, [item()]),
-      'POST /api/v1/support/conversations/cv-1/claim': () => {
-        assigned = true;
-        return json(200, item());
+      'GET /api/v1/organizations/o-1/members': () =>
+        json(200, { members: [{ user: ana, role: 'member', joinedAtUtc: '2026-11-23T10:00:00Z', supportAgent: true }], pendingInvitations: null }),
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20': () => page(),
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20&q=upload': () => {
+        calls.push('search');
+        return page();
+      },
+      'GET /api/v1/support/conversations/cv-1/history': () =>
+        json(200, { items: [entry('e-1', 2, emma, 'Hi! The upload stops at 80%.'), entry('e-2', 3, ana, 'Which browser are you using?')], nextCursor: null, hasMore: false }),
+      'GET /api/v1/support/conversations/cv-1/notes': () =>
+        json(200, [{ id: 'n-1', conversationId: 'cv-1', author: ana, body: 'Checking the upload logs.', createdAtUtc: new Date(Date.now() - 26 * 60_000).toISOString() }]),
+      'GET /api/v1/attachments/limits': () => json(200, { maxFileSize: 10485760, maxPerMessage: 10, allowedExtensions: ['pdf', 'png'] }),
+      'POST /api/v1/support/conversations/cv-1/notes': (init) => {
+        calls.push(`note ${String(init?.body)}`);
+        return json(201, { id: 'n-2', conversationId: 'cv-1', author: ana, body: 'Asked engineering.', createdAtUtc: new Date().toISOString() });
+      },
+      'POST /api/v1/support/conversations/cv-1/join': () => {
+        calls.push('join');
+        return json(200, conversation('cv-1', 'Emma Miller', { participating: true }));
+      },
+      'POST /api/v1/conversations/cv-1/messages': (init) => {
+        calls.push(`reply ${JSON.parse(String(init?.body)).body as string}`);
+        return json(201, entry('e-3', 4, ana, 'Try a smaller file.'));
+      },
+      'PUT /api/v1/support/conversations/cv-1/status': (init) => {
+        calls.push(`status ${String(init?.body)}`);
+        status = 'closed';
+        return json(200, conversation('cv-1', 'Emma Miller'));
       },
     });
     const user = userEvent.setup();
@@ -200,12 +236,44 @@ describe('business communication', () => {
       </AuthProvider>,
     );
 
-    const row = (await screen.findByText('Visitor 1A2B')).closest('li')!;
-    expect(within(row).getByText(/Shop · .* · unassigned/)).toBeInTheDocument();
-    await user.click(within(row).getByRole('button', { name: 'Take the conversation with Visitor 1A2B' }));
-    expect(await within(row).findByText(/assigned to Ana/)).toBeInTheDocument();
-    expect(within(row).getByRole('button', { name: 'Open' })).toBeInTheDocument();
-    expect(within(row).queryByRole('button', { name: /Take the conversation/ })).not.toBeInTheDocument();
+    // The list: counts on the tabs, subject, preview, channel and assignment.
+    expect(await screen.findByRole('heading', { name: '2 open conversations' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Open 2' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Pending 3' })).toBeInTheDocument();
+    const james = screen.getByText('James Wilson').closest('button')!;
+    expect(within(james).getByText('Invite link has expired')).toBeInTheDocument();
+    expect(within(james).getByText('In-app')).toBeInTheDocument();
+    expect(within(james).getByText('Assigned to you')).toBeInTheDocument();
+    const emmaRow = screen.getByText('Emma Miller').closest('button')!;
+    expect(within(emmaRow).getByText('Unassigned')).toBeInTheDocument();
+    expect(within(emmaRow).getByText('12 min')).toBeInTheDocument();
+    expect(screen.getByText('Showing 2 of 2')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search support conversations' }), 'upload{Enter}');
+    await vi.waitFor(() => expect(calls).toContain('search'));
+
+    // The conversation: customer and team messages with the internal note between them.
+    await user.click(emmaRow);
+    expect(window.location.search).toBe('?org=o-1&id=cv-1');
+    expect(await screen.findByRole('heading', { name: 'Unable to upload a document' })).toBeInTheDocument();
+    expect(await screen.findByText('Hi! The upload stops at 80%.')).toBeInTheDocument();
+    expect(screen.getByText('Checking the upload logs.')).toBeInTheDocument();
+    expect(screen.getByText('Emma Miller · Website chat')).toBeInTheDocument();
+
+    // An internal note goes to the team only; a reply joins the conversation first.
+    await user.click(screen.getByRole('tab', { name: 'Internal note' }));
+    expect(screen.getByText('Notes are only visible to your team.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Note for your team'), 'Asked engineering.');
+    await user.click(screen.getByRole('button', { name: 'Add note' }));
+    await vi.waitFor(() => expect(calls).toContain('note {"body":"Asked engineering."}'));
+    await user.click(screen.getByRole('tab', { name: 'Reply' }));
+    await user.type(screen.getByLabelText('Reply to Emma'), 'Try a smaller file.');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+    await vi.waitFor(() => expect(calls).toContain('reply Try a smaller file.'));
+    expect(calls.indexOf('join')).toBeLessThan(calls.indexOf('reply Try a smaller file.'));
+
+    await user.click(screen.getByRole('button', { name: 'Mark resolved' }));
+    await vi.waitFor(() => expect(calls).toContain('status {"status":"closed"}'));
 
     // Only agents and administrators work an inbox.
     expect(supportOrganizations([{ ...acme, supportAgent: false } as never, { ...acme, id: 'o-2', supportAgent: false, myPermissions: ['organization.manage'] } as never])

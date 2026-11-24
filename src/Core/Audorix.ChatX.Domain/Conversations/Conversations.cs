@@ -24,11 +24,16 @@ public enum ChannelVisibility
     Private = 2,
 }
 
-/// <summary>Support state of a website conversation (Phase 11).</summary>
+/// <summary>Support state of a website conversation (Phase 11; Pending added in the 2026-11 redesign).</summary>
 public enum SupportStatus
 {
     Open = 1,
+
+    /// <summary>Shown as "Resolved".</summary>
     Closed = 2,
+
+    /// <summary>Waiting for the customer; their next message opens it again.</summary>
+    Pending = 3,
 }
 
 /// <summary>Ownership scope (ADR-021, accepted): personal conversations authorize by participation; organization conversations also need active organization membership.</summary>
@@ -194,6 +199,34 @@ public sealed class Conversation
 
     /// <summary>The agent responsible for a website conversation, if any.</summary>
     public Guid? AssignedToUserId { get; private set; }
+
+    public const int SubjectMaxLength = 120;
+
+    /// <summary>What a support conversation is about (redesign 2026-11), set by support staff; null until then.</summary>
+    public string? Subject { get; private set; }
+
+    /// <summary>Sets or (with null or blank) clears the subject. True when it changed.</summary>
+    public bool SetSubject(string? subject)
+    {
+        RequireWebsite();
+        var text = subject?.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            text = null;
+        }
+        else if (text.Length > SubjectMaxLength || text.Any(char.IsControl))
+        {
+            throw new DomainRuleException("subject_invalid", $"The subject may contain at most {SubjectMaxLength} characters and no line breaks.");
+        }
+
+        if (Subject == text)
+        {
+            return false;
+        }
+
+        Subject = text;
+        return true;
+    }
 
     /// <summary>An organization conversation between a website visitor and the widget's responders; titled with the visitor's name.</summary>
     public static Conversation CreateWebsite(Guid id, Guid organizationId, Guid widgetId, string visitorName, Guid visitorUserId, DateTimeOffset nowUtc) =>

@@ -56,6 +56,8 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
     public DbSet<Domain.Conversations.ConversationEvent> ConversationEvents => Set<Domain.Conversations.ConversationEvent>();
 
+    public DbSet<Domain.Conversations.SupportNote> SupportNotes => Set<Domain.Conversations.SupportNote>();
+
     public DbSet<Application.Messaging.OutboxMessage> OutboxMessages => Set<Application.Messaging.OutboxMessage>();
 
     public DbSet<Domain.Attachments.Attachment> Attachments => Set<Domain.Attachments.Attachment>();

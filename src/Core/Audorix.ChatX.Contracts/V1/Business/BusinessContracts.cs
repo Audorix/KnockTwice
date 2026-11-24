@@ -71,7 +71,8 @@ public sealed record GuestResponse(UserSummaryResponse User, DateTimeOffset Join
 
 public sealed record AcceptGuestInvitationResponse(Guid ConversationId);
 
-/// <param name="Status"><c>open</c> or <c>closed</c>.</param>
+/// <param name="Status"><c>open</c>, <c>pending</c> (waiting for the customer) or <c>closed</c> (resolved).</param>
+/// <param name="Subject">What the conversation is about, set by support staff (redesign 2026-11).</param>
 public sealed record SupportConversationResponse(
     Guid ConversationId,
     string VisitorName,
@@ -82,10 +83,31 @@ public sealed record SupportConversationResponse(
     bool Participating,
     int UnreadCount,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset LastActivityAtUtc);
+    DateTimeOffset LastActivityAtUtc,
+    string? Subject = null);
 
 /// <param name="AssigneeId">Null unassigns.</param>
 public sealed record AssignSupportConversationRequest(Guid? AssigneeId);
 
-/// <param name="Status"><c>open</c> or <c>closed</c>.</param>
+/// <param name="Status"><c>open</c>, <c>pending</c> or <c>closed</c>.</param>
 public sealed record SetSupportStatusRequest(string? Status);
+
+/// <param name="Subject">Null or blank clears it.</param>
+public sealed record SetSupportSubjectRequest(string? Subject);
+
+/// <param name="Text">Message text (may be empty when the message only carries files).</param>
+/// <param name="FromCustomer">Written by the customer rather than the support team.</param>
+public sealed record SupportPreviewResponse(string Text, bool FromCustomer, DateTimeOffset SentAtUtc);
+
+/// <param name="Title">The subject, or the first message while there is none; null for a conversation without messages.</param>
+public sealed record SupportInboxItemResponse(SupportConversationResponse Conversation, string? Title, SupportPreviewResponse? LastMessage);
+
+/// <summary>Conversations per status under the other filters (assignment, search).</summary>
+public sealed record SupportInboxCountsResponse(int Open, int Pending, int Closed, int All);
+
+public sealed record SupportInboxPageResponse(IReadOnlyList<SupportInboxItemResponse> Items, int Total, SupportInboxCountsResponse Counts);
+
+/// <summary>An internal note: visible to the support team, never to the customer.</summary>
+public sealed record SupportNoteResponse(Guid Id, Guid ConversationId, UserSummaryResponse? Author, string Body, DateTimeOffset CreatedAtUtc);
+
+public sealed record CreateSupportNoteRequest(string? Body);

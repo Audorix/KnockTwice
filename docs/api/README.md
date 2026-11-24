@@ -119,6 +119,31 @@ Channels, groups, direct and website conversations all use these same routes. Ch
 under `/api/v1/channels/{id}`; organization, workspace, team, guest and support management under
 `/api/v1/organizations/{id}/…`.
 
+## Support inbox
+
+Website conversations are the support conversations. Their `status` is `open`, `pending` (waiting
+for the customer) or `closed` (shown as resolved); a customer's new message opens a pending or
+resolved conversation again. Support agents and organization owners/administrators see the whole
+inbox; responders see the conversations they take part in.
+
+- `GET /api/v1/organizations/{id}/support/inbox` returns one page: `{ items, total, counts }`.
+  Filters: `status` (`open`, `pending`, `closed`, `all`), `mine=true`, `assignment` (`anyone`,
+  `assigned`, `unassigned`), `q` (customer name or subject), `sort` (`oldest`, the longest waiting
+  first, or `newest`), `skip` and `take` (1–100, default 25). `counts` gives `open`, `pending`,
+  `closed` and `all` under the other filters. Each item has the `conversation`, a `title` (the
+  subject, or the first line of the first message) and the `lastMessage`
+  (`{ text, fromCustomer, sentAtUtc }`). The older `GET …/support` list stays.
+- `GET /api/v1/support/conversations/{id}/history` gives support staff the whole history, whether
+  or not they take part (same shape as the conversation history). `POST …/join` joins to reply
+  without changing the assignment; `POST …/claim` takes it; `PUT …/assignee` and `PUT …/status`
+  as before.
+- `PUT /api/v1/support/conversations/{id}/subject { subject }` sets or clears what it is about
+  (internal; `400 subject_invalid` over 120 characters).
+- **Internal notes:** `GET` and `POST /api/v1/support/conversations/{id}/notes { body }` (up to 4,000
+  characters; `note_body_required`, `note_body_invalid`). Notes are stored apart from the history,
+  so no message path (history, realtime, notifications, search, the visitor widget) ever carries
+  one; only the team is told to reload.
+
 ## Search
 
 `GET /api/v1/search?q=…` searches the messages the caller can read right now (only conversations

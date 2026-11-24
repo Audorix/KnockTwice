@@ -67,6 +67,18 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Support inbox:** Open, Pending and Resolved tabs with counts; search, assignment and "assigned
+  to me" filters, oldest waiting or newest first; the list beside the selected conversation
+  (subject, preview, channel, assignment, unread); the conversation with its status, assignee and
+  start time, messages, day separators and **internal notes** for the team; a composer with
+  Reply and Internal note. New **Pending** status (waiting for the customer; their next message
+  opens it again) and a **subject** for support conversations. API: `GET
+  /api/v1/organizations/{id}/support/inbox` (page, totals, previews), staff history, join,
+  subject and notes under `/api/v1/support/conversations/{id}`. Database migration
+  `AddSupportNotesAndSubjects`.
+- **Demo data:** 500 support conversations with replies, internal notes, every status and
+  assignments; the administrator who loads it becomes a support agent in their demo companies. The
+  demo data counts gain `support`.
 - **Smaller start-up download:** Spanish texts load only when Spanish is used (start-up JavaScript
   159 kB instead of 182 kB gzip).
 - **Tab title fix:** the unread count in the browser tab title stays after the app applies your

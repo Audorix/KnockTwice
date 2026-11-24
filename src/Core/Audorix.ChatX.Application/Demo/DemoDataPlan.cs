@@ -49,7 +49,7 @@ public sealed record DemoScheduled(string Key, string Person, string Conversatio
 /// The first people, companies and groups are the ones earlier versions created, so an existing demo
 /// installation is extended rather than duplicated. "me" stands for the administrator who loads it.
 /// </summary>
-public sealed class DemoDataPlan
+public sealed partial class DemoDataPlan
 {
     public const string Me = "me";
     public const string EmailDomain = "demo.chatx.test";
@@ -147,6 +147,9 @@ public sealed class DemoDataPlan
         Saved = saved;
         Reminders = reminders;
         Scheduled = scheduled;
+
+        // Support conversations (2026-11-24), with their own seed so everything above stays the same.
+        (SupportDesks, Support) = BuildSupport(new Random(20261126));
     }
 
     // ---- More channels and activity (owner request of 2026-11-24) ------------------------------

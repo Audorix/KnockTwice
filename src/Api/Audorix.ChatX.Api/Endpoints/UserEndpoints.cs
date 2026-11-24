@@ -63,7 +63,7 @@ internal static class UserEndpoints
     }
 
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
-        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity);
+        new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support);
 
     public static CurrentUserResponse ToResponse(CurrentUser user) => new(
         user.Account.Id,

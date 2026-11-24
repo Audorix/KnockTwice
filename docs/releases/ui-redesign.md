@@ -199,8 +199,25 @@ order); web tests 95/95 (new: settings groups, units, search and save bar; provi
 details, search and filters); type check and build clean. Checked in the browser with the demo data
 at 1500 px in dark and light, on a phone (375 px, no sideways scrolling), and in Spanish.
 
+## Support inbox and support demo data (owner request and mockup, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Demo data | 500 support conversations in the ten companies the administrator who loads it belongs to (120 and 80 in the first two), through two widgets per company ("Website chat" and "In-app", switched off, no allowed sites). Customers are identified visitors with stand-in accounts flagged as demo data. About 40% open (recent, the customer waiting; a third unassigned), 15% pending (the team replied last), 45% resolved (thanks and sometimes a goodbye). The administrator and three people per company become support agents; about a quarter of the assigned conversations are the administrator's, with the customer's last messages unread. Internal notes on about a third of the worked conversations. English and Spanish topics; one in ten has no subject, so the first message stands in. Their own seed: everything loaded before stays the same. Clearing removes them with the rest. The counts gain `support`. |
+| Page | Breadcrumb, title and subtitle, the organization picker on the right (it opens on the first organization with support conversations); **Open · Pending · Resolved · All** tabs with counts; search, Assignment (anyone, unassigned, assigned), "Assigned to me", Oldest waiting / Newest activity. The list: customer initials, name, time since the last message, an unread dot, subject, preview, channel and assignment chips, "Showing N of M" with Load more. The conversation: subject (editable), customer · channel, Mark resolved (Reopen when resolved), a "…" menu (mark pending or open, edit subject, take, open in chats); a status row with the state, the assignee picker and the start time; day separators, customer messages on the left, the team's on the right, files, internal notes in amber cards and assignment/status lines; a composer with **Reply** and **Internal note** tabs (attach, emoji, bold, italic, list; "Replies are visible to the customer." / "Notes are only visible to your team."). Reading as a participant clears the unread count; replying joins first. One panel at a time below 992 px. |
+| API | `pending` status; `GET …/support/inbox` (page, totals per status, previews, search, assignment, sort); staff history, join, subject and internal notes under `/api/v1/support/conversations/{id}`. Migration `AddSupportNotesAndSubjects` (subject column, `support_notes` table) on SQLite and PostgreSQL. OpenAPI re-exported. |
+
+Validation: `BusinessTests` (new: inbox page, totals, title and preview, sorting, paging, assignment,
+subject search, staff history, notes kept from the history and the visitor, join, pending and
+reopening), `DemoDataTests` (500 support conversations, notes, statuses, assignments, unread;
+clearing removes them), `WidgetTests`, `AccountDeletionTests` and `PersistenceTests` on SQLite and
+PostgreSQL; web tests 95/95 (the support test now covers tabs, search, notes, replies and status);
+type check and build clean; bundle 161.9 kB of 180 kB. Checked in the browser with the demo data at
+1600 px in dark and light (a note added live) and on a phone (375 px, no sideways scrolling).
+
 ## Open items
 
-- Administration, channels, search and the support inbox were restyled only through the shared
-  tokens; a dedicated pass can follow if they need it.
+- Administration, channels and search were restyled only through the shared tokens; a dedicated
+  pass can follow if they need it.
+- Internal notes are not yet removed by message retention; they go with their conversation.
 - The template folder (`Demo/`) stays out of the repository (it is in `.gitignore`).

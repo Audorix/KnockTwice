@@ -323,6 +323,96 @@ public sealed class BusinessTests
         Assert.Equal(2, kinds.Count(k => k == "status_changed"));
     }
 
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Support_inbox_pages_subjects_notes_and_pending(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
+        var (dan, _) = await SignedInAsync(api, "dan@example.org", "Dan");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        using var _4 = dan;
+        var org = await CreateOrganizationAsync(ana, (ben, "ben@example.org"), (carl, "carl@example.org"), (dan, "dan@example.org"));
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/members/{carlId}/support-agent", new { supportAgent = true }));
+
+        // Two customers write through a widget Ben answers.
+        var widget = (await JsonAsync(await ana.PostAsync($"/api/v1/organizations/{org}/widgets", new { name = "Website chat" }))).GetProperty("widget").GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{org}/widgets/{widget}",
+            new { allowedOrigins = new[] { "https://shop.example.org" }, responderIds = new[] { benId }, enabled = true }));
+        async Task<HttpClient> CustomerAsync(string body)
+        {
+            var client = api.CreateHttpsClient();
+            var session = await JsonAsync(await client.PostAsJsonAsync($"/api/v1/widget/{widget}/sessions", new { parentOrigin = "https://shop.example.org" }, Ct));
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", session.GetProperty("token").GetString());
+            AssertStatus(HttpStatusCode.Created, await client.PostAsJsonAsync("/api/v1/widget/visitor/messages", new { clientMessageId = "c1", body }, Ct));
+            return client;
+        }
+
+        using var first = await CustomerAsync("Where is my order?\nIt was due on Monday.");
+        using var second = await CustomerAsync("Can I change my address?");
+        var inbox = $"/api/v1/organizations/{org}/support/inbox";
+
+        // A page with totals per status, the first line as the title and the newest message as the preview.
+        var page = await JsonAsync(await carl.GetAsync(inbox));
+        Assert.Equal((2, 2, 0, 0, 2), (page.GetProperty("total").GetInt32(), page.GetProperty("counts").GetProperty("open").GetInt32(),
+            page.GetProperty("counts").GetProperty("pending").GetInt32(), page.GetProperty("counts").GetProperty("closed").GetInt32(),
+            page.GetProperty("counts").GetProperty("all").GetInt32()));
+        var oldest = page.GetProperty("items")[0];
+        Assert.Equal("Where is my order?", oldest.GetProperty("title").GetString());
+        Assert.True(oldest.GetProperty("lastMessage").GetProperty("fromCustomer").GetBoolean());
+        var orderId = oldest.GetProperty("conversation").GetProperty("conversationId").GetGuid();
+        Assert.Equal("Can I change my address?", (await JsonAsync(await carl.GetAsync($"{inbox}?sort=newest"))).GetProperty("items")[0].GetProperty("title").GetString());
+        var one = await JsonAsync(await carl.GetAsync($"{inbox}?take=1&skip=1"));
+        Assert.Equal((1, 2), (one.GetProperty("items").GetArrayLength(), one.GetProperty("total").GetInt32()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await carl.GetAsync($"{inbox}?sort=sideways")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await carl.GetAsync($"{inbox}?take=0")).StatusCode);
+        Assert.Equal(2, (await JsonAsync(await carl.GetAsync($"{inbox}?assignment=unassigned"))).GetProperty("total").GetInt32());
+        Assert.Equal(0, (await JsonAsync(await carl.GetAsync($"{inbox}?assignment=assigned"))).GetProperty("total").GetInt32());
+
+        // The subject replaces the title and is searchable.
+        var titled = await JsonAsync(await carl.SendAsync(HttpMethod.Put, $"/api/v1/support/conversations/{orderId}/subject", new { subject = "Late order 1234" }));
+        Assert.Equal("Late order 1234", titled.GetProperty("subject").GetString());
+        var found = await JsonAsync(await carl.GetAsync($"{inbox}?q=order%201234"));
+        Assert.Equal(("Late order 1234", 1), (found.GetProperty("items")[0].GetProperty("title").GetString(), found.GetProperty("total").GetInt32()));
+
+        // Support staff read the history before taking part; other members cannot.
+        Assert.Contains("Where is my order?", await (await carl.GetAsync($"/api/v1/support/conversations/{orderId}/history")).Content.ReadAsStringAsync(Ct),
+            StringComparison.Ordinal);
+        Assert.Equal("conversation_not_found", await ErrorCodeAsync(await dan.GetAsync($"/api/v1/support/conversations/{orderId}/history")));
+
+        // Internal notes: for the team only, never in the history or the customer's view.
+        var note = await carl.PostAsync($"/api/v1/support/conversations/{orderId}/notes", new { body = "Checking with the warehouse." });
+        AssertStatus(HttpStatusCode.Created, note);
+        var notes = (await JsonAsync(await ben.GetAsync($"/api/v1/support/conversations/{orderId}/notes"))).EnumerateArray().ToList();
+        Assert.Equal(("Checking with the warehouse.", "Carl"), (notes.Single().GetProperty("body").GetString(),
+            notes.Single().GetProperty("author").GetProperty("displayName").GetString()));
+        Assert.Equal("conversation_not_found", await ErrorCodeAsync(await dan.GetAsync($"/api/v1/support/conversations/{orderId}/notes")));
+        Assert.Equal("note_body_required", await ErrorCodeAsync(await carl.PostAsync($"/api/v1/support/conversations/{orderId}/notes", new { body = "  " })));
+        Assert.DoesNotContain("warehouse", await (await ben.GetAsync($"/api/v1/conversations/{orderId}/history")).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        Assert.DoesNotContain("warehouse", await (await first.GetAsync("/api/v1/widget/visitor/conversation", Ct)).Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+        // Joining to reply keeps the assignment as it is.
+        var joined = await JsonAsync(await carl.PostAsync($"/api/v1/support/conversations/{orderId}/join"));
+        Assert.Equal((true, System.Text.Json.JsonValueKind.Null), (joined.GetProperty("participating").GetBoolean(), joined.GetProperty("assignedTo").ValueKind));
+        AssertStatus(HttpStatusCode.Created, await carl.PostAsync($"/api/v1/conversations/{orderId}/messages", new { clientMessageId = "r1", body = "Let me check." }));
+        Assert.False((await JsonAsync(await carl.GetAsync(inbox))).GetProperty("items").EnumerateArray()
+            .Single(i => i.GetProperty("conversation").GetProperty("conversationId").GetGuid() == orderId).GetProperty("lastMessage").GetProperty("fromCustomer").GetBoolean());
+
+        // Pending waits for the customer, whose next message opens it again.
+        var pending = await JsonAsync(await carl.SendAsync(HttpMethod.Put, $"/api/v1/support/conversations/{orderId}/status", new { status = "pending" }));
+        Assert.Equal("pending", pending.GetProperty("status").GetString());
+        var pendingPage = await JsonAsync(await carl.GetAsync($"{inbox}?status=pending"));
+        Assert.Equal((1, 1, 1), (pendingPage.GetProperty("total").GetInt32(), pendingPage.GetProperty("counts").GetProperty("open").GetInt32(),
+            pendingPage.GetProperty("counts").GetProperty("pending").GetInt32()));
+        AssertStatus(HttpStatusCode.Created, await first.PostAsJsonAsync("/api/v1/widget/visitor/messages", new { clientMessageId = "c2", body = "Any news?" }, Ct));
+        Assert.Equal(2, (await JsonAsync(await carl.GetAsync(inbox))).GetProperty("counts").GetProperty("open").GetInt32());
+    }
+
     private static async Task<Guid> DefaultWorkspaceAsync(ApiSession owner, Guid organizationId) =>
         (await JsonAsync(await owner.GetAsync($"/api/v1/organizations/{organizationId}/workspaces"))).EnumerateArray().First().GetProperty("id").GetGuid();
 

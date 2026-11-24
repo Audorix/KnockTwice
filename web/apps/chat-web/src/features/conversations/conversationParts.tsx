@@ -213,7 +213,11 @@ export function describeEntry(entry: ConversationEntryResponse, type: 'direct' |
     case 'assigned':
       return entry.subject ? t('conversations.entries.assigned', { actor, subject }) : t('conversations.entries.unassigned', { actor });
     case 'status_changed':
-      return entry.text === 'closed' ? t('conversations.entries.closed', { actor }) : t('conversations.entries.reopened', { actor });
+      return entry.text === 'closed'
+        ? t('conversations.entries.closed', { actor })
+        : entry.text === 'pending'
+          ? t('conversations.entries.pending', { actor })
+          : t('conversations.entries.reopened', { actor });
     case 'visibility_changed':
       return entry.text === 'private' ? t('conversations.entries.madePrivate', { actor }) : t('conversations.entries.madePublic', { actor });
     case 'archived':

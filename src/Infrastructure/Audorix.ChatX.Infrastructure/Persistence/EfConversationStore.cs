@@ -394,6 +394,42 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
         return rows.OrderByDescending(c => c.LastActivityAtUtc).ThenByDescending(c => c.Id).Take(limit).ToList();
     }
 
+    public async Task<IReadOnlyDictionary<Guid, ConversationParticipant>> ListParticipationsAsync(
+        Guid userId, IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) =>
+        conversationIds.Count == 0
+            ? new Dictionary<Guid, ConversationParticipant>()
+            : await db.ConversationParticipants.AsNoTracking()
+                .Where(p => p.UserId == userId && conversationIds.Contains(p.ConversationId))
+                .ToDictionaryAsync(p => p.ConversationId, cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyDictionary<Guid, ConversationEvent>> ListEdgeMessagesAsync(
+        IReadOnlyCollection<Guid> conversationIds, bool newest, CancellationToken cancellationToken)
+    {
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, ConversationEvent>();
+        }
+
+        var live = db.ConversationEvents.AsNoTracking().Where(e => conversationIds.Contains(e.ConversationId)
+            && e.Kind == ConversationEventKind.Message && e.DeletedAtUtc == null && (e.ThreadRootId == null || e.ShownInConversation));
+        var edges = newest
+            ? live.GroupBy(e => e.ConversationId).Select(g => new { ConversationId = g.Key, Sequence = g.Max(e => e.Sequence) })
+            : live.GroupBy(e => e.ConversationId).Select(g => new { ConversationId = g.Key, Sequence = g.Min(e => e.Sequence) });
+        var rows = await (from e in db.ConversationEvents.AsNoTracking()
+                          join edge in edges on new { e.ConversationId, e.Sequence } equals new { edge.ConversationId, edge.Sequence }
+                          select e).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(e => e.ConversationId);
+    }
+
+    public void Add(SupportNote note) => db.SupportNotes.Add(note);
+
+    public async Task<IReadOnlyList<SupportNote>> ListSupportNotesAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        // Ordered in memory (SQLite cannot order by DateTimeOffset); a conversation has few notes.
+        var notes = await db.SupportNotes.AsNoTracking().Where(n => n.ConversationId == conversationId).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return notes.OrderBy(n => n.CreatedAtUtc).ThenBy(n => n.Id).ToList();
+    }
+
     public Task<OutboxMessage?> FindOutboxAsync(Guid outboxId, CancellationToken cancellationToken) =>
         db.OutboxMessages.FirstOrDefaultAsync(o => o.Id == outboxId, cancellationToken);
 

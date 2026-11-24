@@ -252,7 +252,7 @@ internal static class ConversationEndpoints
             c.LastActivityAtUtc,
             c.WorkspaceId,
             c.Visibility switch { ChannelVisibility.Public => "public", ChannelVisibility.Private => "private", _ => null },
-            c.SupportStatus switch { SupportStatus.Open => "open", SupportStatus.Closed => "closed", _ => null },
+            c.SupportStatus switch { SupportStatus.Open => "open", SupportStatus.Closed => "closed", SupportStatus.Pending => "pending", _ => null },
             NotificationLevel: LevelName(view.Me.NotificationLevel),
             Pinned: view.Me.PinnedAtUtc is not null,
             LastMessage: view.LastMessage is { } last

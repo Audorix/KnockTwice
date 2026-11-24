@@ -7,7 +7,10 @@ import type {
   MyGuestInvitationResponse,
   OrganizationMemberResponse,
   OrganizationResponse,
+  ConversationHistoryResponse,
   SupportConversationResponse,
+  SupportInboxPageResponse,
+  SupportNoteResponse,
   SupportStatus,
   TeamMemberResponse,
   TeamResponse,
@@ -148,6 +151,51 @@ export async function claimSupportConversation(conversationId: string): Promise<
 
 export async function assignSupportConversation(conversationId: string, assigneeId: string | null): Promise<SupportConversationResponse> {
   return (await sendJson<SupportConversationResponse>('PUT', `/api/v1/support/conversations/${id(conversationId)}/assignee`, { assigneeId }))!;
+}
+
+export interface SupportInboxFilters {
+  status: SupportStatus | 'all';
+  mine: boolean;
+  assignment: 'anyone' | 'assigned' | 'unassigned';
+  q: string;
+  sort: 'oldest' | 'newest';
+  skip: number;
+  take: number;
+}
+
+/** One page of the support inbox with totals per status (redesign 2026-11). Defaults stay out of the address. */
+export async function getSupportInbox(organizationId: string, filters: SupportInboxFilters): Promise<SupportInboxPageResponse> {
+  const query = new URLSearchParams({ status: filters.status, skip: String(filters.skip), take: String(filters.take) });
+  if (filters.mine) query.set('mine', 'true');
+  if (filters.assignment !== 'anyone') query.set('assignment', filters.assignment);
+  if (filters.q.trim()) query.set('q', filters.q.trim());
+  if (filters.sort !== 'oldest') query.set('sort', filters.sort);
+  return (await getJson<SupportInboxPageResponse>(`${org(organizationId)}/support/inbox?${query.toString()}`)).body!;
+}
+
+const supportConversation = (conversationId: string) => `/api/v1/support/conversations/${id(conversationId)}`;
+
+/** The whole history for support staff, taking part or not. */
+export async function getSupportHistory(conversationId: string, before?: string): Promise<ConversationHistoryResponse> {
+  const query = before ? `?before=${encodeURIComponent(before)}` : '';
+  return (await getJson<ConversationHistoryResponse>(`${supportConversation(conversationId)}/history${query}`)).body!;
+}
+
+/** Joins to reply, keeping the assignment as it is. */
+export async function joinSupportConversation(conversationId: string): Promise<SupportConversationResponse> {
+  return (await sendJson<SupportConversationResponse>('POST', `${supportConversation(conversationId)}/join`))!;
+}
+
+export async function setSupportSubject(conversationId: string, subject: string | null): Promise<SupportConversationResponse> {
+  return (await sendJson<SupportConversationResponse>('PUT', `${supportConversation(conversationId)}/subject`, { subject }))!;
+}
+
+export async function listSupportNotes(conversationId: string): Promise<SupportNoteResponse[]> {
+  return (await getJson<SupportNoteResponse[]>(`${supportConversation(conversationId)}/notes`)).body ?? [];
+}
+
+export async function addSupportNote(conversationId: string, body: string): Promise<SupportNoteResponse> {
+  return (await sendJson<SupportNoteResponse>('POST', `${supportConversation(conversationId)}/notes`, { body }))!;
 }
 
 export async function setSupportStatus(conversationId: string, status: SupportStatus): Promise<SupportConversationResponse> {

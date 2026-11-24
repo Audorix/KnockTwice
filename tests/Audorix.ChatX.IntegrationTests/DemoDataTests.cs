@@ -45,10 +45,13 @@ public sealed class DemoDataTests
         var created = loaded.GetProperty("created");
         var plan = Application.Demo.DemoDataPlan.Create();
         var planned = plan.Messages.Where(m => m.Mentions is not null).Sum(m => m.Mentions!.Count) + plan.Saved.Count + plan.Reminders.Count + plan.Scheduled.Count;
-        Assert.Equal((300, 50, plan.Messages.Count), (created.GetProperty("users").GetInt32(), created.GetProperty("organizations").GetInt32(), created.GetProperty("messages").GetInt32()));
+        var supportMessages = plan.Support.Sum(s => s.Messages.Count);
+        Assert.Equal((300, 50, plan.Messages.Count + supportMessages),
+            (created.GetProperty("users").GetInt32(), created.GetProperty("organizations").GetInt32(), created.GetProperty("messages").GetInt32()));
+        Assert.Equal((500, 500), (created.GetProperty("support").GetInt32(), loaded.GetProperty("total").GetProperty("support").GetInt32()));
         Assert.Equal(planned, created.GetProperty("activity").GetInt32());
         Assert.Equal(planned, loaded.GetProperty("total").GetProperty("activity").GetInt32());
-        Assert.True(created.GetProperty("conversations").GetInt32() >= 1250, "150 groups, about 300 direct conversations and 800 channels");
+        Assert.True(created.GetProperty("conversations").GetInt32() >= 1750, "150 groups, about 300 direct conversations, 800 channels and 500 support conversations");
         Assert.Equal(800, await CountChannelsAsync(api));
         Assert.True(created.GetProperty("contacts").GetInt32() >= 900);
         Assert.Equal("Demo123!", loaded.GetProperty("password").GetString());
@@ -60,6 +63,21 @@ public sealed class DemoDataTests
         var activity = await ActivityAsync(api);
         Assert.Equal((400, 60, 25, 15), activity[adminId]);
         Assert.True((await JsonAsync(await admin.GetAsync("/api/v1/mentions/unread"))).GetProperty("unread").GetInt32() > 0);
+
+        // Support (2026-11-24): the administrator is a support agent where the 500 conversations are,
+        // with every status, assignments, notes and unread customer messages.
+        var northwind = Application.Demo.DemoDataPlan.DemoId("org:northwind");
+        Assert.True((await JsonAsync(await admin.GetAsync($"/api/v1/organizations/{northwind}"))).GetProperty("supportAgent").GetBoolean());
+        var inbox = await JsonAsync(await admin.GetAsync($"/api/v1/organizations/{northwind}/support/inbox?status=all&take=100"));
+        var counts = inbox.GetProperty("counts");
+        Assert.Equal(120, counts.GetProperty("all").GetInt32());
+        Assert.All(new[] { "open", "pending", "closed" }, s => Assert.True(counts.GetProperty(s).GetInt32() > 0, s));
+        var items = inbox.GetProperty("items").EnumerateArray().ToList();
+        Assert.Contains(items, i => i.GetProperty("conversation").GetProperty("assignedTo").ValueKind == System.Text.Json.JsonValueKind.Null);
+        Assert.Contains(items, i => i.GetProperty("conversation").GetProperty("assignedTo").ValueKind != System.Text.Json.JsonValueKind.Null);
+        Assert.All(items, i => Assert.False(string.IsNullOrEmpty(i.GetProperty("title").GetString())));
+        Assert.Contains(items, i => i.GetProperty("conversation").GetProperty("unreadCount").GetInt32() > 0);
+        Assert.Equal(plan.Support.Sum(s => s.Notes.Count), await CountSupportNotesAsync(api));
 
         // Everyone else: at least ten channels and 50 to 100 activity items.
         var channels = await ChannelsPerPersonAsync(api);
@@ -83,15 +101,17 @@ public sealed class DemoDataTests
         AssertStatus(HttpStatusCode.NoContent, await admin.PostAsync($"/api/v1/conversations/{hikers}/leave"));
         var afterLeave = await CountRowsAsync(api);
         var again = (await JsonAsync(await admin.PostAsync("/api/v1/admin/demo-data"))).GetProperty("created");
-        Assert.Equal((0, 0, 0, 0, 0, 0), (again.GetProperty("users").GetInt32(), again.GetProperty("organizations").GetInt32(),
+        Assert.Equal((0, 0, 0, 0, 0, 0, 0), (again.GetProperty("users").GetInt32(), again.GetProperty("organizations").GetInt32(),
             again.GetProperty("contacts").GetInt32(), again.GetProperty("conversations").GetInt32(), again.GetProperty("messages").GetInt32(),
-            again.GetProperty("activity").GetInt32()));
+            again.GetProperty("activity").GetInt32(), again.GetProperty("support").GetInt32()));
         Assert.Equal(afterLeave, await CountRowsAsync(api));
 
         // Clearing removes the demo data and nothing else.
         var cleared = await JsonAsync(await admin.SendAsync(HttpMethod.Delete, "/api/v1/admin/demo-data"));
         Assert.Equal(300, cleared.GetProperty("removed").GetProperty("users").GetInt32());
+        Assert.Equal(500, cleared.GetProperty("removed").GetProperty("support").GetInt32());
         Assert.Equal(real, await CountRowsAsync(api));
+        Assert.Equal(0, await CountSupportNotesAsync(api));
         Assert.Empty((await JsonAsync(await admin.GetAsync("/api/v1/organizations"))).EnumerateArray());
         Assert.Equal([direct, group], (await JsonAsync(await admin.GetAsync("/api/v1/conversations"))).EnumerateArray()
             .Select(c => c.GetProperty("id").GetGuid()).Order());
@@ -156,6 +176,12 @@ public sealed class DemoDataTests
         await using var scope = api.Services.CreateAsyncScope();
         return await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().Conversations
             .CountAsync(c => c.Type == Domain.Conversations.ConversationType.Channel && c.IsDemo, Ct);
+    }
+
+    private static async Task<int> CountSupportNotesAsync(ChatXApiFactory api)
+    {
+        await using var scope = api.Services.CreateAsyncScope();
+        return await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportNotes.CountAsync(Ct);
     }
 
     /// <summary>Mentions, saved messages, reminders and scheduled messages per person.</summary>

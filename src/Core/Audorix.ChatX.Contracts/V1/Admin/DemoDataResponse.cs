@@ -7,7 +7,8 @@ namespace Audorix.ChatX.Contracts.V1.Admin;
 public sealed record DemoDataResponse(DemoDataCountsResponse Created, DemoDataCountsResponse Total, IReadOnlyList<string> UserEmails, string Password);
 
 /// <param name="Activity">Mentions, saved messages, reminders and scheduled messages in demo conversations.</param>
-public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity);
+/// <param name="Support">Support conversations from demo customers (also counted in <paramref name="Conversations"/>).</param>
+public sealed record DemoDataCountsResponse(int Users, int Organizations, int Contacts, int Conversations, int Messages, int Activity, int Support = 0);
 
 /// <param name="Removed">The demo data that was removed.</param>
 public sealed record DemoDataClearedResponse(DemoDataCountsResponse Removed);

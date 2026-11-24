@@ -78,6 +78,21 @@ public interface IConversationStore
     /// <summary>Website conversations of the organization, most recent activity first.</summary>
     Task<IReadOnlyList<Conversation>> ListWebsiteConversationsAsync(Guid organizationId, SupportStatus? status, int limit, CancellationToken cancellationToken);
 
+    /// <summary>The user's participation rows (active or not) in these conversations, by conversation.</summary>
+    Task<IReadOnlyDictionary<Guid, ConversationParticipant>> ListParticipationsAsync(
+        Guid userId, IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken);
+
+    /// <summary>The newest (or the oldest) live main-timeline message of each conversation that has one.</summary>
+    Task<IReadOnlyDictionary<Guid, ConversationEvent>> ListEdgeMessagesAsync(
+        IReadOnlyCollection<Guid> conversationIds, bool newest, CancellationToken cancellationToken);
+
+    // ---- Support notes (redesign 2026-11) ---------------------------------------------------
+
+    void Add(SupportNote note);
+
+    /// <summary>The conversation's internal notes, oldest first.</summary>
+    Task<IReadOnlyList<SupportNote>> ListSupportNotesAsync(Guid conversationId, CancellationToken cancellationToken);
+
     // ---- Reactions and threads (Phase 16) -----------------------------------------------------
 
     void Add(MessageReaction reaction);
