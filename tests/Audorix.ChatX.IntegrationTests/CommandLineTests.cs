@@ -64,7 +64,7 @@ public sealed class CommandLineTests
                 ["Setup__SettingsPath"] = Path.Combine(directory, "settings.json"),
                 ["Database__Provider"] = "",
                 ["Database__ConnectionString"] = "",
-            }, stopWhenOutputContains: "The code is also saved to");
+            }, stopWhenOutputContains: ["The code is also saved to", "enter the setup code"]);
 
             // The log line, a banner on standard output, and a file next to the settings file.
             Assert.Matches(@"setup code:\s+([A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4})", output);
@@ -83,7 +83,7 @@ public sealed class CommandLineTests
     }
 
     private static async Task<(int ExitCode, string Output)> RunApiAsync(
-        string[] args, Dictionary<string, string?> environment, string? stopWhenOutputContains = null)
+        string[] args, Dictionary<string, string?> environment, string[]? stopWhenOutputContains = null)
     {
         var apiAssembly = typeof(Program).Assembly.Location;
         var start = new ProcessStartInfo("dotnet")
@@ -110,7 +110,9 @@ public sealed class CommandLineTests
         using var process = Process.Start(start)!;
         if (stopWhenOutputContains is not null)
         {
-            // Long-running host: read until the expected line appears, then stop the process.
+            // Long-running host: read until every expected text appeared, then stop the process.
+            // The console logger writes from a background queue, so its lines can come after
+            // text written directly to standard output.
             var collected = new System.Text.StringBuilder();
             using var wait = CancellationTokenSource.CreateLinkedTokenSource(Ct);
             wait.CancelAfter(TimeSpan.FromSeconds(60));
@@ -119,7 +121,8 @@ public sealed class CommandLineTests
                 while (await process.StandardOutput.ReadLineAsync(wait.Token) is { } line)
                 {
                     collected.AppendLine(line);
-                    if (line.Contains(stopWhenOutputContains, StringComparison.Ordinal))
+                    var text = collected.ToString();
+                    if (stopWhenOutputContains.All(expected => text.Contains(expected, StringComparison.Ordinal)))
                     {
                         break;
                     }
