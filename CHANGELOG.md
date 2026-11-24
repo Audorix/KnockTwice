@@ -67,6 +67,14 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Home (welcome page):** a Home item in the sidebar; the date, development tools (administrators
+  on development installations) and the connection state at the top; "Welcome back" with Open chats
+  and New conversation; shortcuts to people, channels, saved messages and your profile; recent
+  conversations with previews and unread counts; what needs your attention (unread mentions,
+  contact requests, the next reminder); your workspaces; a "Make it yours" nudge until you have a
+  photo and links. Administrators get a **Development tools** panel with the service status, demo
+  data (counts as tiles) and what this build contains. Signed out, the page keeps the product
+  introduction.
 - **My profile:** a header with your photo, name, verified email and how others see you;
   **Profile · Media & links · Notifications · Security · Sessions** tabs. Profile has the details
   (name, email, photo), theme cards and language, and a sessions summary.

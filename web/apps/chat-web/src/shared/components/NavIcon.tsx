@@ -6,7 +6,7 @@ export type NavIconName =
   | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
   | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
   | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid'
-  | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
+  | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
   | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
@@ -44,7 +44,17 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
           <circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
         </g>
       )}
-      {name === 'move' && <path {...common} d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />}
+      {name === 'home' && <path {...common} d="M3.5 11 12 4l8.5 7M5.5 9.5V20h5v-5.5h3V20h5V9.5" />}
+      {name === 'tools' && (
+        <path {...common} d="M14.5 6.5a3.5 3.5 0 0 0 4.6 4.3L21 12.7l-2.3 2.3-1.9-1.9-6.9 6.9a1.8 1.8 0 0 1-2.6-2.6l6.9-6.9-1.9-1.9L14.6 6l.2.1M4 4l3 1 4 4-2 2-4-4z" />
+      )}
+      {name === 'user-plus' && (
+        <>
+          <circle {...common} cx="10" cy="8" r="3.5" />
+          <path {...common} d="M3.5 20a6.5 6.5 0 0 1 11.5-4M18.5 14v6M15.5 17h6" />
+        </>
+      )}
+      {name === 'move' &&<path {...common} d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />}
       {name === 'upload' &&<path {...common} d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />}
       {name === 'rotate-left' && <path {...common} d="M4 4v5h5M4.5 13a8 8 0 1 0 2-6.5L4 9" />}
       {name === 'rotate-right' && <path {...common} d="M20 4v5h-5M19.5 13a8 8 0 1 1-2-6.5L20 9" />}

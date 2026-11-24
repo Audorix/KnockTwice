@@ -41,7 +41,9 @@ function Contacts() {
   const [blocked, setBlocked] = useState<ContactResponse[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('all');
+  // `?tab=requests` (from the home page) opens the requests.
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'requests' ? 'requests' : 'all');
   const [filter, setFilter] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [sort, setSort] = useState<Sort>('nameAsc');

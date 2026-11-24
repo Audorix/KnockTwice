@@ -62,7 +62,8 @@ function Conversations() {
   const [items, setItems] = useState<ConversationSummaryResponse[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  // `?new=1` (the home page's "New conversation") opens the new-conversation panel.
+  const [creating, setCreating] = useState(() => query.get('new') === '1');
 
   const [drafts, setDrafts] = useState<Set<string>>(new Set());
   // Phase 22: the list comes a page at a time. Refreshes fetch as many as are shown, so the list

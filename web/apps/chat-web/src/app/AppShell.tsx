@@ -170,6 +170,7 @@ function AppNavigation() {
 
   type Item = { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string };
   const communicate: Item[] = [
+    { to: '/', label: t('nav.homeItem'), icon: 'home', active: pathname === '/' },
     { to: '/conversations', label: t('nav.chats'), icon: 'chats', active: pathname === '/conversations', badge: unread, badgeLabel: t('notifications.unread', { count: unread }) },
     { to: '/mentions', label: t('nav.mentions'), icon: 'at', active: pathname === '/mentions', badge: activity, badgeLabel: t('notifications.activity', { count: activity }) },
     { to: '/search', label: t('nav.search'), icon: 'search', active: pathname === '/search' },
@@ -184,7 +185,8 @@ function AppNavigation() {
   ];
 
   const renderItem = (item: Item) => (
-    <li key={item.to}>
+    // Home stays out of the phone tab bar (the brand mark leads home there).
+    <li key={item.to} className={item.icon === 'home' ? 'cx-rail-home' : undefined}>
       <Link to={item.to} className={`cx-rail-link${item.icon === 'lock' ? ' is-private' : ''}`} aria-current={item.active ? 'page' : undefined}>
         <span className="cx-rail-icon">
           <NavIcon name={item.icon} />

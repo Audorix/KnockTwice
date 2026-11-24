@@ -235,6 +235,24 @@ build clean; bundle 164.3 kB of 180 kB. Checked in the browser with the review a
 dark and light: a photo uploaded, edited in the dialog (zoom, drag) and saved; links added, a wrong
 LinkedIn address reported and fixed, saved; on a phone (375 px, no sideways scrolling).
 
+## Home / welcome page (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Navigation | A **Home** item first in the sidebar (not in the phone tab bar, where the brand mark leads home). |
+| Top bar | Breadcrumb Workspace / Home; today's date; **Development tools DEV** for administrators of development installations; the live connection state. |
+| Welcome | "Welcome back, name", the intro line, **Open chats** and **New conversation** (opens the new-conversation panel through `?new=1`), drawn speech bubbles and curves. Four shortcuts: Find people, Browse channels, Saved messages, Your profile. |
+| Cards | **Recent conversations** (the three most recent: avatar or channel/group tile, name, Direct or the organization, the last message with its author in groups and channels, time, unread count; View all). **Needs your attention** (unread mentions, incoming contact requests with Review opening the requests tab, the next or due reminder with its time and conversation). **Your workspaces** (organization, workspace, Open into the channels page). **Make it yours** while there is no photo or no links. |
+| Administration | An "Administration & development · Admin only" row opens the **Development tools** panel: service status, demo data (introduction, "Currently loaded" tiles for people, companies, conversations, messages, activity and support, Populate / Clear) on development installations, and "In this build" with named capabilities; the footer notes it is available only in Development to authorized administrators. |
+| Signed out | The product introduction, the service status and "In this build". |
+
+Validation: web tests 99/99 (new: welcome, recent conversations with direct and channel rows,
+contact requests, the reminder, workspaces with only joined ones, the profile nudge, no admin row
+for others; the development tools panel with status, demo tiles and build list, closing with
+Escape); the account, contacts and conversations tests still pass; type check and build clean;
+bundle 168.2 kB of 180 kB. Checked in the browser with the demo data at 1600 px in dark and light,
+the development tools panel, and on a phone (375 px, no sideways scrolling). No API changes.
+
 ## Open items
 
 - Administration, channels and search were restyled only through the shared tokens; a dedicated

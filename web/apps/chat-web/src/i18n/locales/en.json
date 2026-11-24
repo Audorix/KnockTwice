@@ -27,7 +27,8 @@
     "channels": "Channels",
     "support": "Support",
     "search": "Search",
-    "mentions": "Activity"
+    "mentions": "Activity",
+    "homeItem": "Home"
   },
   "mentions": {
     "title": "Mentions",
@@ -90,7 +91,129 @@
   "home": {
     "title": "Welcome",
     "welcomeBack": "Welcome back, {{name}}",
-    "signedOut": "You are not signed in."
+    "signedOut": "You are not signed in.",
+    "intro": "Pick up a conversation or see what needs your attention.",
+    "openChats": "Open chats",
+    "newConversation": "New conversation",
+    "shortcuts": "Shortcuts",
+    "find": {
+      "title": "Find people",
+      "text": "Grow your contacts"
+    },
+    "channels": {
+      "title": "Browse channels",
+      "text": "Join the conversation"
+    },
+    "saved": {
+      "title": "Saved messages",
+      "text": "Return to what matters"
+    },
+    "profile": {
+      "title": "Your profile",
+      "text": "Photo, preferences and links"
+    },
+    "recent": {
+      "title": "Recent conversations",
+      "viewAll": "View all",
+      "empty": "No conversations yet. Start one with a contact.",
+      "direct": "Direct",
+      "files": "Sent files"
+    },
+    "workspaces": {
+      "title": "Your workspaces",
+      "empty": "You are not in a workspace yet.",
+      "organizations": "See organizations",
+      "open": "Open",
+      "openNamed": "Open {{workspace}} in {{organization}}"
+    },
+    "attention": {
+      "title": "Needs your attention",
+      "mentions_one": "{{count}} unread mention",
+      "mentions_other": "{{count}} unread mentions",
+      "requests_one": "{{count}} contact request",
+      "requests_other": "{{count}} contact requests",
+      "view": "View",
+      "review": "Review",
+      "nextReminder": "Upcoming reminder",
+      "dueReminder": "Reminder due",
+      "openReminder": "Open reminder",
+      "noReminders": "No reminders coming up.",
+      "reminderMessage": "A message with files"
+    },
+    "yours": {
+      "title": "Make it yours",
+      "text": "Add a profile photo and your GitHub or LinkedIn links.",
+      "edit": "Edit profile"
+    },
+    "admin": {
+      "title": "Administration & development",
+      "badge": "Admin only",
+      "text": "Service diagnostics, demo data and build details"
+    },
+    "tools": {
+      "title": "Development tools",
+      "dev": "DEV",
+      "developmentOnly": "Development only",
+      "subtitle": "Service checks, demo data and build information.",
+      "close": "Close development tools",
+      "footer": "Available only in Development to authorized administrators."
+    },
+    "connection": {
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "reconnecting": "Reconnecting…",
+      "disconnected": "Offline"
+    },
+    "build": {
+      "summary": "{{capabilities}} capabilities · {{languages}}",
+      "languages_one": "{{count}} interface language",
+      "languages_other": "{{count}} interface languages",
+      "items": {
+        "api": {
+          "name": "API health",
+          "text": "Liveness and readiness checks"
+        },
+        "database": {
+          "name": "Databases",
+          "text": "SQLite and PostgreSQL migrations"
+        },
+        "accounts": {
+          "name": "Accounts",
+          "text": "Verified email, recovery, Google / Microsoft"
+        },
+        "security": {
+          "name": "Sessions",
+          "text": "Review, revoke and secure sign-in"
+        },
+        "organizations": {
+          "name": "Organizations",
+          "text": "Invitations, roles and workspaces"
+        },
+        "contacts": {
+          "name": "Contacts",
+          "text": "Requests, discovery and blocking"
+        },
+        "realtime": {
+          "name": "Presence",
+          "text": "Live connection and online status"
+        },
+        "conversations": {
+          "name": "Messaging",
+          "text": "Direct and group conversations"
+        },
+        "localization": {
+          "name": "Localization",
+          "text": "English and Spanish"
+        },
+        "docker": {
+          "name": "Deployment",
+          "text": "Docker development profiles"
+        }
+      }
+    },
+    "yesterday": "Yesterday",
+    "todayAt": "Today, {{time}}",
+    "tomorrowAt": "Tomorrow, {{time}}"
   },
   "readiness": {
     "title": "Service status",
@@ -702,7 +825,18 @@
     "clear": "Clear demo data",
     "clearConfirm": "Remove all demo data? Demo people (and what they wrote), demo companies and demo conversations are deleted. Conversations and data that real people created stay.",
     "cleared": "Removed {{users}} demo people, {{organizations}} companies, {{conversations}} conversations and {{messages}} messages.",
-    "existing": "Loaded now: {{users}} people, {{organizations}} companies, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items, {{support}} support conversations."
+    "existing": "Loaded now: {{users}} people, {{organizations}} companies, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items, {{support}} support conversations.",
+    "lead": "Populate a realistic workspace for development and testing.",
+    "loaded": "Currently loaded",
+    "tiles": {
+      "people": "People",
+      "companies": "Companies",
+      "conversations": "Conversations",
+      "messages": "Messages",
+      "activity": "Activity items",
+      "support": "Support conversations"
+    },
+    "clearNote": "Clearing asks for confirmation."
   },
   "messages": {
     "compose": "Message",

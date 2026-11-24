@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getJson, sendJson } from '../../shared/api/httpClient';
 import { FormAlert } from '../../shared/components/Field';
+import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { useAuth } from '../auth/AuthContext';
 import { errorMessage } from '../auth/errors';
 
@@ -32,7 +33,7 @@ const sum = (c: DemoCounts) => c.users + c.organizations + c.contacts + c.conver
  * what real people created stays).
  */
 export function DemoDataCard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, config } = useAuth();
   const [busy, setBusy] = useState(false);
   const [existing, setExisting] = useState<DemoCounts | null>(null);
@@ -84,16 +85,38 @@ export function DemoDataCard() {
     });
   };
 
+  const tiles: { key: string; icon: NavIconName; value: number }[] = existing
+    ? [
+        { key: 'people', icon: 'people', value: existing.users },
+        { key: 'companies', icon: 'building', value: existing.organizations },
+        { key: 'conversations', icon: 'chats', value: existing.conversations },
+        { key: 'messages', icon: 'mail', value: existing.messages },
+        { key: 'activity', icon: 'at', value: existing.activity ?? 0 },
+        { key: 'support', icon: 'headset', value: existing.support ?? 0 },
+      ]
+    : [];
   return (
-    <section className="cx-card" aria-labelledby="demo-title">
+    <section className="cx-card cx-demo-card" aria-labelledby="demo-title">
       <h2 id="demo-title" className="cx-card-title">
         {t('demo.title')}
       </h2>
-      <p className="cx-muted">{t('demo.intro')}</p>
-      {existing && sum(existing) > 0 && (
-        <p className="small cx-meta">
-          {t('demo.existing', { users: existing.users, organizations: existing.organizations, conversations: existing.conversations, messages: existing.messages, activity: existing.activity, support: existing.support ?? 0 })}
-        </p>
+      <p className="mb-1">{t('demo.lead')}</p>
+      <p className="cx-muted small">{t('demo.intro')}</p>
+      {existing && (
+        <>
+          <h3 className="cx-demo-loaded">{t('demo.loaded')}</h3>
+          <ul className="list-unstyled cx-demo-tiles">
+            {tiles.map((tile) => (
+              <li key={tile.key} className="cx-demo-tile">
+                <NavIcon name={tile.icon} size={22} />
+                <span>
+                  <strong>{tile.value.toLocaleString(i18n.language)}</strong>
+                  <span className="cx-muted small d-block">{t(`demo.tiles.${tile.key}`)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {notice && (
@@ -115,6 +138,7 @@ export function DemoDataCard() {
           {t('demo.clear')}
         </button>
       </div>
+      <p className="cx-muted small mt-2 mb-0">{t('demo.clearNote')}</p>
     </section>
   );
 }

@@ -27,7 +27,8 @@
     "channels": "Canales",
     "support": "Soporte",
     "search": "Buscar",
-    "mentions": "Actividad"
+    "mentions": "Actividad",
+    "homeItem": "Inicio"
   },
   "mentions": {
     "title": "Menciones",
@@ -90,7 +91,129 @@
   "home": {
     "title": "Bienvenido",
     "welcomeBack": "Hola de nuevo, {{name}}",
-    "signedOut": "No ha iniciado sesión."
+    "signedOut": "No ha iniciado sesión.",
+    "intro": "Retome una conversación o vea lo que necesita su atención.",
+    "openChats": "Abrir chats",
+    "newConversation": "Nueva conversación",
+    "shortcuts": "Accesos directos",
+    "find": {
+      "title": "Buscar personas",
+      "text": "Amplíe sus contactos"
+    },
+    "channels": {
+      "title": "Explorar canales",
+      "text": "Únase a la conversación"
+    },
+    "saved": {
+      "title": "Mensajes guardados",
+      "text": "Vuelva a lo importante"
+    },
+    "profile": {
+      "title": "Su perfil",
+      "text": "Foto, preferencias y enlaces"
+    },
+    "recent": {
+      "title": "Conversaciones recientes",
+      "viewAll": "Ver todas",
+      "empty": "Todavía no hay conversaciones. Empiece una con un contacto.",
+      "direct": "Directa",
+      "files": "Archivos enviados"
+    },
+    "workspaces": {
+      "title": "Sus espacios de trabajo",
+      "empty": "Todavía no está en ningún espacio de trabajo.",
+      "organizations": "Ver organizaciones",
+      "open": "Abrir",
+      "openNamed": "Abrir {{workspace}} en {{organization}}"
+    },
+    "attention": {
+      "title": "Necesita su atención",
+      "mentions_one": "{{count}} mención sin leer",
+      "mentions_other": "{{count}} menciones sin leer",
+      "requests_one": "{{count}} solicitud de contacto",
+      "requests_other": "{{count}} solicitudes de contacto",
+      "view": "Ver",
+      "review": "Revisar",
+      "nextReminder": "Próximo recordatorio",
+      "dueReminder": "Recordatorio pendiente",
+      "openReminder": "Abrir el recordatorio",
+      "noReminders": "No hay recordatorios próximos.",
+      "reminderMessage": "Un mensaje con archivos"
+    },
+    "yours": {
+      "title": "Hágalo suyo",
+      "text": "Añada una foto de perfil y sus enlaces de GitHub o LinkedIn.",
+      "edit": "Editar el perfil"
+    },
+    "admin": {
+      "title": "Administración y desarrollo",
+      "badge": "Solo administradores",
+      "text": "Diagnóstico del servicio, datos de demostración y detalles de la versión"
+    },
+    "tools": {
+      "title": "Herramientas de desarrollo",
+      "dev": "DEV",
+      "developmentOnly": "Solo en desarrollo",
+      "subtitle": "Comprobaciones del servicio, datos de demostración e información de la versión.",
+      "close": "Cerrar las herramientas de desarrollo",
+      "footer": "Solo disponible en desarrollo para administradores autorizados."
+    },
+    "connection": {
+      "connected": "Conectado",
+      "connecting": "Conectando…",
+      "reconnecting": "Reconectando…",
+      "disconnected": "Sin conexión"
+    },
+    "build": {
+      "summary": "{{capabilities}} funciones · {{languages}}",
+      "languages_one": "{{count}} idioma de interfaz",
+      "languages_other": "{{count}} idiomas de interfaz",
+      "items": {
+        "api": {
+          "name": "Estado de la API",
+          "text": "Comprobaciones de actividad y disponibilidad"
+        },
+        "database": {
+          "name": "Bases de datos",
+          "text": "Migraciones para SQLite y PostgreSQL"
+        },
+        "accounts": {
+          "name": "Cuentas",
+          "text": "Correo verificado, recuperación, Google / Microsoft"
+        },
+        "security": {
+          "name": "Sesiones",
+          "text": "Revisar, cerrar y proteger el acceso"
+        },
+        "organizations": {
+          "name": "Organizaciones",
+          "text": "Invitaciones, roles y espacios de trabajo"
+        },
+        "contacts": {
+          "name": "Contactos",
+          "text": "Solicitudes, búsqueda y bloqueo"
+        },
+        "realtime": {
+          "name": "Presencia",
+          "text": "Conexión en vivo y estado en línea"
+        },
+        "conversations": {
+          "name": "Mensajería",
+          "text": "Conversaciones directas y de grupo"
+        },
+        "localization": {
+          "name": "Idiomas",
+          "text": "Inglés y español"
+        },
+        "docker": {
+          "name": "Despliegue",
+          "text": "Perfiles de Docker para desarrollo"
+        }
+      }
+    },
+    "yesterday": "Ayer",
+    "todayAt": "Hoy, {{time}}",
+    "tomorrowAt": "Mañana, {{time}}"
   },
   "readiness": {
     "title": "Estado del servicio",
@@ -702,7 +825,18 @@
     "clear": "Borrar los datos de demostración",
     "clearConfirm": "¿Eliminar todos los datos de demostración? Se borran las personas de demostración (y lo que escribieron), las empresas y las conversaciones de demostración. Las conversaciones y los datos creados por personas reales se conservan.",
     "cleared": "Se eliminaron {{users}} personas, {{organizations}} empresas, {{conversations}} conversaciones y {{messages}} mensajes de demostración.",
-    "existing": "Cargado ahora: {{users}} personas, {{organizations}} empresas, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad, {{support}} conversaciones de soporte."
+    "existing": "Cargado ahora: {{users}} personas, {{organizations}} empresas, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad, {{support}} conversaciones de soporte.",
+    "lead": "Cargue un espacio de trabajo realista para desarrollo y pruebas.",
+    "loaded": "Cargado ahora",
+    "tiles": {
+      "people": "Personas",
+      "companies": "Empresas",
+      "conversations": "Conversaciones",
+      "messages": "Mensajes",
+      "activity": "Elementos de actividad",
+      "support": "Conversaciones de soporte"
+    },
+    "clearNote": "Borrar pide confirmación."
   },
   "messages": {
     "compose": "Mensaje",
