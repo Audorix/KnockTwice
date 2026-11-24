@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import i18n, { initI18n, languageStorageKey, resources, selectLanguage, toSupportedLanguage } from './i18n';
+import i18n, { initI18n, languageStorageKey, selectLanguage, toSupportedLanguage } from './i18n';
+import en from './locales/en.json';
+import es from './locales/es.json';
 
 function keysOf(value: unknown, prefix = ''): string[] {
   if (typeof value !== 'object' || value === null) return [prefix];
@@ -12,7 +14,7 @@ describe('localization', () => {
   });
 
   it('English and Spanish resources define exactly the same keys', () => {
-    expect(keysOf(resources.es.translation).sort()).toEqual(keysOf(resources.en.translation).sort());
+    expect(keysOf(es).sort()).toEqual(keysOf(en).sort());
   });
 
   it('maps regional and unsupported tags to a supported language', () => {
@@ -28,7 +30,7 @@ describe('localization', () => {
     expect(window.localStorage.getItem(languageStorageKey)).toBe('es');
     expect(i18n.resolvedLanguage).toBe('es');
     expect(document.documentElement.lang).toBe('es');
-    expect(document.title).toBe(resources.es.translation.app.documentTitle);
+    expect(document.title).toBe(es.app.documentTitle);
 
     await selectLanguage('en');
     expect(window.localStorage.getItem(languageStorageKey)).toBe('en');

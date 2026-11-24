@@ -1,8 +1,7 @@
-import i18n from 'i18next';
+import i18n, { type BackendModule, type ResourceKey } from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 import en from './locales/en.json';
-import es from './locales/es.json';
 import { setDeletedUserLabelProvider, setLanguageProvider } from '../shared/api/httpClient';
 
 export const supportedLanguages = ['en', 'es'] as const;
@@ -12,10 +11,35 @@ export const fallbackLanguage: SupportedLanguage = 'en';
 /** localStorage key holding the user's explicit language choice. */
 export const languageStorageKey = 'chatx.language';
 
+/**
+ * Only the fallback language is bundled up front. Other languages are separate chunks, fetched
+ * the first time they are needed (detected at start-up, selected, or set by the user's server
+ * preference); i18next waits for them before switching, so no untranslated keys are shown.
+ */
 export const resources = {
   en: { translation: en },
-  es: { translation: es },
 } as const;
+
+type LazyLanguage = Exclude<SupportedLanguage, typeof fallbackLanguage>;
+
+const lazyTranslations: Record<LazyLanguage, () => Promise<{ default: ResourceKey }>> = {
+  es: () => import('./locales/es.json'),
+};
+
+const lazyLocales: BackendModule = {
+  type: 'backend',
+  init: () => {},
+  read: (language, namespace, callback) => {
+    if (namespace !== 'translation') return callback(null, {});
+    if (language === fallbackLanguage) return callback(null, en);
+    const load = lazyTranslations[language as LazyLanguage];
+    if (!load) return callback(null, {});
+    load().then(
+      (module) => callback(null, module.default),
+      (error: unknown) => callback(error instanceof Error ? error : new Error(String(error)), null),
+    );
+  },
+};
 
 export function isSupportedLanguage(value: string | undefined): value is SupportedLanguage {
   return supportedLanguages.includes(value as SupportedLanguage);
@@ -48,10 +72,12 @@ export async function initI18n(): Promise<typeof i18n> {
   setDeletedUserLabelProvider(() => (i18n.isInitialized ? i18n.t('users.deleted') : undefined));
   i18n.on('languageChanged', syncDocument);
   await i18n
+    .use(lazyLocales)
     .use(LanguageDetector)
     .use(initReactI18next)
     .init({
       resources,
+      partialBundledLanguages: true,
       supportedLngs: [...supportedLanguages],
       fallbackLng: fallbackLanguage,
       load: 'languageOnly',
