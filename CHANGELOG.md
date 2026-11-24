@@ -67,6 +67,8 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Contacts:** "Start private chat" in a contact's "…" menu sends the private chat invitation
+  and opens the chat, which waits for the contact to accept.
 - **Landing page and sign-in:** signed-out visitors see "Your conversations. Your team. Your
   space." with a picture of the app, four features, a one-line service status and what the preview
   includes (folded). The top bar has Features (or Back to home), a light/dark switch remembered in

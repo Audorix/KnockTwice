@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
@@ -129,5 +129,30 @@ describe('ContactsPage', () => {
     await u.click(within(profile).getByRole('button', { name: 'Remove contact' }));
     expect(await screen.findByText('Showing 1–8 of 10 contacts')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('starts a private chat with a contact from the row menu', async () => {
+    window.history.replaceState(null, '', '/contacts');
+    const invited: string[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/contacts': () => json(200, [{ user: ben, sinceUtc: '2026-11-01T10:00:00Z', sharedOrganizations: [] }]),
+      'GET /api/v1/contacts/requests': () => json(200, []),
+      'GET /api/v1/contacts/blocked': () => json(200, []),
+      'POST /api/v1/private-chats': (init) => {
+        invited.push(String(init?.body));
+        return json(201, { id: 'pc-1', status: 'invited', isInitiator: true, counterpart: ben, initiator: me, createdAtUtc: '2026-11-24T10:00:00Z' });
+      },
+    });
+    const u = userEvent.setup();
+    render(<AuthProvider><ContactsPage /></AuthProvider>);
+
+    await u.click(await screen.findByRole('button', { name: 'More actions for Ben Brown' }));
+    await u.click(screen.getByRole('menuitem', { name: 'Start private chat' }));
+    await vi.waitFor(() => expect(window.location.search).toBe('?id=pc-1'));
+    expect(window.location.pathname).toBe('/private');
+    expect(invited).toEqual([JSON.stringify({ userId: ben.id })]);
   });
 });

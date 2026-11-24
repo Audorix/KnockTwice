@@ -607,7 +607,8 @@
     "profileOrganizations": "Organizaciones en común",
     "profileNoOrganizations": "Ninguna organización en común",
     "closeProfile": "Cerrar perfil",
-    "profileLinks": "Enlaces"
+    "profileLinks": "Enlaces",
+    "privateChat": "Iniciar un chat privado"
   },
   "organizations": {
     "title": "Organizaciones",

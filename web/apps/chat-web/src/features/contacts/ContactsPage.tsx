@@ -13,6 +13,7 @@ import { RequireUser, useAction } from '../auth/RequireUser';
 import { useRealtime } from '../realtime/RealtimeContext';
 import type { PresenceValue } from '../realtime/realtimeClient';
 import { openDirect } from '../conversations/conversationsApi';
+import { startPrivateChat } from '../private/privateChatsApi';
 import { navigate } from '../../app/router';
 import * as api from './contactsApi';
 
@@ -96,6 +97,13 @@ function Contacts() {
       setProfile(null);
     });
   };
+
+  // Sends the private chat invitation and opens the chat, which waits for the contact to accept.
+  const startPrivate = (user: UserSummary) =>
+    void act(async () => {
+      const chat = await startPrivateChat(user.id);
+      navigate(`/private?id=${encodeURIComponent(chat.id)}`);
+    });
 
   const incoming = requests.filter((r) => r.direction === 'incoming');
   const outgoing = requests.filter((r) => r.direction === 'outgoing');
@@ -214,6 +222,7 @@ function Contacts() {
                           label={t('contacts.moreFor', { name: c.user.displayName })}
                           items={[
                             { icon: 'user', label: t('contacts.viewProfile'), onSelect: () => setProfile(c) },
+                            { icon: 'lock', label: t('contacts.privateChat'), onSelect: () => startPrivate(c.user) },
                             { icon: 'trash', label: t('contacts.removeContact'), onSelect: () => remove(c.user), separated: true },
                             { icon: 'block', label: t('contacts.blockContact'), onSelect: () => block(c.user), danger: true },
                           ]}
