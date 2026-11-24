@@ -6,7 +6,7 @@ export type NavIconName =
   | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
   | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
   | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid'
-  | 'sun' | 'moon' | 'server' | 'eye-off' | 'message-dots' | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
+  | 'warning' | 'message-x' | 'sun' | 'moon' | 'server' | 'eye-off' | 'message-dots' | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
   | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
@@ -43,6 +43,13 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
           <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" />
           <circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
         </g>
+      )}
+      {name === 'warning' && <path {...common} d="M12 3.5 2.5 20h19zM12 10v4.5M12 17.2v.01" />}
+      {name === 'message-x' && (
+        <>
+          <path {...common} d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H11l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+          <path {...common} d="M9.5 8l5 5M14.5 8l-5 5" />
+        </>
       )}
       {name === 'sun' && (
         <>

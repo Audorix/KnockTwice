@@ -1157,7 +1157,8 @@
       "notSent": "Sin enviar",
       "waiting": "En espera",
       "invitation": "Invitación",
-      "active": "Activo"
+      "active": "Activo",
+      "awaiting": "Esperando respuesta"
     },
     "beforeSending": "Antes de enviar la invitación",
     "mustAccept": "{{name}} debe aceptar antes de poder intercambiar mensajes o archivos.",
@@ -1165,7 +1166,22 @@
     "afterSending": "Después de enviarla, esperará aquí a que {{name}} acepte.",
     "waitingTitle": "Esperando a {{name}}",
     "invitationLead": "Lea cómo funciona antes de aceptar.",
-    "nothingUntilAccept": "No se puede escribir nada hasta que acepte."
+    "nothingUntilAccept": "No se puede escribir nada hasta que acepte.",
+    "agreementSubtitle": "Una conversación temporal, de mutuo acuerdo.",
+    "closedSubtitle": "Conversaciones temporales, de mutuo acuerdo.",
+    "waitingSent": "Su invitación se ha enviado. El chat empieza cuando {{name}} la acepte.",
+    "expiresAt": "La invitación caduca a las {{time}}",
+    "nothingShared": "No se ha compartido ningún mensaje ni archivo.",
+    "keepWaiting": "Seguir esperando",
+    "cancelConfirmTitle": "¿Cancelar esta invitación?",
+    "cancelConfirmText": "{{name}} ya no podrá aceptar esta invitación.",
+    "sendLater": "Puede enviar una nueva invitación más adelante.",
+    "cancelledPill": "Invitación cancelada",
+    "closedTitle": "Esta invitación está cerrada",
+    "closedText": "Su invitación de chat privado a {{name}} se canceló. {{first}} ya no puede aceptarla.",
+    "noConversationStarted": "No empezó ninguna conversación. No se compartió ningún mensaje ni archivo.",
+    "newFromDirect": "Puede enviar una nueva invitación desde su conversación directa.",
+    "closeDialog": "Cerrar"
   },
   "notifications": {
     "label": "Notificaciones",

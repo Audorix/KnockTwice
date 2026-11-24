@@ -108,7 +108,12 @@ describe('PrivateChatPage', () => {
       },
       'GET /api/v1/attachments/limits': () => json(200, { maxFileSize: 1024, maxPerMessage: 10, userQuota: 0, allowedExtensions: ['png'], scanningEnabled: false }),
       'GET /api/v1/private-chats/p2': () => json(200, { chat: { ...chat('invited'), id: 'p2', isInitiator: true, counterpart: ben }, messages: [] }),
+      'DELETE /api/v1/private-chats/p2': () => {
+        cancelled = true;
+        return new Response(null, { status: 204 });
+      },
     });
+    let cancelled = false;
     const user = userEvent.setup();
     render(
       <AuthProvider>
@@ -125,10 +130,36 @@ describe('PrivateChatPage', () => {
     expect(screen.getByText('No messages are sent with this invitation.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to private chats' })).toHaveAttribute('href', '/private');
     await user.click(screen.getByRole('button', { name: 'Send invitation' }));
-    expect(await screen.findByText(/Waiting for Ben to accept/)).toBeInTheDocument();
-    expect(screen.getByText('Waiting', { selector: '.cx-status-pill' })).toBeInTheDocument();
+
+    // Waiting (owner mockup): the state, the expiry, nothing shared yet.
+    expect(await screen.findByRole('heading', { name: 'Private chat invitation' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Waiting for Ben' })).toBeInTheDocument();
+    expect(screen.getByText('Your invitation has been sent. The chat starts after Ben accepts.')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting response')).toBeInTheDocument();
+    expect(screen.getByText(/Invitation expires at/)).toBeInTheDocument();
+    expect(screen.getByText('No messages or files have been shared.')).toBeInTheDocument();
     expect(started).toEqual([{ userId: 'u-ben' }]);
-    expect(screen.getByRole('button', { name: 'Cancel invitation' })).toBeInTheDocument();
+
+    // Cancelling asks first in a dialog; "Keep waiting" leaves everything as it was.
+    await user.click(screen.getByRole('button', { name: 'Cancel invitation' }));
+    let dialog = screen.getByRole('alertdialog', { name: 'Cancel this invitation?' });
+    expect(within(dialog).getByText('Ben will no longer be able to accept this invitation.')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Keep waiting' })).toHaveFocus();
+    await user.click(within(dialog).getByRole('button', { name: 'Keep waiting' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(cancelled).toBe(false);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel invitation' }));
+    dialog = screen.getByRole('alertdialog', { name: 'Cancel this invitation?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel invitation' }));
+
+    // The closed page.
+    expect(await screen.findByRole('heading', { name: 'This invitation is closed' })).toBeInTheDocument();
+    expect(cancelled).toBe(true);
+    expect(screen.getByText('Invitation cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Your private chat invitation to Ben was cancelled. Ben can no longer accept it.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to conversations' })).toHaveAttribute('href', '/conversations');
+    expect(screen.getByRole('link', { name: 'Back to private chats' })).toHaveAttribute('href', '/private');
   });
 
   it('explains private chats when none is active, and lists running ones', async () => {

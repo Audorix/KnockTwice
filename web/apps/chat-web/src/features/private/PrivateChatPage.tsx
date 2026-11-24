@@ -85,7 +85,15 @@ export function PrivateRules({ initiatorName, isInitiator }: { initiatorName: st
 }
 
 /** The redesigned page: breadcrumb, title, subtitle and the "Session only" badge (2026-11-24). */
-function PrivatePage({ title, subtitle, crumb, children }: { title: string; subtitle: string; crumb?: string; children: React.ReactNode }) {
+function PrivatePage({ title, subtitle, crumb, badge = true, listLink = false, children }: {
+  title: string;
+  subtitle: string;
+  crumb?: string;
+  badge?: boolean;
+  /** The breadcrumb's last step links back to the list (invitation and closed screens). */
+  listLink?: boolean;
+  children: React.ReactNode;
+}) {
   const { t } = useTranslation();
   return (
     <div className="cx-private-page">
@@ -101,16 +109,18 @@ function PrivatePage({ title, subtitle, crumb, children }: { title: string; subt
                 <span aria-current="page">{crumb}</span>
               </>
             ) : (
-              <span aria-current="page">{t('private.listTitle')}</span>
+              listLink ? <Link to="/private">{t('private.listTitle')}</Link> : <span aria-current="page">{t('private.listTitle')}</span>
             )}
           </nav>
           <h1 id="private-title" className="cx-page-title mb-1">{title}</h1>
           <p className="cx-muted mb-0">{subtitle}</p>
         </div>
-        <span className="cx-session-badge" title={t('private.sessionOnlyHint')}>
-          <NavIcon name="lock" size={18} />
-          {t('private.sessionOnly')}
-        </span>
+        {badge && (
+          <span className="cx-session-badge" title={t('private.sessionOnlyHint')}>
+            <NavIcon name="lock" size={18} />
+            {t('private.sessionOnly')}
+          </span>
+        )}
       </header>
       {children}
     </div>
@@ -154,6 +164,124 @@ function InvitationCard({ person, name, status, heading, lead, rules, footerNote
       </div>
     </section>
   );
+}
+
+/**
+ * The sender's view while the invitation is open (redesign 2026-11-24, owner mockup): who, the
+ * waiting state with the expiry, that nothing was shared yet, the rules, and Cancel invitation.
+ */
+function WaitingCard({ person, name, expiresAtUtc, error, onCancel }: {
+  person: UserSummary;
+  name: string;
+  expiresAtUtc: string;
+  error: unknown;
+  onCancel: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const first = name.split(/\s+/)[0] ?? name;
+  return (
+    <section className="cx-card cx-private-card cx-private-waiting" aria-labelledby="private-card-title">
+      <div className="cx-private-person">
+        <Avatar user={person} size="lg" />
+        <span className="min-w-0">
+          <strong className="d-block text-truncate">{name}</strong>
+          <span className="cx-muted">{t('private.directConversation')}</span>
+        </span>
+        <span className="cx-status-pill is-waiting">
+          <NavIcon name="clock" size={18} />
+          {t('private.status.awaiting')}
+        </span>
+      </div>
+      <h2 id="private-card-title" className="cx-private-card-title">{t('private.waitingTitle', { name: first })}</h2>
+      <p className="cx-muted mb-2" role="status">{t('private.waitingSent', { name: first })}</p>
+      <p className="cx-private-expiry">
+        <NavIcon name="clock" size={20} />
+        {t('private.expiresAt', { time: dayTime(expiresAtUtc, i18n.language) })}
+      </p>
+      <p className="cx-private-shared">
+        <NavIcon name="message" size={22} />
+        {t('private.nothingShared')}
+      </p>
+      <PrivateRules initiatorName="" isInitiator />
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      <div className="cx-private-waiting-foot">
+        <Link to="/private" className="cx-back-link mb-0">
+          <NavIcon name="chevron-left" size={18} />
+          {t('private.backToList')}
+        </Link>
+        <button type="button" className="btn btn-outline-danger" onClick={onCancel}>{t('private.cancelInvitation')}</button>
+      </div>
+    </section>
+  );
+}
+
+/** "Cancel this invitation?" (owner mockup): a dialog instead of the browser's confirm box. */
+function CancelInvitationDialog({ name, busy, onKeep, onCancel }: { name: string; busy: boolean; onKeep: () => void; onCancel: () => void }) {
+  const { t } = useTranslation();
+  const keep = useRef<HTMLButtonElement>(null);
+  const opener = useRef<Element | null>(null);
+  useEffect(() => {
+    opener.current = document.activeElement;
+    keep.current?.focus();
+    return () => (opener.current as HTMLElement | null)?.focus?.();
+  }, []);
+  return (
+    <div className="cx-dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
+      <div className="cx-dialog cx-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="cancel-invitation-title"
+        aria-describedby="cancel-invitation-text" onKeyDown={(e) => { if (e.key === 'Escape' && !busy) onKeep(); }}>
+        <button type="button" className="cx-tool cx-confirm-close" onClick={onKeep} aria-label={t('private.closeDialog')}>
+          <NavIcon name="close" size={20} />
+        </button>
+        <span className="cx-confirm-icon" aria-hidden="true"><NavIcon name="warning" size={28} /></span>
+        <h2 id="cancel-invitation-title" className="cx-confirm-title">{t('private.cancelConfirmTitle')}</h2>
+        <p id="cancel-invitation-text" className="cx-confirm-text">{t('private.cancelConfirmText', { name })}</p>
+        <p className="cx-private-shared">
+          <NavIcon name="message" size={22} />
+          {t('private.nothingShared')}
+        </p>
+        <p className="cx-muted">{t('private.sendLater')}</p>
+        <div className="cx-confirm-actions">
+          <button ref={keep} type="button" className="btn btn-outline-primary" onClick={onKeep} disabled={busy}>{t('private.keepWaiting')}</button>
+          <button type="button" className="btn btn-danger" onClick={onCancel} disabled={busy}>
+            {busy ? t('auth.working') : t('private.cancelInvitation')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** After cancelling (owner mockup): the invitation is closed, nothing was shared, where to go next. */
+function InvitationCancelled({ name }: { name: string }) {
+  const { t } = useTranslation();
+  const first = name.split(/\s+/)[0] ?? name;
+  return (
+    <PrivatePage title={t('private.listTitle')} subtitle={t('private.closedSubtitle')} badge={false} listLink>
+      <section className="cx-card cx-private-closed" aria-labelledby="private-closed-title" role="status">
+        <span className="cx-private-closed-icon" aria-hidden="true"><NavIcon name="message-x" size={34} /></span>
+        <span className="cx-private-closed-pill">{t('private.cancelledPill')}</span>
+        <h2 id="private-closed-title" className="cx-private-closed-title">{t('private.closedTitle')}</h2>
+        <p className="cx-muted cx-private-closed-text">{t('private.closedText', { name, first })}</p>
+        <p className="cx-private-shared">
+          <NavIcon name="message" size={22} />
+          {t('private.noConversationStarted')}
+        </p>
+        <div className="cx-private-closed-actions">
+          <Link to="/conversations" className="btn btn-primary btn-lg">{t('private.backToConversations')}</Link>
+          <Link to="/private" className="btn btn-outline-primary btn-lg">{t('private.backToList')}</Link>
+        </div>
+        <p className="cx-muted mb-0">{t('private.newFromDirect')}</p>
+      </section>
+    </PrivatePage>
+  );
+}
+
+/** "5:22 PM" today, otherwise the date and time. */
+function dayTime(iso: string, language: string): string {
+  const date = new Date(iso);
+  return date.toDateString() === new Date().toDateString()
+    ? date.toLocaleTimeString(language, { hour: 'numeric', minute: '2-digit' })
+    : formatDateTime(iso, language);
 }
 
 const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
@@ -347,6 +475,10 @@ function PrivateChatRoom({ chatId }: { chatId: string }) {
   const [chat, setChat] = useState<PrivateChatResponse | null>(null);
   const [messages, setMessages] = useState<PrivateMessageResponse[]>([]);
   const [ended, setEnded] = useState<PrivateChatEndReason | 'gone' | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  /** Who the cancelled invitation was for: the closed page names them. */
+  const [cancelledFor, setCancelledFor] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
@@ -459,6 +591,8 @@ function PrivateChatRoom({ chatId }: { chatId: string }) {
     }
   };
 
+  if (cancelledFor !== null) return <InvitationCancelled name={cancelledFor} />;
+
   if (ended) {
     return (
       <PrivateFrame title={t('private.endedTitle')} subtitle={t('private.tagline')}>
@@ -499,6 +633,30 @@ function PrivateChatRoom({ chatId }: { chatId: string }) {
       {chat.status === 'invited' ? t('private.cancelInvitation') : t('private.end')}
     </button>
   ) : null;
+
+  if (chat.status === 'invited' && chat.isInitiator) {
+    const person = chat.counterpart ?? { id: 'someone', displayName: other, avatar: { initials: initialsOf(other) } };
+    const cancel = async () => {
+      setCancelling(true);
+      setError(null);
+      try {
+        await api.endPrivateChat(chatId);
+        finish('ended');
+        setCancelledFor(other);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setCancelling(false);
+        setConfirming(false);
+      }
+    };
+    return (
+      <PrivatePage title={t('private.invitedTitle')} subtitle={t('private.agreementSubtitle')} badge={false} listLink>
+        <WaitingCard person={person} name={other} expiresAtUtc={chat.invitationExpiresAtUtc} error={error} onCancel={() => setConfirming(true)} />
+        {confirming && <CancelInvitationDialog name={other} busy={cancelling} onKeep={() => setConfirming(false)} onCancel={() => void cancel()} />}
+      </PrivatePage>
+    );
+  }
 
   if (chat.status === 'invited') {
     const person = chat.counterpart ?? { id: 'someone', displayName: other, avatar: { initials: initialsOf(other) } };

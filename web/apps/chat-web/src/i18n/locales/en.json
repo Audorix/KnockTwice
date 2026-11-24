@@ -1157,7 +1157,8 @@
       "notSent": "Not sent",
       "waiting": "Waiting",
       "invitation": "Invitation",
-      "active": "Active"
+      "active": "Active",
+      "awaiting": "Awaiting response"
     },
     "beforeSending": "Before you send the invitation",
     "mustAccept": "{{name}} must accept before any messages or files can be exchanged.",
@@ -1165,7 +1166,22 @@
     "afterSending": "After sending, you’ll wait here for {{name}} to accept.",
     "waitingTitle": "Waiting for {{name}}",
     "invitationLead": "Please read how it works before you accept.",
-    "nothingUntilAccept": "Nothing can be said until you accept."
+    "nothingUntilAccept": "Nothing can be said until you accept.",
+    "agreementSubtitle": "A temporary conversation, by mutual agreement.",
+    "closedSubtitle": "Temporary conversations, by mutual agreement.",
+    "waitingSent": "Your invitation has been sent. The chat starts after {{name}} accepts.",
+    "expiresAt": "Invitation expires at {{time}}",
+    "nothingShared": "No messages or files have been shared.",
+    "keepWaiting": "Keep waiting",
+    "cancelConfirmTitle": "Cancel this invitation?",
+    "cancelConfirmText": "{{name}} will no longer be able to accept this invitation.",
+    "sendLater": "You can send a new invitation later.",
+    "cancelledPill": "Invitation cancelled",
+    "closedTitle": "This invitation is closed",
+    "closedText": "Your private chat invitation to {{name}} was cancelled. {{first}} can no longer accept it.",
+    "noConversationStarted": "No conversation started. No messages or files were shared.",
+    "newFromDirect": "You can send a new invitation from your direct conversation.",
+    "closeDialog": "Close"
   },
   "notifications": {
     "label": "Notifications",

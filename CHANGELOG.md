@@ -67,6 +67,11 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Private chat invitations:** while waiting, the sender sees "Waiting for …" with an "Awaiting
+  response" state, when the invitation expires, that nothing has been shared, and the rules as four
+  cards. Cancelling asks in a dialog ("Cancel this invitation?", Keep waiting / Cancel invitation)
+  instead of the browser's confirm box, then shows "This invitation is closed" with the way back to
+  conversations or private chats.
 - **Contacts:** "Start private chat" in a contact's "…" menu sends the private chat invitation
   and opens the chat, which waits for the contact to accept.
 - **Landing page and sign-in:** signed-out visitors see "Your conversations. Your team. Your
