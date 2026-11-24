@@ -467,11 +467,9 @@
   },
   "organizations": {
     "title": "Organizations",
-    "mine": "Your organizations",
-    "none": "You are not a member of any organization yet.",
     "create": "Create an organization",
     "name": "Organization name",
-    "createHint": "You become its owner. A \"General\" workspace is created automatically.",
+    "createHint": "Choose a name your team will recognize.",
     "createSubmit": "Create organization",
     "invitations": "Invitations for you",
     "invitedAs": "Invited as {{role}}",
@@ -517,7 +515,48 @@
       "prompt": "This deletes \"{{name}}\" with all its conversations, messages and files, for everyone. Type the organization name to confirm:",
       "submit": "Delete organization permanently",
       "cancel": "Cancel"
-    }
+    },
+    "subtitle": "Manage your organizations and access their workspaces.",
+    "new": "New organization",
+    "tabsLabel": "Organization lists",
+    "tabs": {
+      "all": "All organizations",
+      "owned": "Owned by me",
+      "member": "Member"
+    },
+    "findLabel": "Find an organization",
+    "findPlaceholder": "Find an organization…",
+    "sort": {
+      "label": "Sort",
+      "nameAsc": "Name A–Z",
+      "nameDesc": "Name Z–A",
+      "newest": "Newest first"
+    },
+    "empty": {
+      "all": "You are not a member of any organization yet.",
+      "owned": "You do not own an organization yet.",
+      "member": "You are not a member of another organization."
+    },
+    "noMatches": "No organizations match this search.",
+    "columns": {
+      "organization": "Organization",
+      "role": "Your role",
+      "actions": "Actions"
+    },
+    "since": "Created {{date}}",
+    "manage": "Manage",
+    "open": "Open",
+    "manageNamed": "Manage {{name}}",
+    "openNamed": "Open {{name}}",
+    "showing_one": "Showing {{from}}–{{to}} of {{count}} organization",
+    "showing_other": "Showing {{from}}–{{to}} of {{count}} organizations",
+    "createTagline": "Bring your team and conversations together.",
+    "closeCreate": "Close",
+    "namePlaceholder": "e.g. Acme Studio",
+    "becomeOwner": "You’ll become the owner.",
+    "generalWorkspace": "A General workspace is created automatically.",
+    "lookingTitle": "Looking for an organization?",
+    "lookingText": "Ask an organization administrator for an invitation."
   },
   "realtime": {
     "status": {
@@ -880,17 +919,14 @@
     "start": "Private chat",
     "startHint": "Start a chat that is never saved",
     "tagline": "Not saved · lives only for one sign-in session",
-    "startTitle": "Private chat with {{name}}",
-    "startIntro": "{{name}} will get an invitation and must accept it before anything is sent. This is how a private chat works:",
     "sendInvitation": "Send invitation",
     "listTitle": "Private chats",
-    "listEmpty": "No private chat is running. Open a direct conversation and choose “Private chat” to start one.",
     "waitingShort": "Waiting for an answer",
     "invitedShort": "Invites you",
     "activeSince": "Active since {{time}}",
     "withTitle": "Private chat with {{name}}",
     "waiting": "Waiting for {{name}} to accept. The invitation expires at {{time}}.",
-    "invitation": "{{name}} invites you to a private chat. Please read how it works before you accept:",
+    "invitation": "{{name}} invites you to a private chat",
     "accept": "Accept and join",
     "decline": "Decline",
     "end": "End and erase",
@@ -921,14 +957,57 @@
       "gone": "It no longer exists."
     },
     "rules": {
-      "memory": "Nothing is saved: messages are kept only in server memory, never in the database or your conversation history.",
-      "lifetimeMine": "It lasts as long as your current sign-in session: it ends when you end it, sign out, or the session expires or is revoked.",
+      "memory": "Messages stay in server memory, outside the database and your conversation history.",
+      "lifetimeMine": "The chat ends when you end it, sign out, or your session expires or is revoked.",
       "lifetimeTheirs": "It lasts as long as {{name}}’s sign-in session: it ends when they end it or sign out. You can close and reopen it meanwhile.",
-      "files": "Files you share are held in memory too and are erased when the chat ends.",
-      "devicesMine": "Only this browser session can see it, not your other devices.",
+      "files": "Files are held in memory and erased when the chat ends.",
+      "devicesMine": "This private chat is not available on your other devices.",
       "devicesTheirs": "You can open it from any of your devices while it lasts.",
-      "screenshots": "The other person can still copy text or take screenshots — only share what you trust them with."
-    }
+      "screenshots": "The other person can still copy text, save files or take screenshots.",
+      "memoryTitle": "Not added to chat history",
+      "lifetimeMineTitle": "Ends with this sign-in session",
+      "lifetimeTheirsTitle": "Ends with {{name}}’s sign-in session",
+      "filesTitle": "Temporary shared files",
+      "devicesMineTitle": "Available in this browser only",
+      "devicesTheirsTitle": "On any of your devices"
+    },
+    "sessionOnly": "Session only",
+    "sessionOnlyHint": "Private chats last only for one sign-in session and are never saved.",
+    "listSubtitle": "Temporary conversations for your current sign-in session.",
+    "noneTitle": "No private chat is active",
+    "noneText": "Start from a direct conversation and invite someone. Your chat begins only after they accept.",
+    "openConversations": "Open conversations",
+    "openHint": "Open a direct chat, then choose Private chat.",
+    "yourChats": "Your private chats",
+    "facts": {
+      "sessionTitle": "One sign-in session",
+      "session": "Ends when you end it, sign out, or your session expires or is revoked.",
+      "historyTitle": "Outside chat history",
+      "history": "Messages and shared files are temporary and are not added to conversation history.",
+      "browserTitle": "This browser only",
+      "browser": "Available in this browser session, not on your other devices."
+    },
+    "beforeYouStart": "Before you start",
+    "beforeYouStartText": "The other person can still copy messages, save files or take screenshots.",
+    "inviteTitle": "Invite to a private chat",
+    "invitedTitle": "Private chat invitation",
+    "inviteSubtitle": "A temporary conversation, started only with mutual agreement.",
+    "invitationCrumb": "Invitation",
+    "backToList": "Back to private chats",
+    "directConversation": "Direct conversation",
+    "status": {
+      "notSent": "Not sent",
+      "waiting": "Waiting",
+      "invitation": "Invitation",
+      "active": "Active"
+    },
+    "beforeSending": "Before you send the invitation",
+    "mustAccept": "{{name}} must accept before any messages or files can be exchanged.",
+    "noMessagesSent": "No messages are sent with this invitation.",
+    "afterSending": "After sending, you’ll wait here for {{name}} to accept.",
+    "waitingTitle": "Waiting for {{name}}",
+    "invitationLead": "Please read how it works before you accept.",
+    "nothingUntilAccept": "Nothing can be said until you accept."
   },
   "notifications": {
     "label": "Notifications",

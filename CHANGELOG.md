@@ -45,6 +45,14 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   mentions grouped by day with search, All/Unread, a conversation filter and order, "Mark as read"
   per mention and "Mark all as read"; a "Coming up" column with the next reminders and scheduled
   messages.
+- **Private chats page:** a page header with a "Session only" badge; when no private chat runs, an
+  explanation with "Open conversations" and three facts (one sign-in session, outside chat
+  history, this browser only); running chats listed with their state. The invitation is a card
+  (person, state, the rules as rows with icons, the screenshot note, Cancel / Send invitation); the
+  waiting and incoming-invitation screens use the same card.
+- **Organizations page:** All organizations · Owned by me · Member tabs with counts, search,
+  sorting, a table with your role and Manage (owners and administrators) or Open, eight per page,
+  and a "Create an organization" panel beside the list (open when you have none).
 - **Channels page:** organization and workspace bar; **All channels · Joined · Discover · Archived**
   tabs with counts; search, visibility filter and sorting (recently active, name, most members); a
   table with channel icon, Joined/Not joined/Private tags, description, members, last activity,

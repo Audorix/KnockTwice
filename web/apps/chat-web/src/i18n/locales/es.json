@@ -467,11 +467,9 @@
   },
   "organizations": {
     "title": "Organizaciones",
-    "mine": "Sus organizaciones",
-    "none": "Todavía no es miembro de ninguna organización.",
     "create": "Crear una organización",
     "name": "Nombre de la organización",
-    "createHint": "Usted será su propietario. Se crea automáticamente un espacio de trabajo «General».",
+    "createHint": "Elija un nombre que su equipo reconozca.",
     "createSubmit": "Crear organización",
     "invitations": "Invitaciones para usted",
     "invitedAs": "Invitado como {{role}}",
@@ -517,7 +515,48 @@
       "prompt": "Esto elimina «{{name}}» con todas sus conversaciones, mensajes y archivos, para todos. Escriba el nombre de la organización para confirmar:",
       "submit": "Eliminar organización definitivamente",
       "cancel": "Cancelar"
-    }
+    },
+    "subtitle": "Gestione sus organizaciones y acceda a sus espacios de trabajo.",
+    "new": "Nueva organización",
+    "tabsLabel": "Listas de organizaciones",
+    "tabs": {
+      "all": "Todas",
+      "owned": "Mías",
+      "member": "Miembro"
+    },
+    "findLabel": "Buscar una organización",
+    "findPlaceholder": "Buscar una organización…",
+    "sort": {
+      "label": "Orden",
+      "nameAsc": "Nombre A–Z",
+      "nameDesc": "Nombre Z–A",
+      "newest": "Más recientes"
+    },
+    "empty": {
+      "all": "Todavía no es miembro de ninguna organización.",
+      "owned": "Todavía no es propietario de ninguna organización.",
+      "member": "No es miembro de ninguna otra organización."
+    },
+    "noMatches": "Ninguna organización coincide con la búsqueda.",
+    "columns": {
+      "organization": "Organización",
+      "role": "Su rol",
+      "actions": "Acciones"
+    },
+    "since": "Creada el {{date}}",
+    "manage": "Gestionar",
+    "open": "Abrir",
+    "manageNamed": "Gestionar {{name}}",
+    "openNamed": "Abrir {{name}}",
+    "showing_one": "Mostrando {{from}}–{{to}} de {{count}} organización",
+    "showing_other": "Mostrando {{from}}–{{to}} de {{count}} organizaciones",
+    "createTagline": "Reúna a su equipo y sus conversaciones.",
+    "closeCreate": "Cerrar",
+    "namePlaceholder": "p. ej. Estudio Acme",
+    "becomeOwner": "Usted será el propietario.",
+    "generalWorkspace": "Se crea automáticamente un espacio de trabajo General.",
+    "lookingTitle": "¿Busca una organización?",
+    "lookingText": "Pida una invitación a un administrador de la organización."
   },
   "realtime": {
     "status": {
@@ -880,17 +919,14 @@
     "start": "Chat privado",
     "startHint": "Iniciar un chat que nunca se guarda",
     "tagline": "No se guarda · solo dura una sesión",
-    "startTitle": "Chat privado con {{name}}",
-    "startIntro": "{{name}} recibirá una invitación y deberá aceptarla antes de que se envíe nada. Así funciona un chat privado:",
     "sendInvitation": "Enviar invitación",
     "listTitle": "Chats privados",
-    "listEmpty": "No hay ningún chat privado en curso. Abra una conversación directa y elija «Chat privado» para iniciar uno.",
     "waitingShort": "Esperando respuesta",
     "invitedShort": "Le invita",
     "activeSince": "Activo desde {{time}}",
     "withTitle": "Chat privado con {{name}}",
     "waiting": "Esperando a que {{name}} acepte. La invitación caduca a las {{time}}.",
-    "invitation": "{{name}} le invita a un chat privado. Lea cómo funciona antes de aceptar:",
+    "invitation": "{{name}} le invita a un chat privado",
     "accept": "Aceptar y entrar",
     "decline": "Rechazar",
     "end": "Terminar y borrar",
@@ -921,14 +957,57 @@
       "gone": "Ya no existe."
     },
     "rules": {
-      "memory": "No se guarda nada: los mensajes solo están en la memoria del servidor, nunca en la base de datos ni en su historial.",
-      "lifetimeMine": "Dura lo que su sesión actual: termina cuando usted lo termine, cierre sesión o la sesión caduque o se revoque.",
+      "memory": "Los mensajes están en la memoria del servidor, fuera de la base de datos y de su historial.",
+      "lifetimeMine": "El chat termina cuando usted lo termine, cierre sesión o la sesión caduque o se revoque.",
       "lifetimeTheirs": "Dura lo que la sesión de {{name}}: termina cuando lo termine o cierre sesión. Mientras tanto puede cerrarlo y volver a abrirlo.",
-      "files": "Los archivos que comparta también se guardan solo en memoria y se borran al terminar el chat.",
-      "devicesMine": "Solo esta sesión del navegador puede verlo, no sus otros dispositivos.",
+      "files": "Los archivos se guardan en memoria y se borran al terminar el chat.",
+      "devicesMine": "Este chat privado no está disponible en sus otros dispositivos.",
       "devicesTheirs": "Puede abrirlo desde cualquiera de sus dispositivos mientras dure.",
-      "screenshots": "La otra persona aún puede copiar el texto o hacer capturas de pantalla: comparta solo lo que le confiaría."
-    }
+      "screenshots": "La otra persona aún puede copiar el texto, guardar archivos o hacer capturas de pantalla.",
+      "memoryTitle": "Fuera del historial del chat",
+      "lifetimeMineTitle": "Termina con esta sesión",
+      "lifetimeTheirsTitle": "Termina con la sesión de {{name}}",
+      "filesTitle": "Archivos temporales",
+      "devicesMineTitle": "Solo en este navegador",
+      "devicesTheirsTitle": "En cualquiera de sus dispositivos"
+    },
+    "sessionOnly": "Solo esta sesión",
+    "sessionOnlyHint": "Los chats privados duran solo una sesión y nunca se guardan.",
+    "listSubtitle": "Conversaciones temporales para su sesión actual.",
+    "noneTitle": "No hay ningún chat privado activo",
+    "noneText": "Empiece desde una conversación directa e invite a alguien. El chat empieza solo cuando acepte.",
+    "openConversations": "Abrir conversaciones",
+    "openHint": "Abra un chat directo y elija Chat privado.",
+    "yourChats": "Sus chats privados",
+    "facts": {
+      "sessionTitle": "Una sola sesión",
+      "session": "Termina cuando usted lo termine, cierre sesión o la sesión caduque o se revoque.",
+      "historyTitle": "Fuera del historial",
+      "history": "Los mensajes y archivos son temporales y no se añaden al historial de conversaciones.",
+      "browserTitle": "Solo este navegador",
+      "browser": "Disponible en esta sesión del navegador, no en sus otros dispositivos."
+    },
+    "beforeYouStart": "Antes de empezar",
+    "beforeYouStartText": "La otra persona aún puede copiar mensajes, guardar archivos o hacer capturas de pantalla.",
+    "inviteTitle": "Invitar a un chat privado",
+    "invitedTitle": "Invitación a un chat privado",
+    "inviteSubtitle": "Una conversación temporal que solo empieza de mutuo acuerdo.",
+    "invitationCrumb": "Invitación",
+    "backToList": "Volver a los chats privados",
+    "directConversation": "Conversación directa",
+    "status": {
+      "notSent": "Sin enviar",
+      "waiting": "En espera",
+      "invitation": "Invitación",
+      "active": "Activo"
+    },
+    "beforeSending": "Antes de enviar la invitación",
+    "mustAccept": "{{name}} debe aceptar antes de poder intercambiar mensajes o archivos.",
+    "noMessagesSent": "Con esta invitación no se envía ningún mensaje.",
+    "afterSending": "Después de enviarla, esperará aquí a que {{name}} acepte.",
+    "waitingTitle": "Esperando a {{name}}",
+    "invitationLead": "Lea cómo funciona antes de aceptar.",
+    "nothingUntilAccept": "No se puede escribir nada hasta que acepte."
   },
   "notifications": {
     "label": "Notificaciones",

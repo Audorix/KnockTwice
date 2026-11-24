@@ -119,6 +119,34 @@ visibility filter, restore from the menu, the create panel); type check clean; b
 180 kB. Checked in the browser with the demo data in dark and light at 1500 px and on a phone
 (375 px, no sideways scrolling).
 
+## Private chats page (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Header | Breadcrumb (Workspace / Private chats / Invitation), title, subtitle and a **Session only** badge. |
+| No chat running | A drawn chat-bubble-and-lock illustration, "No private chat is active", **Open conversations** (to the conversation list), the hint "Open a direct chat, then choose Private chat", three facts (one sign-in session, outside chat history, this browser only) and a "Before you start" note. Running chats are listed with a state pill (Active, Waiting, Invitation). |
+| Invitation | A card: back link, the person with "Direct conversation" and a state pill (Not sent, Waiting, Invitation), "Before you send the invitation", the rules as rows with icons (worded for the invitee where it differs), the screenshot note, "No messages are sent with this invitation." and Cancel / **Send invitation**; "After sending, you'll wait here for … to accept." The initiator's waiting screen and the invitee's Accept / Decline screen use the same card. |
+| Layout | The list and invitation pages now have the normal page padding (only an open private chat uses the full-height chat layout); the sidebar's Private item uses the regular accent instead of purple. The open chat keeps its sealed look. |
+
+No API change.
+
+## Organizations page (from the owner's mockup, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Header | Breadcrumb, title, subtitle and **New organization**. Invitations for you stay on top (Join / Decline). |
+| Tabs | **All organizations · Owned by me · Member** with counts. |
+| Table | Search, sort (Name A–Z, Z–A, newest), initials tile, name and creation date, your role as a pill (owner highlighted), **Manage** for owners and administrators or **Open**; eight per page with "Showing 1–8 of N organizations". Phones: compact rows. |
+| Create | A "Create an organization" panel beside the list (above it on phones): name, hint, "You'll become the owner", "A General workspace is created automatically", Create / Cancel. Open from the start when you belong to no organization. "Looking for an organization? Ask an administrator for an invitation." below it. |
+| Shared | `Pagination` moved to `shared/components/Pagination.tsx` (contacts and organizations). |
+
+No API change.
+
+Validation: web tests 88/88 (new: the private chats empty state and list, the redesigned invitation
+for both people, the organizations tabs, roles, paging, sorting, search, invitation and the create
+panel); type check clean; bundle 176.1 kB of 180 kB. Checked in the browser with the demo data in
+dark mode at 1500 px and on a phone (375 px, no sideways scrolling).
+
 ## Open items
 
 - Administration, channels, search and the support inbox were restyled only through the shared

@@ -67,12 +67,14 @@ describe('PrivateChatPage', () => {
     );
 
     // The invitation states the lifecycle before anything can be said.
-    expect(await screen.findByText(/Ana invites you to a private chat/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Ana invites you to a private chat' })).toBeInTheDocument();
+    expect(screen.getByText('Invitation', { selector: '.cx-status-pill' })).toBeInTheDocument();
     const rules = screen.getByRole('list');
-    expect(within(rules).getByText(/Nothing is saved/)).toBeInTheDocument();
+    expect(within(rules).getByText('Not added to chat history')).toBeInTheDocument();
+    expect(within(rules).getByText('Ends with Ana’s sign-in session')).toBeInTheDocument();
     expect(within(rules).getByText(/as long as Ana’s sign-in session/)).toBeInTheDocument();
     expect(within(rules).getByText(/erased when the chat ends/)).toBeInTheDocument();
-    expect(within(rules).getByText(/screenshots/)).toBeInTheDocument();
+    expect(screen.getByText(/can still copy text, save files or take screenshots/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Message')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Accept and join' }));
@@ -114,12 +116,53 @@ describe('PrivateChatPage', () => {
       </AuthProvider>,
     );
 
-    expect(await screen.findByRole('heading', { name: 'Private chat with Ben' })).toBeInTheDocument();
-    expect(screen.getByText(/as long as your current sign-in session/)).toBeInTheDocument();
-    expect(screen.getByText(/Only this browser session can see it/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Invite to a private chat' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Before you send the invitation' })).toBeInTheDocument();
+    expect(screen.getByText('Not sent')).toBeInTheDocument();
+    expect(screen.getByText('Ben must accept before any messages or files can be exchanged.')).toBeInTheDocument();
+    expect(screen.getByText('Ends with this sign-in session')).toBeInTheDocument();
+    expect(screen.getByText('Available in this browser only')).toBeInTheDocument();
+    expect(screen.getByText('No messages are sent with this invitation.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to private chats' })).toHaveAttribute('href', '/private');
     await user.click(screen.getByRole('button', { name: 'Send invitation' }));
     expect(await screen.findByText(/Waiting for Ben to accept/)).toBeInTheDocument();
+    expect(screen.getByText('Waiting', { selector: '.cx-status-pill' })).toBeInTheDocument();
     expect(started).toEqual([{ userId: 'u-ben' }]);
     expect(screen.getByRole('button', { name: 'Cancel invitation' })).toBeInTheDocument();
+  });
+
+  it('explains private chats when none is active, and lists running ones', async () => {
+    window.history.replaceState(null, '', '/private');
+    let chats: unknown[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/private-chats': () => json(200, chats),
+    });
+    const { unmount } = render(
+      <AuthProvider>
+        <PrivateChatPage />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'No private chat is active' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open conversations' })).toHaveAttribute('href', '/conversations');
+    expect(screen.getByText('Session only')).toBeInTheDocument();
+    expect(screen.getByText('One sign-in session')).toBeInTheDocument();
+    expect(screen.getByText('Outside chat history')).toBeInTheDocument();
+    expect(screen.getByText('This browser only')).toBeInTheDocument();
+    expect(screen.getByText('Before you start')).toBeInTheDocument();
+    unmount();
+
+    chats = [chat('active')];
+    render(
+      <AuthProvider>
+        <PrivateChatPage />
+      </AuthProvider>,
+    );
+    const item = await screen.findByRole('link', { name: /Ana/ });
+    expect(item).toHaveAttribute('href', '/private?id=p1');
+    expect(within(item).getByText('Active')).toBeInTheDocument();
+    expect(screen.queryByText('No private chat is active')).not.toBeInTheDocument();
   });
 });

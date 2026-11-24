@@ -68,7 +68,7 @@ const routes: Record<string, ComponentType> = {
  */
 export function AppShell() {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
+  const { pathname, query } = useLocation();
   const { user } = useAuth();
   const main = useRef<HTMLElement>(null);
   const Page = routes[pathname] ?? HomePage;
@@ -96,7 +96,8 @@ export function AppShell() {
       <div className="cx-app">
         {skip}
         <AppNavigation />
-        <main id="main" ref={main} className={`cx-app-main${pathname === '/conversations' || pathname === '/private' ? ' is-chat' : ''}`} tabIndex={-1}>
+        {/* Full-height chat layout for conversations and an open private chat (not the private chats list or invitation). */}
+        <main id="main" ref={main} className={`cx-app-main${pathname === '/conversations' || (pathname === '/private' && query.get('id')) ? ' is-chat' : ''}`} tabIndex={-1}>
           <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
             <Page />
           </Suspense>
