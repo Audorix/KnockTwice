@@ -7669,3 +7669,12 @@ button.cx-person:hover .cx-person-name {
   font-size: 0.8125rem;
   font-weight: 600;
 }
+/* Waiting and closed invitation pages share the /private?id= address with the open chat, which
+   fills the window edge to edge; they get the normal page padding and height back. */
+@media (min-width: 768px) {
+  .cx-app-main.is-chat:has(> .cx-private-page) {
+    height: auto;
+    gap: 1rem;
+    padding: 1.75rem 2rem 2rem;
+  }
+}
