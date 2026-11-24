@@ -109,6 +109,35 @@ describe('business communication', () => {
     expect(window.location.search).toBe('?id=c-9');
   });
 
+  it('opens the organization and workspace of your most recent channel, not simply the first organization', async () => {
+    window.history.replaceState(null, '', '/channels');
+    const own = { ...acme, id: 'o-0', name: 'Audorix', myRole: 'owner' };
+    mockFetch({
+      ...signedIn,
+      'GET /api/v1/organizations': () => json(200, [own, acme]),
+      'GET /api/v1/conversations': () => json(200, [
+        { id: 'c-old', type: 'channel', organizationId: 'o-1', workspaceId: 'w-1', lastActivityAtUtc: '2026-11-20T10:00:00Z' },
+        { id: 'c-new', type: 'channel', organizationId: 'o-1', workspaceId: 'w-2', lastActivityAtUtc: '2026-11-23T10:00:00Z' },
+        { id: 'g-1', type: 'group', organizationId: null, workspaceId: null, lastActivityAtUtc: '2026-11-24T10:00:00Z' },
+      ]),
+      'GET /api/v1/organizations/o-1/workspaces': () => json(200, [
+        { id: 'w-1', organizationId: 'o-1', name: 'General', myRole: 'member', createdAtUtc: '2026-11-23T10:00:00Z' },
+        { id: 'w-2', organizationId: 'o-1', name: 'Sales', myRole: 'member', createdAtUtc: '2026-11-23T10:00:00Z' },
+      ]),
+      'GET /api/v1/organizations/o-1/workspaces/w-2/channels': () => json(200, [channel('c-new', 'deals', true)]),
+      'GET /api/v1/guest-invitations': () => json(200, []),
+    });
+    render(
+      <AuthProvider>
+        <ChannelsPage />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByText('deals')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Organization' })).toHaveValue('o-1');
+    expect(screen.getByRole('combobox', { name: 'Workspace' })).toHaveValue('w-2');
+  });
+
   it('creates a channel from the side panel', async () => {
     window.history.replaceState(null, '', '/channels');
     const created: unknown[] = [];

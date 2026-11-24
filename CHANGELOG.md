@@ -57,7 +57,9 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   tabs with counts; search, visibility filter and sorting (recently active, name, most members); a
   table with channel icon, Joined/Not joined/Private tags, description, members, last activity,
   Open or Join channel and a "…" menu (manage, archive or restore, leave); "New channel" in a side
-  panel. Compact rows on phones.
+  panel. Compact rows on phones. Without a choice in the address it opens the organization and
+  workspace of your most recently active channel (before, it opened your first organization, which
+  could have no channels, so demo channels seemed missing).
 - **Channel archiving:** managers archive a channel (read-only: history stays, no posting,
   editing, reacting, joining or adding people) and restore it. `PUT /api/v1/channels/{id}/archived`,
   `archivedAtUtc` on channels and conversation summaries, an `archived` history entry, error

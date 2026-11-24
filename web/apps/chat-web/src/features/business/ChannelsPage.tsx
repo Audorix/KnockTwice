@@ -8,6 +8,7 @@ import { NavIcon } from '../../shared/components/NavIcon';
 import { RowMenu, type RowMenuItem } from '../../shared/components/RowMenu';
 import { errorMessage } from '../auth/errors';
 import { RequireUser } from '../auth/RequireUser';
+import { listConversations } from '../conversations/conversationsApi';
 import { listOrganizations, listWorkspaces } from '../organizations/organizationsApi';
 import * as api from './businessApi';
 
@@ -43,14 +44,27 @@ function Channels() {
   const [search, setSearch] = useState('');
   const [visibility, setVisibility] = useState<VisibilityFilter>('all');
   const [sort, setSort] = useState<Sort>('recent');
-  const organizationId = query.get('org') ?? organizations?.[0]?.id ?? '';
-  const workspaceId = query.get('ws') ?? workspaces.find((w) => w.myRole)?.id ?? workspaces[0]?.id ?? '';
+  // Without a choice in the address, open where the caller's most recently active channel is, so the
+  // page does not start in an organization without channels (for example one's own new organization).
+  const [recent, setRecent] = useState<{ organizationId: string; workspaceId: string } | null | undefined>(undefined);
+  const fallbackOrganization = recent && organizations?.some((o) => o.id === recent.organizationId) ? recent.organizationId : organizations?.[0]?.id;
+  const organizationId = query.get('org') ?? (recent === undefined ? '' : fallbackOrganization ?? '');
+  const recentWorkspace = !query.get('ws') && recent && recent.organizationId === organizationId && workspaces.some((w) => w.id === recent.workspaceId)
+    ? recent.workspaceId
+    : undefined;
+  const workspaceId = query.get('ws') ?? recentWorkspace ?? workspaces.find((w) => w.myRole)?.id ?? workspaces[0]?.id ?? '';
 
   useEffect(() => {
     listOrganizations().then(setOrganizations, (err: unknown) => {
       setOrganizations([]);
       setError(err);
     });
+    listConversations().then((all) => {
+      const latest = all
+        .filter((c) => c.type === 'channel' && c.organizationId && c.workspaceId)
+        .sort((a, b) => b.lastActivityAtUtc.localeCompare(a.lastActivityAtUtc))[0];
+      setRecent(latest ? { organizationId: latest.organizationId!, workspaceId: latest.workspaceId! } : null);
+    }, () => setRecent(null));
   }, []);
 
   useEffect(() => {
