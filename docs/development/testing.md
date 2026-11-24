@@ -125,6 +125,11 @@ The installation must be in development mode with registration open: `Identity:A
 `100000`). For a realistic number, run the server in Release with `Production` logging, on its own
 database, and the tool on a different machine if you can.
 
+**Do not run the full-size test on a development workstation.** Creating 2,000 accounts and
+simulating 2,000 connected people keeps every core busy for minutes; during Phase 22–24 such runs
+repeatedly shut a workstation down. Use `--users 100 --rate 10` for a quick local check, and a
+dedicated server with the client on a second machine for capacity figures.
+
 ```powershell
 dotnet run -c Release --project tools/Audorix.ChatX.LoadTest -- --url http://localhost:5190 --out results.json
 ```

@@ -255,63 +255,88 @@ public sealed class NotificationService(
         if (settings.Value.PushEnabled)
         {
             var entries = await conversations.FindEntriesAsync(taken.Select(t => t.EntryId).Distinct().ToList(), cancellationToken).ConfigureAwait(false);
-            foreach (var entry in entries.Where(e => e is { IsMessage: true, IsDeleted: false }))
-            {
-                sent += await PushMessageAsync(entry, cancellationToken).ConfigureAwait(false);
-            }
+            sent = await PushMessagesAsync(entries.Where(e => e is { IsMessage: true, IsDeleted: false }).ToList(), cancellationToken).ConfigureAwait(false);
         }
 
         await store.CompletePushAsync(taken.Select(t => t.Id).ToList(), cancellationToken).ConfigureAwait(false);
         return sent;
     }
 
-    private async Task<int> PushMessageAsync(ConversationEvent entry, CancellationToken cancellationToken)
+    /// <summary>
+    /// Pushes a batch of new messages (Phase 24: per batch, not per message — each conversation and
+    /// its participants are read once, mentions, presence, subscriptions and authors in one go).
+    /// </summary>
+    private async Task<int> PushMessagesAsync(List<ConversationEvent> entries, CancellationToken cancellationToken)
     {
-        var conversation = await conversations.FindAsync(entry.ConversationId, cancellationToken).ConfigureAwait(false);
-        if (conversation is null)
+        if (entries.Count == 0)
         {
             return 0;
         }
 
-        // Thread replies that stay in the thread (Phase 16) go only to the thread's followers;
-        // mentions (Phase 17) reach the people mentioned unless their level is "nothing".
-        var followers = entry.InMainTimeline ? null : (await conversations.ListThreadFollowerIdsAsync(entry.ThreadRootId!.Value, cancellationToken).ConfigureAwait(false)).ToHashSet();
-        var mentioned = (await conversations.ListMentionedUserIdsAsync(entry.Id, cancellationToken).ConfigureAwait(false)).ToHashSet();
-        var candidates = (await conversations.ListActiveParticipantsAsync(conversation.Id, cancellationToken).ConfigureAwait(false))
-            .Where(p => p.UserId != entry.ActorUserId && !p.IsVisitor && entry.Sequence >= p.VisibleFromSequence)
-            .Where(p => mentioned.Contains(p.UserId)
-                ? p.WantsNotification(mentioned: true)
-                : p.WantsNotification(mentioned: false) && (followers is null || followers.Contains(p.UserId)))
-            .Where(p => conversation.Type != ConversationType.Website || conversation.AssignedToUserId is null || conversation.AssignedToUserId == p.UserId)
-            .Select(p => p.UserId)
-            .ToList();
+        var mentionsByEntry = await conversations.ListMentionedUserIdsAsync(entries.Select(e => e.Id).ToList(), cancellationToken).ConfigureAwait(false);
+        var plans = new List<(Conversation Conversation, ConversationEvent Entry, List<Guid> Candidates)>();
+        foreach (var group in entries.GroupBy(e => e.ConversationId))
+        {
+            var conversation = await conversations.FindAsync(group.Key, cancellationToken).ConfigureAwait(false);
+            if (conversation is null)
+            {
+                continue;
+            }
+
+            var participants = await conversations.ListActiveParticipantsAsync(conversation.Id, cancellationToken).ConfigureAwait(false);
+            foreach (var entry in group)
+            {
+                // Thread replies that stay in the thread (Phase 16) go only to the thread's followers;
+                // mentions (Phase 17) reach the people mentioned unless their level is "nothing".
+                var followers = entry.InMainTimeline ? null : (await conversations.ListThreadFollowerIdsAsync(entry.ThreadRootId!.Value, cancellationToken).ConfigureAwait(false)).ToHashSet();
+                var mentioned = mentionsByEntry.TryGetValue(entry.Id, out var ids) ? ids.ToHashSet() : [];
+                var candidates = participants
+                    .Where(p => p.UserId != entry.ActorUserId && !p.IsVisitor && entry.Sequence >= p.VisibleFromSequence)
+                    .Where(p => mentioned.Contains(p.UserId)
+                        ? p.WantsNotification(mentioned: true)
+                        : p.WantsNotification(mentioned: false) && (followers is null || followers.Contains(p.UserId)))
+                    .Where(p => conversation.Type != ConversationType.Website || conversation.AssignedToUserId is null || conversation.AssignedToUserId == p.UserId)
+                    .Select(p => p.UserId)
+                    .ToList();
+                if (candidates.Count > 0)
+                {
+                    plans.Add((conversation, entry, candidates));
+                }
+            }
+        }
+
         // Online on any instance (Phase 21): the app shows it, no push.
-        var online = await presence.OnlineAmongAsync(candidates, cancellationToken).ConfigureAwait(false);
-        var recipients = candidates.Where(id => !online.Contains(id)).ToList();
-        if (recipients.Count == 0)
+        var everyone = plans.SelectMany(p => p.Candidates).Distinct().ToList();
+        if (everyone.Count == 0)
         {
             return 0;
         }
 
-        var subscriptions = await store.ListSubscriptionsAsync(recipients, cancellationToken).ConfigureAwait(false);
+        var online = await presence.OnlineAmongAsync(everyone, cancellationToken).ConfigureAwait(false);
+        var offline = everyone.Where(id => !online.Contains(id)).ToList();
+        var subscriptions = offline.Count == 0 ? [] : await store.ListSubscriptionsAsync(offline, cancellationToken).ConfigureAwait(false);
         if (subscriptions.Count == 0)
         {
             return 0;
         }
 
-        var author = (await directory.GetSummariesAsync([entry.ActorUserId], cancellationToken).ConfigureAwait(false)).GetValueOrDefault(entry.ActorUserId);
-        var authorName = author?.DisplayName ?? string.Empty;
+        var byUser = subscriptions.GroupBy(s => s.UserId).ToDictionary(g => g.Key, g => g.ToList());
+        var authors = await directory.GetSummariesAsync(plans.Select(p => p.Entry.ActorUserId).Distinct().ToList(), cancellationToken).ConfigureAwait(false);
         var sent = 0;
-        foreach (var userSubscriptions in subscriptions.GroupBy(s => s.UserId))
+        foreach (var (conversation, entry, candidates) in plans)
         {
-            var profile = await profiles.FindAsync(userSubscriptions.Key, cancellationToken).ConfigureAwait(false);
-            if (profile is null || profile.IsDeleted)
+            var authorName = authors.GetValueOrDefault(entry.ActorUserId)?.DisplayName ?? string.Empty;
+            foreach (var userId in candidates.Where(byUser.ContainsKey))
             {
-                continue;
-            }
+                var profile = await profiles.FindAsync(userId, cancellationToken).ConfigureAwait(false);
+                if (profile is null || profile.IsDeleted)
+                {
+                    continue;
+                }
 
-            var payload = JsonSerializer.Serialize(BuildPayload(conversation, entry, authorName, profile), PayloadJson);
-            sent += await DeliverAsync(userSubscriptions, payload, cancellationToken).ConfigureAwait(false);
+                var payload = JsonSerializer.Serialize(BuildPayload(conversation, entry, authorName, profile), PayloadJson);
+                sent += await DeliverAsync(byUser[userId], payload, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         await store.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

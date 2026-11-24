@@ -552,6 +552,19 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 
 **Consequences:** A plain text send runs 8 statements (was 22). On the Phase 22 workstation, 2,000 people now meet every target at 50 messages a second (send p95 80 ms) and reach 42.8 of 100 messages a second when overloaded ([Phase 23 record](releases/phase-23-send-path.md)); 100 is not met yet. Revocation on other instances is delayed by up to 15 seconds when scale-out is used. The background push and search queues still work per message and are the next candidates.
 
+### ADR-038: Conversation row lock for message positions, batched push
+
+**Status:** Accepted — 2026-11-24, by the project owner, for Phase 24 (reach 100 messages a second; owner decision: keep strict, gap-free order).
+
+**Context:** Positions were taken optimistically: a send read the conversation's last position, ran its checks and saved with that position as a concurrency token. In a busy group, concurrent sends lost the race, repeated every read and, after eight tries, answered 409. The push worker read each conversation, its mentions and all participants once per message.
+
+**Decision:**
+
+- *Append lock.* Right before a message takes its position, the send opens a transaction whose first statement is a no-op update of the conversation's row (a row lock in PostgreSQL, the write lock in SQLite), re-reads the conversation, saves the message and commits. Concurrent sends to the same conversation wait for each other for the few milliseconds of the save instead of failing; other conversations are not affected. Positions stay unique and gap-free (a failed save rolls back). The concurrency token stays, so writers that do not take the lock (system events such as renames or member changes) still retry as before. Publishing happens after the commit, outside the lock.
+- *Batched push.* The push worker handles a batch of queued messages together: each conversation and its participants are read once, mentions for the whole batch in one query, presence, subscriptions and authors once per batch.
+
+**Consequences:** A send in a busy group now waits rather than retries; the eight-try loop remains only for the rare race on the same client message id. See the [Phase 24 record](releases/phase-24-throughput.md) for the measurements.
+
 ## Decision register requiring product input
 
 | Decision | Current source / uncertainty | Recommended point of resolution |

@@ -7,6 +7,7 @@ they are called out here.
 
 ## [Unreleased]
 
+Phase 24, throughput ([delivery record](docs/releases/phase-24-throughput.md)),
 Phase 23, send-path speed ([delivery record](docs/releases/phase-23-send-path.md)),
 Phase 22, performance ([delivery record](docs/releases/phase-22-performance.md)),
 Phase 21, release readiness ([delivery record](docs/releases/phase-21-release-readiness.md)),
@@ -18,6 +19,13 @@ threads ([delivery record](docs/releases/phase-16-reactions-threads.md)),
 Phase 15, notifications ([delivery record](docs/releases/phase-15-notifications.md)), Phase 14,
 message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 13, 1.0 hardening
 ([delivery record](docs/releases/phase-13-hardening.md)).
+
+### Changed (Phase 24)
+
+- **Busy groups:** messages sent to the same conversation at the same moment wait for each other
+  for a few milliseconds instead of failing and retrying; positions stay strictly in order, without
+  gaps.
+- **Push notifications** are prepared per batch instead of per message (fewer database reads).
 
 ### Changed (Phase 23)
 

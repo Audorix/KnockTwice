@@ -27,6 +27,41 @@ public sealed class MessagingTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>
+    /// Phase 24 (owner decision: strict order): many people sending into one group at the same moment
+    /// all succeed — sends wait for the conversation's row instead of failing — and the positions are
+    /// unique and gap-free.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Simultaneous_sends_to_one_group_all_succeed_with_gap_free_positions(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+        await BecomeContactsAsync(ana, anaId, carl, carlId);
+        var created = await JsonAsync(await ana.PostAsync("/api/v1/conversations/groups", new { title = "Busy", userIds = new[] { benId, carlId } }));
+        var group = created.GetProperty("id").GetGuid();
+        var start = created.GetProperty("lastSequence").GetInt64();
+
+        ApiSession[] senders = [ana, ben, carl];
+        var sends = Enumerable.Range(0, 45).Select(async i =>
+        {
+            var response = await senders[i % 3].PostAsync($"/api/v1/conversations/{group}/messages", new { clientMessageId = $"busy-{i}", body = $"Message {i}" });
+            return (response.StatusCode, Sequence: response.StatusCode == HttpStatusCode.Created ? (await JsonAsync(response)).GetProperty("sequence").GetInt64() : -1);
+        }).ToList();
+        var results = await Task.WhenAll(sends);
+
+        Assert.All(results, r => Assert.Equal(HttpStatusCode.Created, r.StatusCode));
+        Assert.Equal(Enumerable.Range(1, 45).Select(n => start + n), results.Select(r => r.Sequence).Order());
+    }
+
     [Theory]
     [MemberData(nameof(Providers))]
     public async Task Sending_is_idempotent_by_client_message_id_even_when_retried_concurrently(string provider)

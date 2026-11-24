@@ -224,6 +224,19 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
     public async Task<IReadOnlyList<Guid>> ListMentionedUserIdsAsync(Guid entryId, CancellationToken cancellationToken) =>
         await db.MessageMentions.AsNoTracking().Where(m => m.EntryId == entryId).Select(m => m.UserId).ToListAsync(cancellationToken).ConfigureAwait(false);
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> ListMentionedUserIdsAsync(IReadOnlyCollection<Guid> entryIds, CancellationToken cancellationToken)
+    {
+        if (entryIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<Guid>>();
+        }
+
+        var ids = entryIds.ToList();
+        var rows = await db.MessageMentions.AsNoTracking().Where(m => ids.Contains(m.EntryId)).Select(m => new { m.EntryId, m.UserId })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.GroupBy(r => r.EntryId).ToDictionary(g => g.Key, g => (IReadOnlyList<Guid>)g.Select(r => r.UserId).ToList());
+    }
+
     public async Task<IReadOnlyList<MentionRecord>> ListMentionsForUserAsync(Guid userId, long beforeTicks, int limit, CancellationToken cancellationToken)
     {
         var rows = await MentionsOf(userId)
@@ -355,6 +368,32 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
     }
 
     public Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken) => db.TrySaveChangesAsync(cancellationToken);
+
+    public async Task<IConversationAppendLock> LockForAppendAsync(Conversation conversation, CancellationToken cancellationToken)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // A write that changes nothing takes the row lock (PostgreSQL) or the write lock (SQLite)
+            // as the transaction's first statement; the following read then sees the latest position.
+            await db.Conversations.Where(c => c.Id == conversation.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.LastSequence, c => c.LastSequence), cancellationToken).ConfigureAwait(false);
+            await db.Entry(conversation).ReloadAsync(cancellationToken).ConfigureAwait(false);
+            return new AppendLock(transaction);
+        }
+        catch
+        {
+            await transaction.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    private sealed class AppendLock(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction) : IConversationAppendLock
+    {
+        public Task CommitAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => transaction.DisposeAsync(); // rolls back when not committed
+    }
 }
 
 /// <summary>

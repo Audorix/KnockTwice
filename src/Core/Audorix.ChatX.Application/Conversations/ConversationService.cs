@@ -114,6 +114,9 @@ public interface IConversationStore
     /// <summary>Everyone the entry mentions (named or through @everyone / @here).</summary>
     Task<IReadOnlyList<Guid>> ListMentionedUserIdsAsync(Guid entryId, CancellationToken cancellationToken);
 
+    /// <summary>Phase 24: the people mentioned in each of several messages, in one query (messages without mentions are absent).</summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> ListMentionedUserIdsAsync(IReadOnlyCollection<Guid> entryIds, CancellationToken cancellationToken);
+
     /// <summary>
     /// Mentions of the user in messages they can see (active participation, visible history, not
     /// deleted) sent before <paramref name="beforeTicks"/>, newest first.
@@ -158,6 +161,21 @@ public interface IConversationStore
 
     /// <summary>Saves; false (with pending changes discarded) when a unique index or the sequence token rejected the write.</summary>
     Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Phase 24: starts a transaction that holds the conversation's row, and re-reads the tracked
+    /// <paramref name="conversation"/>, so the next position can be taken without racing other
+    /// writers: concurrent sends to the same conversation wait for each other instead of failing.
+    /// Saves inside it take part in the transaction; <see cref="IConversationAppendLock.CommitAsync"/>
+    /// makes them durable, disposing without committing rolls them back.
+    /// </summary>
+    Task<IConversationAppendLock> LockForAppendAsync(Conversation conversation, CancellationToken cancellationToken);
+}
+
+/// <summary>The row lock taken by <see cref="IConversationStore.LockForAppendAsync"/>.</summary>
+public interface IConversationAppendLock : IAsyncDisposable
+{
+    Task CommitAsync(CancellationToken cancellationToken);
 }
 
 public sealed record Participation(Conversation Conversation, ConversationParticipant Participant, int UnreadCount, Guid? CounterpartUserId);

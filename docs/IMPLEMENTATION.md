@@ -554,6 +554,22 @@ Acceptance criteria:
 - Fewer statements per send, measured.
 - Load-test results recorded against the Phase 22 baseline.
 
+### Phase 24 — Throughput
+
+Added by the project owner on 2026-11-24 to reach 100 messages a second (ADR-038; owner decision: strict, gap-free order).
+
+Deliverables:
+
+- Message positions taken under a short conversation row lock instead of optimistic retries.
+- A batched push worker.
+- Load-test runs at 50, 75 and 100 messages a second with CPU per process, compared with Phase 23.
+
+Acceptance criteria:
+
+- Simultaneous sends to one group all succeed with unique, gap-free positions (both databases).
+- All tests pass; push delivery unchanged.
+- Results recorded honestly, including what this machine can and cannot show.
+
 ## 4. Initial API contracts
 
 Base path:

@@ -188,43 +188,59 @@ public sealed class MessagingService(
                 root = await conversations.RequireThreadRootAsync(conversationId, rootId, me, cancellationToken).ConfigureAwait(false);
             }
 
-            var now = time.GetUtcNow();
-            var entry = ConversationEvent.Post(Guid.CreateVersion7(now), conversation, userId, key, body ?? string.Empty, replyTo, options.MaxLength, now,
-                allowEmptyBody: files.Count > 0);
-            var mentions = await ResolveMentionsAsync(conversation, me, entry, mentionUserIds, cancellationToken).ConfigureAwait(false);
-            if (forwardedFromUserId is { } originalAuthor)
+            // Phase 24 (owner decision: strict, gap-free order): hold the conversation's row while
+            // taking the next position, so concurrent sends wait for each other instead of failing and
+            // repeating every check above. Other conversations are not affected.
+            ConversationEvent entry;
+            OutboxMessage outbox;
+            List<MessageMention> mentions;
+            var saved = false;
+            await using (var appendLock = await store.LockForAppendAsync(conversation, cancellationToken).ConfigureAwait(false))
             {
-                entry.MarkForwarded(originalAuthor);
-            }
-            if (root is not null)
-            {
-                entry.PlaceInThread(root, alsoInConversation);
-                await FollowThreadAsync(root, userId, entry.Sequence, now, cancellationToken).ConfigureAwait(false);
-                if (root.ActorUserId != userId)
+                var now = time.GetUtcNow();
+                entry = ConversationEvent.Post(Guid.CreateVersion7(now), conversation, userId, key, body ?? string.Empty, replyTo, options.MaxLength, now,
+                    allowEmptyBody: files.Count > 0);
+                mentions = await ResolveMentionsAsync(conversation, me, entry, mentionUserIds, cancellationToken).ConfigureAwait(false);
+                if (forwardedFromUserId is { } originalAuthor)
                 {
-                    await FollowThreadAsync(root, root.ActorUserId, null, now, cancellationToken).ConfigureAwait(false);
+                    entry.MarkForwarded(originalAuthor);
+                }
+                if (root is not null)
+                {
+                    entry.PlaceInThread(root, alsoInConversation);
+                    await FollowThreadAsync(root, userId, entry.Sequence, now, cancellationToken).ConfigureAwait(false);
+                    if (root.ActorUserId != userId)
+                    {
+                        await FollowThreadAsync(root, root.ActorUserId, null, now, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+
+                outbox = OutboxMessage.Create(Guid.CreateVersion7(now), entry, OutboxMessage.MessageCreated, now, options.OutboxRetryDelay);
+                store.Add(entry);
+                store.Add(outbox);
+                foreach (var mention in mentions)
+                {
+                    store.Add(mention);
+                }
+                if (files.Count > 0)
+                {
+                    await attachments.LinkAsync(userId, entry, files, cancellationToken).ConfigureAwait(false);
+                }
+
+                // The sender has obviously read their own message; a thread reply moves only the thread's read position.
+                if (entry.InMainTimeline)
+                {
+                    me.MarkRead(entry.Sequence, conversation.LastSequence);
+                }
+
+                if (await store.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    await appendLock.CommitAsync(cancellationToken).ConfigureAwait(false);
+                    saved = true;
                 }
             }
 
-            var outbox = OutboxMessage.Create(Guid.CreateVersion7(now), entry, OutboxMessage.MessageCreated, now, options.OutboxRetryDelay);
-            store.Add(entry);
-            store.Add(outbox);
-            foreach (var mention in mentions)
-            {
-                store.Add(mention);
-            }
-            if (files.Count > 0)
-            {
-                await attachments.LinkAsync(userId, entry, files, cancellationToken).ConfigureAwait(false);
-            }
-
-            // The sender has obviously read their own message; a thread reply moves only the thread's read position.
-            if (entry.InMainTimeline)
-            {
-                me.MarkRead(entry.Sequence, conversation.LastSequence);
-            }
-
-            if (await store.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false))
+            if (saved)
             {
                 // Phase 23: describe the new message once and publish that same view, instead of
                 // re-reading the outbox row and the message and describing it twice.
@@ -238,8 +254,8 @@ public sealed class MessagingService(
                 throw new ConflictException("conflict");
             }
 
-            // Lost a race: either the sequence moved or the same client id was saved concurrently; re-evaluate
-            // after a short random pause, so racing senders in a busy conversation do not collide again.
+            // With the row held this is rare: the same client id was saved concurrently (or another writer
+            // without the lock moved the position); re-evaluate after a short random pause.
             await Task.Delay(ConflictBackoff(attempt), cancellationToken).ConfigureAwait(false);
         }
     }
