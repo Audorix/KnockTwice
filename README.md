@@ -4,6 +4,14 @@
 
 # Knock Twice
 
+<p align="center">
+  <a href="ROADMAP.md"><strong>🗺️ Roadmap</strong></a> ·
+  <a href="#features">Features</a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="#documentation">Documentation</a> ·
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
 **by Audorix.** Open-source, self-hosted team and customer chat built with ASP.NET Core (.NET 10)
 and React. One messaging engine serves personal chat, business communication and an embeddable
 website chat. Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
@@ -13,6 +21,21 @@ The code base keeps its original name, **Audorix.ChatX**: namespaces, projects, 
 
 > **Version 1.0.0.** Covered by automated tests on both databases. See the
 > [changelog](CHANGELOG.md).
+
+## What's next: the roadmap
+
+The next five planned releases, in order of delivery. Read the full **[roadmap](ROADMAP.md)** for
+what each one includes, its release gate, and how to send feedback.
+
+| Release | Focus | What it makes possible |
+| :-- | :-- | :-- |
+| **1** | [Company setup and access](ROADMAP.md#release-1-company-setup-and-access) | Set up a workspace, control access, and send formatted messages and code snippets. |
+| **2** | [Customer support desk](ROADMAP.md#release-2-customer-support-desk) | Turn website conversations into support cases a team can manage together. |
+| **3** | [Mobile and shared media](ROADMAP.md#release-3-mobile-and-shared-media) | Keep up with conversations on mobile and find or play shared media in context. |
+| **4** | [Partner collaboration and data control](ROADMAP.md#release-4-partner-collaboration-and-data-control) | Work with external partners, connect business systems, and move or recover conversation data. |
+| **5** | [AI-assisted support](ROADMAP.md#release-5-ai-assisted-support) | Give agents source-backed drafts and handoff summaries they can review. |
+
+Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/ChatX/issues).
 
 ## Features
 
@@ -87,7 +110,8 @@ A complete example with server-signed identities is in
 | API (guide + OpenAPI reference) | [api/README.md](docs/api/README.md) · [openapi-v1.json](docs/api/openapi-v1.json) |
 | Architecture | [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [solution boundaries](docs/development/architecture-boundaries.md) |
 | Architecture decisions | [ADR.md](docs/ADR.md) |
-| Roadmap and phases | [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · delivery records in [docs/releases](docs/releases) (release 0.1.0: [Phase 12](docs/releases/phase-12-open-source-release.md); next: [Phase 13](docs/releases/phase-13-hardening.md), [Phase 14](docs/releases/phase-14-search.md), [Phase 15](docs/releases/phase-15-notifications.md), [Phase 16](docs/releases/phase-16-reactions-threads.md), [Phase 17](docs/releases/phase-17-mentions.md), [Phase 18](docs/releases/phase-18-message-tools.md), [Phase 19](docs/releases/phase-19-rich-text.md), [Phase 20](docs/releases/phase-20-planning.md), [Phase 21](docs/releases/phase-21-release-readiness.md), [Phase 22](docs/releases/phase-22-performance.md), [Phase 23](docs/releases/phase-23-send-path.md), [Phase 24](docs/releases/phase-24-throughput.md), [UI redesign](docs/releases/ui-redesign.md); release 1.0.0: everything above) |
+| **Product roadmap** (next five releases) | [ROADMAP.md](ROADMAP.md) |
+| Development history (phases) | [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · delivery records in [docs/releases](docs/releases) (release 0.1.0: [Phase 12](docs/releases/phase-12-open-source-release.md); next: [Phase 13](docs/releases/phase-13-hardening.md), [Phase 14](docs/releases/phase-14-search.md), [Phase 15](docs/releases/phase-15-notifications.md), [Phase 16](docs/releases/phase-16-reactions-threads.md), [Phase 17](docs/releases/phase-17-mentions.md), [Phase 18](docs/releases/phase-18-message-tools.md), [Phase 19](docs/releases/phase-19-rich-text.md), [Phase 20](docs/releases/phase-20-planning.md), [Phase 21](docs/releases/phase-21-release-readiness.md), [Phase 22](docs/releases/phase-22-performance.md), [Phase 23](docs/releases/phase-23-send-path.md), [Phase 24](docs/releases/phase-24-throughput.md), [UI redesign](docs/releases/ui-redesign.md); release 1.0.0: everything above) |
 | Testing | [development/testing.md](docs/development/testing.md) |
 | Third-party licenses | [third-party-licenses.md](docs/third-party-licenses.md) |
 
