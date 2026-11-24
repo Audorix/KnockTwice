@@ -4,7 +4,8 @@ export type NavIconName =
   | 'settings' | 'user' | 'block' | 'plus' | 'message' | 'chevron-left' | 'chevron-right' | 'close'
   | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external'
   | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
-  | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank';
+  | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
+  | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -57,7 +58,39 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
           <circle {...common} cx="12" cy="12" r="3" />
         </>
       )}
-      {name === 'minus' && <path {...common} d="M6 12h12" />}
+      {name === 'globe' && (
+        <>
+          <circle {...common} cx="12" cy="12" r="9" />
+          <path {...common} d="M3 12h18M12 3c2.5 2.5 3.75 5.5 3.75 9S14.5 18.5 12 21c-2.5-2.5-3.75-5.5-3.75-9S9.5 5.5 12 3z" />
+        </>
+      )}
+      {name === 'mail' && (
+        <>
+          <rect {...common} x="3" y="5.5" width="18" height="13" rx="2" />
+          <path {...common} d="M3.5 7l8.5 6 8.5-6" />
+        </>
+      )}
+      {name === 'refresh' && (
+        <>
+          <path {...common} d="M20 11a8 8 0 0 0-14.5-4.5M4 4v3h3" />
+          <path {...common} d="M4 13a8 8 0 0 0 14.5 4.5M20 20v-3h-3" />
+        </>
+      )}
+      {name === 'copy' && (
+        <>
+          <rect {...common} x="8.5" y="8.5" width="11" height="11" rx="2" />
+          <path {...common} d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2" />
+        </>
+      )}
+      {name === 'grid' && (
+        <>
+          <rect {...common} x="4" y="4" width="6.5" height="6.5" rx="1" />
+          <rect {...common} x="13.5" y="4" width="6.5" height="6.5" rx="1" />
+          <rect {...common} x="4" y="13.5" width="6.5" height="6.5" rx="1" />
+          <rect {...common} x="13.5" y="13.5" width="6.5" height="6.5" rx="1" />
+        </>
+      )}
+      {name === 'minus' &&<path {...common} d="M6 12h12" />}
       {name === 'bank' && <path {...common} d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18" />}
       {name === 'arrow-right' &&<path {...common} d="M5 12h14M13 6l6 6-6 6" />}
       {name === 'alert' && (

@@ -120,14 +120,153 @@ describe('AdminPage', () => {
       </AuthProvider>,
     );
 
+    // The first group with settings opens; the save bar counts changes.
     const privateChats = await screen.findByRole('switch', { name: 'Private chats' });
-    expect(screen.getByLabelText('Largest group')).toBeDisabled();
-    expect(screen.getByText(/Set by the environment/)).toBeInTheDocument();
+    expect(screen.getByText('No unsaved changes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeDisabled();
     await user.click(privateChats);
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
+
+    // Groups are listed on the side; locked values say where they come from.
+    await user.click(screen.getByRole('button', { name: 'Limits' }));
+    expect(screen.getByLabelText('Maximum group size')).toBeDisabled();
+    expect(screen.getByText(/Set by the environment/)).toBeInTheDocument();
+    expect(screen.getByText('members')).toBeInTheDocument();
+
+    // Searching finds settings in every group.
+    await user.type(screen.getByRole('searchbox', { name: 'Find a setting' }), 'private');
+    expect(screen.getByRole('switch', { name: 'Private chats' })).toBeInTheDocument();
+    await user.clear(screen.getByRole('searchbox', { name: 'Find a setting' }));
+
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
     expect(await screen.findByText(/The new settings apply now/)).toBeInTheDocument();
     expect(saved).toEqual([{ values: { 'PrivateChats:Enabled': false } }]);
+    await user.click(screen.getByRole('button', { name: 'Features' }));
     expect(screen.getByRole('button', { name: 'Reset to default' })).toBeInTheDocument();
+  });
+
+  it('shows providers as cards and configures the selected one, with a test beside it', async () => {
+    window.history.replaceState(null, '', '/admin?tab=providers');
+    const tested: unknown[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me(allPermissions, ['InstallationAdministrator'])),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/admin/overview': () => json(200, {
+        installationId: null, version: '0.1.0', environment: 'Development', users: 3, disabledUsers: 0, organizations: 1,
+        databaseProvider: 'Sqlite', storageProvider: 'Local', scanningEnabled: false, registrationMode: 'open', restartRequiredFor: [],
+      }),
+      'GET /api/v1/admin/providers': () => json(200, [
+        {
+          name: 'email', restartRequired: false, fields: [
+            { key: 'Email:Provider', kind: 'choice', value: 'Smtp', hasValue: true, source: 'file', locked: false, choices: ['None', 'Smtp', 'Postmark'] },
+            { key: 'Email:FromName', kind: 'text', value: 'ChatX', hasValue: true, source: 'file', locked: false, choices: null },
+            { key: 'Email:Smtp:Host', kind: 'text', value: 'smtp.example.com', hasValue: true, source: 'file', locked: false, choices: null },
+            { key: 'Email:Smtp:Password', kind: 'secret', value: null, hasValue: true, source: 'file', locked: false, choices: null },
+            { key: 'Email:Postmark:ServerToken', kind: 'secret', value: null, hasValue: false, source: 'default', locked: false, choices: null },
+          ],
+        },
+        { name: 'scanning', restartRequired: false, fields: [{ key: 'Scanning:Provider', kind: 'choice', value: 'None', hasValue: true, source: 'default', locked: false, choices: ['None', 'ClamAv'] }] },
+      ]),
+      'GET /api/v1/admin/search': () => json(200, { provider: 'Database', enabled: true, pending: 0 }),
+      'POST /api/v1/admin/providers/email/test': (init) => {
+        tested.push(JSON.parse(String(init?.body)));
+        return json(200, { outcome: 'sent' });
+      },
+    });
+    const user = userEvent.setup();
+    render(
+      <AuthProvider>
+        <AdminPage />
+      </AuthProvider>,
+    );
+
+    // Cards; the database is selected first and is read-only.
+    expect(await screen.findByRole('heading', { name: /Database configuration/ })).toBeInTheDocument();
+    expect(screen.getAllByText('SQLite').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('The database answered')).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent('Malware scanning is disabled');
+
+    // Mail: only the chosen provider's fields; the test goes to your own address.
+    await user.click(screen.getByRole('button', { name: 'Configure Email' }));
+    expect(screen.getByRole('heading', { name: 'Email configuration' })).toBeInTheDocument();
+    expect(screen.getByLabelText('SMTP host')).toHaveValue('smtp.example.com');
+    expect(screen.queryByLabelText('Postmark server token')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Recipient email')).toHaveValue('admin@example.org');
+    await user.click(screen.getByRole('button', { name: 'Send test email' }));
+    expect(tested).toEqual([{ values: {} }]);
+    expect(await screen.findAllByText('The test email was sent to your address.')).not.toHaveLength(0);
+
+    // The warning leads to the scanning configuration.
+    await user.click(screen.getByRole('button', { name: /Review scanning/ }));
+    expect(screen.getByRole('heading', { name: 'Malware scanning configuration' })).toBeInTheDocument();
+  });
+
+  it('pages, searches, filters and expands the audit log', async () => {
+    window.history.replaceState(null, '', '/admin?tab=audit');
+    const entry = (id: string, action: string, extra: Record<string, unknown> = {}) => ({
+      id, occurredAtUtc: '2026-11-24T12:21:00Z', action, succeeded: true, actorUserId: 'u-admin', actorName: 'Admin',
+      targetType: 'User', targetId: '01a204e1-7781-77d3-8886-8d0ffebbf3ad', ipAddress: '::1', details: null, ...extra,
+    });
+    const requests: string[] = [];
+    const page = (items: unknown[], total: number) => json(200, { items, nextBefore: null, total });
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me(['installation.read', 'audit.read'], ['Auditor'])),
+      'GET /api/v1/admin/settings': () => json(200, [{ key: 'Audit:RetentionDays', group: 'audit', kind: 'integer', value: 365, source: 'default', locked: false, min: 7, max: 3650, choices: null }]),
+      'GET /api/v1/admin/audit?skip=0&limit=8': () => page([entry('a1', 'auth.sign_in'), entry('a2', 'admin.demo_data.populated', { targetType: null, targetId: null, details: '{"users":300}' })], 13),
+      'GET /api/v1/admin/audit?skip=8&limit=8': () => {
+        requests.push('page2');
+        return page([entry('a9', 'admin.user.disabled', { succeeded: false })], 13);
+      },
+      'GET /api/v1/admin/audit?q=demo&skip=0&limit=8': () => {
+        requests.push('search');
+        return page([], 0);
+      },
+      'GET /api/v1/admin/audit?q=demo&action=auth.&succeeded=false&order=oldest&skip=0&limit=8': () => {
+        requests.push('filtered');
+        return page([], 0);
+      },
+      // Clearing the filters keeps the chosen order.
+      'GET /api/v1/admin/audit?order=oldest&skip=0&limit=8': () => page([entry('a1', 'auth.sign_in')], 13),
+    });
+    const user = userEvent.setup();
+    render(
+      <AuthProvider>
+        <AdminPage />
+      </AuthProvider>,
+    );
+
+    const signIn = (await screen.findByText('Sign-in')).closest('tr')!;
+    expect(within(signIn).getByText('auth.sign_in')).toBeInTheDocument();
+    expect(within(signIn).getByText(/User · 01a204e1…/)).toBeInTheDocument();
+    expect(screen.getByText('Demo data populated').closest('tr')!).toHaveTextContent('Installation');
+    expect(screen.getByText('Showing 1–8 of 13 events')).toBeInTheDocument();
+    expect(screen.getByText('Audit retention: 365 days')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Manage retention/ })).toHaveAttribute('href', '/admin?tab=settings&group=audit');
+
+    // Expanding shows every recorded fact.
+    await user.click(within(signIn).getByRole('button', { name: 'Show details' }));
+    expect(screen.getByText('01a204e1-7781-77d3-8886-8d0ffebbf3ad')).toBeInTheDocument();
+    expect(screen.getByText('::1')).toBeInTheDocument();
+    expect(screen.getByText('No additional metadata')).toBeInTheDocument();
+    await user.click(within(screen.getByText('Demo data populated').closest('tr')!).getByRole('button', { name: 'Show details' }));
+    expect(screen.getByText('users: 300')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Page 2' }));
+    expect(await screen.findByText('User disabled')).toBeInTheDocument();
+    expect(screen.getByText('failed')).toBeInTheDocument();
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search the audit log' }), 'demo');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('Nothing found.')).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Action' }), 'auth.');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Outcome' }), 'failure');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'oldest');
+    await vi.waitFor(() => expect(requests).toContain('filtered'));
+    expect(requests.slice(0, 2)).toEqual(['page2', 'search']);
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(await screen.findByText('Sign-in')).toBeInTheDocument();
   });
 
   it('shows the installation overview with counts, providers, details and shortcuts', async () => {

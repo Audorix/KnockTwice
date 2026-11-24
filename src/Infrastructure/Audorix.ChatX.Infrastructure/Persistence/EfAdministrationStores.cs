@@ -15,6 +15,17 @@ internal sealed class EfAuditStore(ChatXDbContext db) : IAuditStore
 
     public async Task<IReadOnlyList<AuditEntry>> QueryAsync(AuditQuery query, CancellationToken cancellationToken)
     {
+        var entries = Filter(query);
+        var ordered = query.OldestFirst
+            ? entries.OrderBy(a => a.OccurredAtUtc).ThenBy(a => a.Id)
+            : entries.OrderByDescending(a => a.OccurredAtUtc).ThenByDescending(a => a.Id);
+        return await ordered.Skip(query.Skip).Take(query.Limit).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public Task<int> CountAsync(AuditQuery query, CancellationToken cancellationToken) => Filter(query).CountAsync(cancellationToken);
+
+    private IQueryable<AuditEntry> Filter(AuditQuery query)
+    {
         var entries = db.AuditEntries.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(query.Action))
         {
@@ -43,8 +54,30 @@ internal sealed class EfAuditStore(ChatXDbContext db) : IAuditStore
             entries = entries.Where(a => a.OccurredAtUtc < before);
         }
 
-        return await entries.OrderByDescending(a => a.OccurredAtUtc).ThenByDescending(a => a.Id).Take(query.Limit)
-            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (query.From is { } from)
+        {
+            entries = entries.Where(a => a.OccurredAtUtc >= from);
+        }
+
+        if (query.To is { } to)
+        {
+            entries = entries.Where(a => a.OccurredAtUtc <= to);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            // Action, target and the actor's display name; ToLower() is translated to SQL LOWER().
+            var text = query.Search.Trim().ToLowerInvariant();
+#pragma warning disable CA1304, CA1311, CA1862
+            var actors = db.UserProfiles.Where(p => p.DisplayName.ToLower().Contains(text)).Select(p => (Guid?)p.UserId);
+            entries = entries.Where(a => a.Action.Contains(text)
+                || (a.TargetType != null && a.TargetType.ToLower().Contains(text))
+                || (a.TargetId != null && a.TargetId.ToLower().Contains(text))
+                || actors.Contains(a.ActorUserId));
+#pragma warning restore CA1304, CA1311, CA1862
+        }
+
+        return entries;
     }
 
     public async Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, int batch, CancellationToken cancellationToken)

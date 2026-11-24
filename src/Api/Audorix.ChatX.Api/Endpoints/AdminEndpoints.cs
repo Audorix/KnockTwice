@@ -155,16 +155,28 @@ internal static class AdminEndpoints
         // ---- Audit log ----
         admin.MapGet("/audit", async (
             string? action, Guid? actor, string? target, bool? succeeded, DateTimeOffset? before, int? limit,
+            DateTimeOffset? from, DateTimeOffset? to, string? q, int? skip, string? order,
             AuditService audit, IUserDirectory directory, CancellationToken ct) =>
         {
             var size = Math.Clamp(limit ?? 50, 1, 200);
-            var entries = await audit.QueryAsync(new AuditQuery(action, actor, target, succeeded, before?.ToUniversalTime(), size), ct);
+            var oldestFirst = order?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "newest" => false,
+                "oldest" => true,
+                _ => throw new RequestValidationException("order", "order_invalid"),
+            };
+            var query = new AuditQuery(action, actor, target, succeeded, before?.ToUniversalTime(), size,
+                from?.ToUniversalTime(), to?.ToUniversalTime(), q, Math.Max(0, skip ?? 0), oldestFirst);
+            var entries = await audit.QueryAsync(query, ct);
             var names = await directory.GetSummariesAsync(entries.Where(e => e.ActorUserId is not null).Select(e => e.ActorUserId!.Value).Distinct().ToList(), ct);
             var items = entries.Select(e => new AuditEntryResponse(
                 e.Id, e.OccurredAtUtc, e.Action, e.Succeeded, e.ActorUserId, e.ActorUserId is { } id ? names.GetValueOrDefault(id)?.DisplayName : null,
                 e.TargetType, e.TargetId, e.IpAddress, e.Details)).ToList();
-            return TypedResults.Ok(new AuditPageResponse(items, items.Count == size ? items[^1].OccurredAtUtc : null));
-        }).RequireAuthorization(Permissions.AuditRead).WithSummary("Audit log, newest first. Filters: action (or prefix ending with '.'), actor, target, outcome.");
+            // Page numbers (skip given) come with a total; the older "before" cursor keeps working.
+            var total = skip is not null ? await audit.CountAsync(query, ct) : (int?)null;
+            return TypedResults.Ok(new AuditPageResponse(items, !oldestFirst && items.Count == size ? items[^1].OccurredAtUtc : null, total));
+        }).RequireAuthorization(Permissions.AuditRead)
+            .WithSummary("Audit log, newest first (order=oldest for oldest first). Filters: action (or prefix ending with '.'), actor, target, outcome, from/to, q (text in the action, target or actor name). With skip, the response has the total for page numbers.");
 
         return v1;
     }

@@ -21,7 +21,14 @@ public interface IAuditContext
     string? IpAddress { get; }
 }
 
-public sealed record AuditQuery(string? Action, Guid? ActorUserId, string? TargetId, bool? Succeeded, DateTimeOffset? Before, int Limit);
+/// <param name="From">Redesign 2026-11: entries at or after this time.</param>
+/// <param name="To">Entries at or before this time.</param>
+/// <param name="Search">Text found in the action, the target or the actor's name (case-insensitive).</param>
+/// <param name="Skip">Entries to skip (page numbers); combine with <see cref="Limit"/>.</param>
+/// <param name="OldestFirst">Ascending order.</param>
+public sealed record AuditQuery(
+    string? Action, Guid? ActorUserId, string? TargetId, bool? Succeeded, DateTimeOffset? Before, int Limit,
+    DateTimeOffset? From = null, DateTimeOffset? To = null, string? Search = null, int Skip = 0, bool OldestFirst = false);
 
 public interface IAuditStore
 {
@@ -29,8 +36,11 @@ public interface IAuditStore
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
-    /// <summary>Newest first.</summary>
+    /// <summary>Newest first (or oldest first).</summary>
     Task<IReadOnlyList<AuditEntry>> QueryAsync(AuditQuery query, CancellationToken cancellationToken);
+
+    /// <summary>How many entries match the query's filters (ignoring paging).</summary>
+    Task<int> CountAsync(AuditQuery query, CancellationToken cancellationToken);
 
     /// <summary>Deletes up to <paramref name="batch"/> entries older than <paramref name="cutoff"/>; returns how many.</summary>
     Task<int> DeleteOlderThanAsync(DateTimeOffset cutoff, int batch, CancellationToken cancellationToken);
@@ -98,7 +108,13 @@ public sealed class AuditService(IAuditStore store, IAuditContext context, TimeP
     public Task<IReadOnlyList<AuditEntry>> QueryAsync(AuditQuery query, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
-        return store.QueryAsync(query with { Limit = Math.Clamp(query.Limit, 1, 200) }, cancellationToken);
+        return store.QueryAsync(query with { Limit = Math.Clamp(query.Limit, 1, 200), Skip = Math.Max(0, query.Skip) }, cancellationToken);
+    }
+
+    public Task<int> CountAsync(AuditQuery query, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return store.CountAsync(query, cancellationToken);
     }
 
     /// <summary>Removes entries past the retention period; returns how many.</summary>

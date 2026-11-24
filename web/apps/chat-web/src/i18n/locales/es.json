@@ -1251,15 +1251,15 @@
       "audit_read": "Leer el registro de auditoría"
     },
     "settings": {
-      "intro": "Estos ajustes se aplican de inmediato en todos los servidores. Los valores fijados por el entorno o la línea de comandos están bloqueados.",
+      "intro": "Los cambios guardados se aplican al momento en todos los servidores. Los valores del entorno y de la línea de comandos están bloqueados.",
       "saved": "Guardado. Los nuevos ajustes ya se aplican.",
       "groups": {
         "access": "Registro y acceso",
         "features": "Funciones",
         "limits": "Límites",
         "localization": "Idiomas",
-        "audit": "Registro de auditoría",
-        "retention": "Conservación de datos"
+        "audit": "Retención de auditoría",
+        "retention": "Retención de datos"
       },
       "keys": {
         "Identity_RegistrationMode": "Quién puede crear una cuenta",
@@ -1268,18 +1268,18 @@
         "Discovery_AllowOrganizationDirectory": "Se puede buscar a compañeros por nombre",
         "PrivateChats_Enabled": "Chats privados",
         "Attachments_Enabled": "Archivos adjuntos",
-        "Attachments_MaxFileSize": "Adjunto más grande",
-        "Attachments_MaxPerMessage": "Adjuntos por mensaje",
-        "Attachments_UserQuota": "Espacio de adjuntos por persona (0 = ilimitado)",
+        "Attachments_MaxFileSize": "Tamaño máximo de archivo",
+        "Attachments_MaxPerMessage": "Archivos por mensaje",
+        "Attachments_UserQuota": "Espacio por persona",
         "Attachments_AllowedExtensions": "Tipos de archivo permitidos",
-        "Messaging_MaxLength": "Mensaje más largo (caracteres)",
+        "Messaging_MaxLength": "Longitud máxima del mensaje",
         "Messaging_EditWindow": "Tiempo para editar un mensaje",
-        "Conversations_MaxGroupParticipants": "Grupo más grande",
-        "PrivateChats_MaxFileSize": "Archivo más grande en un chat privado",
-        "PrivateChats_MaxBytesPerChat": "Memoria de archivos por chat privado",
+        "Conversations_MaxGroupParticipants": "Tamaño máximo de grupo",
+        "PrivateChats_MaxFileSize": "Tamaño máximo de archivo",
+        "PrivateChats_MaxBytesPerChat": "Memoria de archivos por chat",
         "Localization_DefaultLanguage": "Idioma predeterminado",
         "Localization_SupportedLanguages": "Idiomas disponibles",
-        "Audit_RetentionDays": "Conservar registros de auditoría (días)",
+        "Audit_RetentionDays": "Conservar los registros de auditoría",
         "Widgets_Enabled": "Chat del sitio web",
         "Retention_VisitorInactiveDays": "Eliminar visitantes anónimos del sitio web inactivos durante (días, 0 = nunca)",
         "Retention_UnconfirmedAccountDays": "Eliminar cuentas nunca confirmadas después de (días, 0 = nunca)",
@@ -1288,12 +1288,79 @@
         "Search_Enabled": "Búsqueda de mensajes",
         "Notifications_EmailEnabled": "Notificaciones por correo",
         "Notifications_PushEnabled": "Notificaciones push",
-        "Notifications_EmailDelay": "Enviar correo solo si un mensaje sigue sin leer después de",
-        "Notifications_EmailInterval": "Como mucho un correo de notificación cada"
+        "Notifications_EmailDelay": "Espera antes del correo de no leídos",
+        "Notifications_EmailInterval": "Intervalo mínimo entre correos"
+      },
+      "subtitle": "Preferencias y límites de toda la instalación.",
+      "viewSources": "Ver el origen de cada valor",
+      "hideSources": "Ocultar el origen de cada valor",
+      "groupsLabel": "Grupos de configuración",
+      "find": "Buscar un ajuste",
+      "results": "Ajustes encontrados",
+      "zeroUnlimited": "0 significa sin límite",
+      "extensionsCount_one": "{{count}} tipo permitido",
+      "extensionsCount_other": "{{count}} tipos permitidos",
+      "unsaved_one": "{{count}} cambio sin guardar",
+      "unsaved_other": "{{count}} cambios sin guardar",
+      "noChanges": "No hay cambios sin guardar",
+      "lockedNote": "Los valores bloqueados se cambian en su origen de configuración.",
+      "groupText": {
+        "access": "Quién puede unirse y cómo se encuentran las personas.",
+        "features": "Active o desactive partes de ChatX para todos.",
+        "limits": "Límites de mensajes, archivos y chats privados de esta instalación.",
+        "localization": "Los idiomas disponibles y el predeterminado.",
+        "audit": "Cuánto tiempo se guardan los eventos de administración y seguridad.",
+        "retention": "Elimine los datos antiguos automáticamente."
+      },
+      "sections": {
+        "signup": {
+          "title": "Registro",
+          "text": "Creación de cuentas y organizaciones."
+        },
+        "discovery": {
+          "title": "Encontrar personas",
+          "text": "Cómo pueden buscarse las personas."
+        },
+        "features": {
+          "title": "Funciones",
+          "text": "Disponibles para todos en esta instalación."
+        },
+        "notifications": {
+          "title": "Notificaciones",
+          "text": "Notificaciones por correo y push."
+        },
+        "messages": {
+          "title": "Mensajes y notificaciones",
+          "text": "Tamaño de los mensajes, tiempo de edición y envío de correos."
+        },
+        "attachments": {
+          "title": "Archivos adjuntos",
+          "text": "Tamaño de los archivos, cantidad por mensaje y espacio."
+        },
+        "privateChats": {
+          "title": "Chats privados",
+          "text": "Límites de archivos y memoria en los chats privados."
+        },
+        "languages": {
+          "title": "Idiomas",
+          "text": "Los idiomas de la interfaz."
+        },
+        "audit": {
+          "title": "Registro de auditoría",
+          "text": "Las entradas antiguas se eliminan automáticamente."
+        },
+        "retention": {
+          "title": "Retención de datos",
+          "text": "0 conserva los datos."
+        },
+        "more": {
+          "title": "Más ajustes",
+          "text": "Otros ajustes de este grupo."
+        }
       }
     },
     "providers": {
-      "intro": "Los proveedores se guardan en el archivo de ajustes tras las mismas comprobaciones que al arrancar y se aplican tras reiniciar. Los secretos nunca se muestran: déjelos vacíos para conservar el valor actual.",
+      "intro": "Los valores del entorno son de solo lectura. Los proveedores guardados se aplican tras reiniciar; los secretos nunca se muestran.",
       "email": "Correo",
       "captcha": "Verificación humana",
       "storage": "Almacenamiento de archivos",
@@ -1302,7 +1369,6 @@
       "secretSet": "Configurado: escriba para reemplazar",
       "secretEmpty": "Sin configurar",
       "test": "Probar sin guardar",
-      "testEmail": "Enviarme un correo de prueba",
       "outcomes": {
         "saved": "Guardado. Reinicie el servidor para aplicarlo.",
         "sent": "Se envió el correo de prueba a su dirección.",
@@ -1344,7 +1410,57 @@
         "Search_OpenSearch_Username": "Usuario",
         "Search_OpenSearch_Password": "Contraseña"
       },
-      "search": "Búsqueda de mensajes"
+      "search": "Búsqueda de mensajes",
+      "subtitle": "Revise los servicios que usa esta instalación.",
+      "selected": "Proveedor elegido",
+      "notConfigured": "Sin configurar",
+      "none": "Ninguno",
+      "configure": "Configurar",
+      "configureNamed": "Configurar {{name}}",
+      "notTested": "Sin probar",
+      "databaseState": "Elegida en la instalación",
+      "databaseTitle": "Configuración de la base de datos",
+      "databaseText": "Revise la base de datos que usa esta instalación.",
+      "currentProvider": "Proveedor actual",
+      "connection": "Configuración de la conexión",
+      "hidden": "Los valores sensibles están ocultos.",
+      "databaseSetup": "La base de datos se elige durante la instalación y se guarda en el archivo de configuración; cambiarla requiere una migración.",
+      "connectionCheck": "Comprobación de la conexión",
+      "databaseAnswered": "La base de datos respondió",
+      "databaseAnsweredText": "Esta página leyó sus cifras de la base de datos al abrirse.",
+      "lastChecked": "Última comprobación",
+      "configurationOf": "Configuración de {{name}}",
+      "texts": {
+        "email": "Envíe correos de verificación, de restablecimiento de contraseña y notificaciones.",
+        "captcha": "Proteja el registro y la recuperación de cuentas frente a abusos automatizados.",
+        "storage": "Dónde se guardan los archivos subidos.",
+        "scanning": "Analice los archivos subidos antes de que alguien pueda descargarlos.",
+        "search": "Dónde se indexan los mensajes para la búsqueda."
+      },
+      "sections": {
+        "Smtp": "Conexión SMTP",
+        "Postmark": "Postmark",
+        "Turnstile": "Turnstile",
+        "Local": "Carpeta local",
+        "S3": "Almacenamiento S3",
+        "ClamAv": "ClamAV",
+        "OpenSearch": "OpenSearch"
+      },
+      "saveConfiguration": "Guardar la configuración",
+      "testTitle": "Prueba",
+      "testEmailTitle": "Correo de prueba",
+      "testHint": "Pruebe los valores de arriba, guardados o no.",
+      "testEmailHint": "Envíe un correo de prueba con los valores de arriba, guardados o no.",
+      "recipient": "Destinatario",
+      "recipientHint": "Los correos de prueba se envían a su propia dirección.",
+      "sendTest": "Enviar correo de prueba",
+      "lastTest": "Última prueba",
+      "deliveryTitle": "Estado de entrega",
+      "deliveryText": "La prueba confirma que el proveedor aceptó el correo, no que llegara a la bandeja.",
+      "noMigration": "Cambiar de proveedor no migra los datos existentes.",
+      "scanningOffTitle": "El análisis antimalware está desactivado",
+      "scanningOffText": "Active un proveedor para analizar los archivos subidos.",
+      "reviewScanning": "Revisar el análisis"
     },
     "errors": {
       "setting_locked": "Este valor lo fija el entorno.",
@@ -1357,12 +1473,11 @@
       "value_invalid": "Este valor no es válido."
     },
     "audit": {
-      "intro": "Eventos administrativos y de seguridad. Nunca se registran textos de mensajes, archivos, contraseñas ni secretos.",
+      "intro": "Se excluyen el contenido de los mensajes, los archivos, las contraseñas y los secretos.",
       "action": "Acción",
-      "actionPlaceholder": "Acción, p. ej. auth. o admin.user.disabled",
       "outcome": "Resultado",
       "outcomes": {
-        "all": "Todos los resultados",
+        "all": "Resultado: todos",
         "success": "Correctos",
         "failure": "Fallidos"
       },
@@ -1373,7 +1488,56 @@
       "failed": "fallido",
       "deletedUser": "Cuenta eliminada",
       "anonymous": "Anónimo",
-      "more": "Entradas anteriores"
+      "subtitle": "Eventos de administración y seguridad de esta instalación.",
+      "searchLabel": "Buscar en el registro",
+      "searchPlaceholder": "Buscar acciones, autores u objetivos",
+      "categories": {
+        "all": "Acción: todas",
+        "auth": "Acceso y cuentas",
+        "contacts": "Contactos",
+        "admin_user": "Administración de usuarios",
+        "admin_organization": "Administración de organizaciones",
+        "organization": "Organizaciones",
+        "admin_settings": "Configuración",
+        "admin_provider": "Proveedores",
+        "admin_demo_data": "Datos de demostración",
+        "admin_search": "Índice de búsqueda",
+        "retention": "Retención"
+      },
+      "dates": "Fechas",
+      "anyTime": "Cualquier fecha",
+      "refresh": "Actualizar",
+      "event": "Evento",
+      "installation": "Instalación",
+      "showDetails": "Ver detalles",
+      "hideDetails": "Ocultar detalles",
+      "targetType": "Tipo de objetivo",
+      "targetId": "Identificador del objetivo",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "source": "Dirección de origen",
+      "additional": "Detalles adicionales",
+      "noDetails": "Sin datos adicionales",
+      "retention_one": "Retención de auditoría: {{count}} día",
+      "retention_other": "Retención de auditoría: {{count}} días",
+      "manageRetention": "Gestionar la retención",
+      "actions": {
+        "auth_sign_in": "Inicio de sesión",
+        "auth_sign_out": "Cierre de sesión",
+        "auth_registered": "Cuenta creada",
+        "auth_email_confirmed": "Correo confirmado",
+        "auth_password_changed": "Contraseña cambiada",
+        "auth_password_reset": "Contraseña restablecida",
+        "auth_session_revoked": "Sesión cerrada",
+        "auth_other_sessions_revoked": "Otras sesiones cerradas",
+        "auth_account_deleted": "Cuenta eliminada",
+        "admin_settings_changed": "Configuración cambiada",
+        "admin_provider_changed": "Proveedor cambiado",
+        "admin_provider_tested": "Proveedor probado",
+        "admin_demo_data_populated": "Datos de demostración cargados",
+        "admin_demo_data_cleared": "Datos de demostración borrados",
+        "retention_applied": "Retención aplicada"
+      }
     },
     "searchIndex": {
       "title": "Índice de búsqueda",
@@ -1383,7 +1547,9 @@
       "rebuild": "Reconstruir el índice",
       "rebuildConfirm": "¿Vaciar el índice de búsqueda e indexar de nuevo todos los mensajes? Los resultados estarán incompletos hasta que termine.",
       "rebuilt_one": "{{count}} mensaje en cola para indexar.",
-      "rebuilt_other": "{{count}} mensajes en cola para indexar."
+      "rebuilt_other": "{{count}} mensajes en cola para indexar.",
+      "pending_one": "{{count}} cambio pendiente",
+      "pending_other": "{{count}} cambios pendientes"
     },
     "subtitle": "Gestione el acceso, las organizaciones y la configuración de la instalación.",
     "sortLabel": "Orden",
@@ -1398,7 +1564,27 @@
       "users_one": "Mostrando {{from}}–{{to}} de {{count}} usuario",
       "users_other": "Mostrando {{from}}–{{to}} de {{count}} usuarios",
       "organizations_one": "Mostrando {{from}}–{{to}} de {{count}} organización",
-      "organizations_other": "Mostrando {{from}}–{{to}} de {{count}} organizaciones"
+      "organizations_other": "Mostrando {{from}}–{{to}} de {{count}} organizaciones",
+      "events_one": "Mostrando {{from}}–{{to}} de {{count}} evento",
+      "events_other": "Mostrando {{from}}–{{to}} de {{count}} eventos"
+    },
+    "discard": "Descartar",
+    "units": {
+      "seconds": "segundos",
+      "days": "días",
+      "characters": "caracteres",
+      "files": "archivos",
+      "members": "miembros"
+    },
+    "duration": {
+      "seconds_one": "{{count}} segundo",
+      "seconds_other": "{{count}} segundos",
+      "minutes_one": "{{count}} minuto",
+      "minutes_other": "{{count}} minutos",
+      "hours_one": "{{count}} hora",
+      "hours_other": "{{count}} horas",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días"
     }
   },
   "widgets": {

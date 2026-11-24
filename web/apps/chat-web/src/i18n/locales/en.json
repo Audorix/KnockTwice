@@ -1251,14 +1251,14 @@
       "audit_read": "Read audit log"
     },
     "settings": {
-      "intro": "These settings apply immediately, on every server. Values set by the environment or the command line are locked.",
+      "intro": "Saved changes apply immediately on every server. Environment and command-line values are locked.",
       "saved": "Saved. The new settings apply now.",
       "groups": {
-        "access": "Sign-up and access",
+        "access": "Sign-up & access",
         "features": "Features",
         "limits": "Limits",
         "localization": "Languages",
-        "audit": "Audit log",
+        "audit": "Audit retention",
         "retention": "Data retention"
       },
       "keys": {
@@ -1268,18 +1268,18 @@
         "Discovery_AllowOrganizationDirectory": "People can search colleagues by name",
         "PrivateChats_Enabled": "Private chats",
         "Attachments_Enabled": "File attachments",
-        "Attachments_MaxFileSize": "Largest attachment",
+        "Attachments_MaxFileSize": "Maximum file size",
         "Attachments_MaxPerMessage": "Attachments per message",
-        "Attachments_UserQuota": "Attachment storage per person (0 = unlimited)",
+        "Attachments_UserQuota": "Storage per person",
         "Attachments_AllowedExtensions": "Allowed file types",
-        "Messaging_MaxLength": "Longest message (characters)",
-        "Messaging_EditWindow": "Time to edit a message",
-        "Conversations_MaxGroupParticipants": "Largest group",
-        "PrivateChats_MaxFileSize": "Largest file in a private chat",
-        "PrivateChats_MaxBytesPerChat": "File memory per private chat",
+        "Messaging_MaxLength": "Maximum message length",
+        "Messaging_EditWindow": "Message editing window",
+        "Conversations_MaxGroupParticipants": "Maximum group size",
+        "PrivateChats_MaxFileSize": "Maximum file size",
+        "PrivateChats_MaxBytesPerChat": "File memory per chat",
         "Localization_DefaultLanguage": "Default language",
         "Localization_SupportedLanguages": "Available languages",
-        "Audit_RetentionDays": "Keep audit records (days)",
+        "Audit_RetentionDays": "Keep audit records",
         "Widgets_Enabled": "Website chat",
         "Retention_VisitorInactiveDays": "Delete anonymous website visitors inactive for (days, 0 = never)",
         "Retention_UnconfirmedAccountDays": "Delete accounts never confirmed after (days, 0 = never)",
@@ -1288,12 +1288,79 @@
         "Search_Enabled": "Message search",
         "Notifications_EmailEnabled": "Email notifications",
         "Notifications_PushEnabled": "Push notifications",
-        "Notifications_EmailDelay": "Email only after a message stayed unread for",
-        "Notifications_EmailInterval": "At most one notification email per"
+        "Notifications_EmailDelay": "Unread email delay",
+        "Notifications_EmailInterval": "Minimum email interval"
+      },
+      "subtitle": "Installation-wide preferences and limits.",
+      "viewSources": "View setting sources",
+      "hideSources": "Hide setting sources",
+      "groupsLabel": "Setting groups",
+      "find": "Find a setting",
+      "results": "Matching settings",
+      "zeroUnlimited": "0 means unlimited",
+      "extensionsCount_one": "{{count}} type allowed",
+      "extensionsCount_other": "{{count}} types allowed",
+      "unsaved_one": "{{count}} unsaved change",
+      "unsaved_other": "{{count}} unsaved changes",
+      "noChanges": "No unsaved changes",
+      "lockedNote": "Locked values must be changed at their configuration source.",
+      "groupText": {
+        "access": "Who can join and how people find each other.",
+        "features": "Switch parts of ChatX on or off for everyone.",
+        "limits": "Set message, attachment and private chat limits for this installation.",
+        "localization": "Languages people can choose and the default one.",
+        "audit": "How long administrative and security events are kept.",
+        "retention": "Remove old data automatically."
+      },
+      "sections": {
+        "signup": {
+          "title": "Sign-up",
+          "text": "Account creation and organizations."
+        },
+        "discovery": {
+          "title": "Finding people",
+          "text": "How people can look each other up."
+        },
+        "features": {
+          "title": "Features",
+          "text": "Available to everyone on this installation."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "text": "Email and push notifications."
+        },
+        "messages": {
+          "title": "Messages & notifications",
+          "text": "Control message size, editing window and email notification timing."
+        },
+        "attachments": {
+          "title": "Attachments",
+          "text": "Limit file sizes, attachment counts and storage usage."
+        },
+        "privateChats": {
+          "title": "Private chats",
+          "text": "Limits for file attachments and memory usage in private chats."
+        },
+        "languages": {
+          "title": "Languages",
+          "text": "The interface languages."
+        },
+        "audit": {
+          "title": "Audit log",
+          "text": "Older entries are removed automatically."
+        },
+        "retention": {
+          "title": "Data retention",
+          "text": "0 keeps the data."
+        },
+        "more": {
+          "title": "More settings",
+          "text": "Other settings of this group."
+        }
       }
     },
     "providers": {
-      "intro": "Providers are saved to the settings file after the same checks as at startup, and apply after a restart. Secrets are never shown: leave them empty to keep the current value.",
+      "intro": "Values managed by environment configuration are read-only. Saved providers apply after a restart; secrets are never shown.",
       "email": "Email",
       "captcha": "Human verification",
       "storage": "File storage",
@@ -1302,7 +1369,6 @@
       "secretSet": "Set — type to replace",
       "secretEmpty": "Not set",
       "test": "Test without saving",
-      "testEmail": "Send me a test email",
       "outcomes": {
         "saved": "Saved. Restart the server to apply it.",
         "sent": "The test email was sent to your address.",
@@ -1344,7 +1410,57 @@
         "Search_OpenSearch_Username": "User name",
         "Search_OpenSearch_Password": "Password"
       },
-      "search": "Message search"
+      "search": "Message search",
+      "subtitle": "Review the services used by this installation.",
+      "selected": "Selected provider",
+      "notConfigured": "Not configured",
+      "none": "None",
+      "configure": "Configure",
+      "configureNamed": "Configure {{name}}",
+      "notTested": "Not tested",
+      "databaseState": "Set during setup",
+      "databaseTitle": "Database configuration",
+      "databaseText": "Review the database this installation uses.",
+      "currentProvider": "Current provider",
+      "connection": "Connection configuration",
+      "hidden": "Sensitive values are hidden.",
+      "databaseSetup": "The database is chosen during setup and kept in the settings file; moving to another one needs a migration.",
+      "connectionCheck": "Connection check",
+      "databaseAnswered": "The database answered",
+      "databaseAnsweredText": "This page read its figures from the database when it opened.",
+      "lastChecked": "Last checked",
+      "configurationOf": "{{name}} configuration",
+      "texts": {
+        "email": "Send verification emails, password resets and message notifications.",
+        "captcha": "Protect sign-up and account recovery from automated abuse.",
+        "storage": "Where uploaded files are kept.",
+        "scanning": "Check uploaded files for malware before anyone can download them.",
+        "search": "Where messages are indexed for search."
+      },
+      "sections": {
+        "Smtp": "SMTP connection",
+        "Postmark": "Postmark",
+        "Turnstile": "Turnstile",
+        "Local": "Local folder",
+        "S3": "S3 storage",
+        "ClamAv": "ClamAV",
+        "OpenSearch": "OpenSearch"
+      },
+      "saveConfiguration": "Save configuration",
+      "testTitle": "Test",
+      "testEmailTitle": "Test email",
+      "testHint": "Test the settings above, saved or not.",
+      "testEmailHint": "Send a test email with the settings above, saved or not.",
+      "recipient": "Recipient email",
+      "recipientHint": "Test emails go to your own address.",
+      "sendTest": "Send test email",
+      "lastTest": "Last test",
+      "deliveryTitle": "Delivery status",
+      "deliveryText": "Test results confirm provider acceptance, not inbox delivery.",
+      "noMigration": "Changing a provider does not migrate existing data.",
+      "scanningOffTitle": "Malware scanning is disabled",
+      "scanningOffText": "Enable a scanning provider to check uploaded files.",
+      "reviewScanning": "Review scanning"
     },
     "errors": {
       "setting_locked": "This value is set by the environment.",
@@ -1357,12 +1473,11 @@
       "value_invalid": "This value is not valid."
     },
     "audit": {
-      "intro": "Administrative and security events. Message text, files, passwords and secrets are never recorded.",
+      "intro": "Message content, files, passwords and secrets are excluded.",
       "action": "Action",
-      "actionPlaceholder": "Action, e.g. auth. or admin.user.disabled",
       "outcome": "Outcome",
       "outcomes": {
-        "all": "All outcomes",
+        "all": "Outcome: All",
         "success": "Succeeded",
         "failure": "Failed"
       },
@@ -1373,7 +1488,56 @@
       "failed": "failed",
       "deletedUser": "Removed account",
       "anonymous": "Anonymous",
-      "more": "Older entries"
+      "subtitle": "Administrative and security events across this installation.",
+      "searchLabel": "Search the audit log",
+      "searchPlaceholder": "Search actions, actors or targets",
+      "categories": {
+        "all": "Action: All",
+        "auth": "Sign-in & accounts",
+        "contacts": "Contacts",
+        "admin_user": "User administration",
+        "admin_organization": "Organization administration",
+        "organization": "Organizations",
+        "admin_settings": "Settings",
+        "admin_provider": "Providers",
+        "admin_demo_data": "Demo data",
+        "admin_search": "Search index",
+        "retention": "Retention"
+      },
+      "dates": "Dates",
+      "anyTime": "Any time",
+      "refresh": "Refresh",
+      "event": "Event",
+      "installation": "Installation",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "targetType": "Target type",
+      "targetId": "Target identifier",
+      "copy": "Copy",
+      "copied": "Copied",
+      "source": "Source address",
+      "additional": "Additional details",
+      "noDetails": "No additional metadata",
+      "retention_one": "Audit retention: {{count}} day",
+      "retention_other": "Audit retention: {{count}} days",
+      "manageRetention": "Manage retention",
+      "actions": {
+        "auth_sign_in": "Sign-in",
+        "auth_sign_out": "Sign-out",
+        "auth_registered": "Account created",
+        "auth_email_confirmed": "Email confirmed",
+        "auth_password_changed": "Password changed",
+        "auth_password_reset": "Password reset",
+        "auth_session_revoked": "Session ended",
+        "auth_other_sessions_revoked": "Other sessions ended",
+        "auth_account_deleted": "Account deleted",
+        "admin_settings_changed": "Settings changed",
+        "admin_provider_changed": "Provider changed",
+        "admin_provider_tested": "Provider tested",
+        "admin_demo_data_populated": "Demo data populated",
+        "admin_demo_data_cleared": "Demo data cleared",
+        "retention_applied": "Retention applied"
+      }
     },
     "searchIndex": {
       "title": "Search index",
@@ -1383,7 +1547,9 @@
       "rebuild": "Rebuild index",
       "rebuildConfirm": "Empty the search index and index every message again? Search results are incomplete until it finishes.",
       "rebuilt_one": "{{count}} message queued for indexing.",
-      "rebuilt_other": "{{count}} messages queued for indexing."
+      "rebuilt_other": "{{count}} messages queued for indexing.",
+      "pending_one": "{{count}} change waiting",
+      "pending_other": "{{count}} changes waiting"
     },
     "subtitle": "Manage access, organizations and installation settings.",
     "sortLabel": "Sort",
@@ -1398,7 +1564,27 @@
       "users_one": "Showing {{from}}–{{to}} of {{count}} user",
       "users_other": "Showing {{from}}–{{to}} of {{count}} users",
       "organizations_one": "Showing {{from}}–{{to}} of {{count}} organization",
-      "organizations_other": "Showing {{from}}–{{to}} of {{count}} organizations"
+      "organizations_other": "Showing {{from}}–{{to}} of {{count}} organizations",
+      "events_one": "Showing {{from}}–{{to}} of {{count}} event",
+      "events_other": "Showing {{from}}–{{to}} of {{count}} events"
+    },
+    "discard": "Discard",
+    "units": {
+      "seconds": "seconds",
+      "days": "days",
+      "characters": "characters",
+      "files": "files",
+      "members": "members"
+    },
+    "duration": {
+      "seconds_one": "{{count}} second",
+      "seconds_other": "{{count}} seconds",
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes",
+      "hours_one": "{{count}} hour",
+      "hours_other": "{{count}} hours",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days"
     }
   },
   "widgets": {

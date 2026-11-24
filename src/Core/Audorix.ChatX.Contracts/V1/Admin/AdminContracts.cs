@@ -45,7 +45,8 @@ public sealed record AuditEntryResponse(
     string? IpAddress, string? Details);
 
 /// <param name="NextBefore">Pass as <c>before</c> for older entries; null at the end.</param>
-public sealed record AuditPageResponse(IReadOnlyList<AuditEntryResponse> Items, DateTimeOffset? NextBefore);
+/// <param name="Total">Redesign 2026-11: how many entries match the filters (for page numbers with <c>skip</c>).</param>
+public sealed record AuditPageResponse(IReadOnlyList<AuditEntryResponse> Items, DateTimeOffset? NextBefore, int? Total = null);
 
 /// <summary>A live setting (database layer).</summary>
 /// <param name="Kind"><c>boolean</c>, <c>integer</c>, <c>bytes</c>, <c>duration</c> (seconds), <c>choice</c>, <c>languages</c> or <c>extensions</c>.</param>

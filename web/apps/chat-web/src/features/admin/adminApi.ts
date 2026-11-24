@@ -67,7 +67,7 @@ export type SettingKind = 'boolean' | 'integer' | 'bytes' | 'duration' | 'choice
 
 export interface RuntimeSetting {
   key: string;
-  group: 'access' | 'features' | 'limits' | 'localization' | 'audit';
+  group: 'access' | 'features' | 'limits' | 'localization' | 'audit' | 'retention';
   kind: SettingKind;
   value: boolean | number | string | string[] | null;
   source: string;
@@ -88,7 +88,7 @@ export interface ProviderField {
 }
 
 export interface ProviderGroup {
-  name: 'email' | 'captcha' | 'storage' | 'scanning';
+  name: 'email' | 'captcha' | 'storage' | 'scanning' | 'search';
   restartRequired: boolean;
   fields: ProviderField[];
 }
@@ -160,7 +160,13 @@ export const getSearchStatus = async () =>
 /** Empties the search index and indexes every message again. */
 export const rebuildSearchIndex = async () => (await sendJson<{ queued: number }>('POST', '/api/v1/admin/search/rebuild'))!;
 
-export const getAudit = async (filters: { action?: string; succeeded?: boolean | null; before?: string | null }) =>
-  (await getJson<{ items: AuditEntry[]; nextBefore: string | null }>(
-    `/api/v1/admin/audit${q({ action: filters.action, succeeded: filters.succeeded ?? null, before: filters.before ?? null, limit: 50 })}`,
+/** One page of the audit log with its total (redesign 2026-11): search, action prefix, outcome, dates, order. */
+export const getAuditPage = async (filters: {
+  q: string; action: string; succeeded: boolean | null; from: string | null; to: string | null; order: 'newest' | 'oldest'; skip: number; take: number;
+}) =>
+  (await getJson<{ items: AuditEntry[]; nextBefore: string | null; total: number | null }>(
+    `/api/v1/admin/audit${q({
+      q: filters.q, action: filters.action, succeeded: filters.succeeded, from: filters.from, to: filters.to,
+      order: filters.order === 'oldest' ? 'oldest' : null, skip: filters.skip, limit: filters.take,
+    })}`,
   )).body!;

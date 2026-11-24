@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from '../../app/router';
@@ -110,18 +110,6 @@ function useLoad<T>(load: () => Promise<T>, deps: readonly unknown[]) {
   }, deps);
   useEffect(reload, [reload]);
   return { data, setData, error, setError, reload };
-}
-
-function Section({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
-  return (
-    <section className="cx-card">
-      <div className="cx-card-header">
-        <h2 className="cx-card-title">{title}</h2>
-        {actions}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 function Loading() {
@@ -919,13 +907,69 @@ function Granted({ granted }: { granted: boolean }) {
 
 // ---- Live settings ---------------------------------------------------------------------------
 
-const settingGroups = ['access', 'features', 'limits', 'localization', 'audit'] as const;
+const settingGroups = ['access', 'features', 'limits', 'localization', 'audit', 'retention'] as const;
+type SettingGroup = (typeof settingGroups)[number];
+
+const groupIcons: Record<SettingGroup, NavIconName> = {
+  access: 'user', features: 'grid', limits: 'layers', localization: 'globe', audit: 'list', retention: 'clock',
+};
+
+/** How each group's settings are arranged in cards (redesign 2026-11-24); unknown keys land in a last card. */
+const settingSections: Record<SettingGroup, { key: string; icon: NavIconName; settings: string[] }[]> = {
+  access: [
+    { key: 'signup', icon: 'door', settings: ['Identity:RegistrationMode', 'Organizations:AllowCreation'] },
+    { key: 'discovery', icon: 'search', settings: ['Discovery:AllowEmailLookup', 'Discovery:AllowOrganizationDirectory'] },
+  ],
+  features: [
+    { key: 'features', icon: 'grid', settings: ['PrivateChats:Enabled', 'Attachments:Enabled', 'Widgets:Enabled', 'Search:Enabled'] },
+    { key: 'notifications', icon: 'bell', settings: ['Notifications:EmailEnabled', 'Notifications:PushEnabled'] },
+  ],
+  limits: [
+    { key: 'messages', icon: 'message', settings: ['Messaging:MaxLength', 'Messaging:EditWindow', 'Notifications:EmailDelay', 'Notifications:EmailInterval'] },
+    {
+      key: 'attachments',
+      icon: 'clip',
+      settings: ['Attachments:MaxFileSize', 'Attachments:MaxPerMessage', 'Attachments:UserQuota', 'Conversations:MaxGroupParticipants', 'Attachments:AllowedExtensions'],
+    },
+    { key: 'privateChats', icon: 'lock', settings: ['PrivateChats:MaxFileSize', 'PrivateChats:MaxBytesPerChat'] },
+  ],
+  localization: [{ key: 'languages', icon: 'globe', settings: ['Localization:DefaultLanguage', 'Localization:SupportedLanguages'] }],
+  audit: [{ key: 'audit', icon: 'list', settings: ['Audit:RetentionDays'] }],
+  retention: [
+    { key: 'retention', icon: 'clock', settings: ['Retention:MessageDays', 'Retention:ClosedSessionDays', 'Retention:UnconfirmedAccountDays', 'Retention:VisitorInactiveDays'] },
+  ],
+};
+
+/** The unit shown after a number: from the kind, or for counts from the setting. */
+function unitOf(setting: api.RuntimeSetting, t: TFunction): string | null {
+  if (setting.kind === 'bytes') return 'MB';
+  if (setting.kind === 'duration') return t('admin.units.seconds');
+  if (setting.kind !== 'integer') return null;
+  if (setting.key.endsWith('Days')) return t('admin.units.days');
+  const units: Record<string, string> = {
+    'Messaging:MaxLength': 'characters', 'Attachments:MaxPerMessage': 'files', 'Conversations:MaxGroupParticipants': 'members',
+  };
+  return units[setting.key] ? t(`admin.units.${units[setting.key]}`) : null;
+}
+
+/** "15 minutes", "1 hour", "2 days" for a number of seconds. */
+function humanDuration(seconds: number, t: TFunction): string {
+  if (seconds > 0 && seconds % 86400 === 0) return t('admin.duration.days', { count: seconds / 86400 });
+  if (seconds > 0 && seconds % 3600 === 0) return t('admin.duration.hours', { count: seconds / 3600 });
+  if (seconds > 0 && seconds % 60 === 0) return t('admin.duration.minutes', { count: seconds / 60 });
+  return t('admin.duration.seconds', { count: seconds });
+}
 
 function Settings({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation();
+  const { query } = useLocation();
+  const requested = query.get('group') as SettingGroup | null;
   const { data, setData, error, setError } = useLoad(api.getSettings, []);
+  const [group, setGroup] = useState<SettingGroup>(requested && settingGroups.includes(requested) ? requested : 'access');
+  const [find, setFind] = useState('');
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [saved, setSaved] = useState(false);
+  const [showSources, setShowSources] = useState(true);
   const [details, setDetails] = useState<readonly string[]>([]);
 
   const save = async (values: Record<string, unknown>) => {
@@ -942,52 +986,117 @@ function Settings({ canManage }: { canManage: boolean }) {
     }
   };
 
-  const changed = Object.keys(draft).length > 0;
+  const label = (s: api.RuntimeSetting) => t(`admin.settings.keys.${s.key.replace(/:/g, '_')}`);
+  const term = find.trim().toLocaleLowerCase();
+  const available = settingGroups.filter((g) => data?.some((s) => s.group === g));
+  const current = available.includes(group) ? group : available[0] ?? group;
+  const changes = Object.keys(draft).length;
+  const field = (setting: api.RuntimeSetting) => (
+    <SettingRow
+      key={setting.key}
+      setting={setting}
+      value={setting.key in draft ? draft[setting.key] : setting.value}
+      disabled={!canManage || setting.locked}
+      showSource={showSources}
+      fieldErrors={error instanceof ApiError ? error.fieldErrors[setting.key] ?? [] : []}
+      onChange={(value) => {
+        setSaved(false);
+        setDraft((d) => ({ ...d, [setting.key]: value }));
+      }}
+      onReset={canManage && setting.source === 'database' ? () => void save({ [setting.key]: null }) : undefined}
+    />
+  );
+
+  const sectionsOf = (g: SettingGroup) => {
+    if (!data) return [];
+    const inGroup = data.filter((s) => s.group === g);
+    const placed = new Set(settingSections[g].flatMap((s) => s.settings));
+    const sections = settingSections[g].map((section) => ({ ...section, items: section.settings.map((k) => inGroup.find((s) => s.key === k)).filter((s): s is api.RuntimeSetting => !!s) }));
+    const rest = inGroup.filter((s) => !placed.has(s.key));
+    if (rest.length > 0) sections.push({ key: 'more', icon: 'sliders', settings: [], items: rest });
+    return sections.filter((s) => s.items.length > 0);
+  };
+
   return (
-    <Section
-      title={t('admin.tabs.settings')}
-      actions={
-        canManage && (
-          <button type="button" className="btn btn-primary btn-sm" disabled={!changed} onClick={() => void save(draft)}>
-            {t('admin.save')}
+    <section className="cx-card cx-admin-panel cx-admin-settings" aria-labelledby="admin-settings-title">
+      <SectionHeading
+        id="admin-settings-title"
+        title={t('admin.tabs.settings')}
+        subtitle={t('admin.settings.subtitle')}
+        actions={(
+          <button type="button" className="btn btn-link cx-admin-link p-0" aria-pressed={showSources} onClick={() => setShowSources((v) => !v)}>
+            {t(showSources ? 'admin.settings.hideSources' : 'admin.settings.viewSources')}
           </button>
-        )
-      }
-    >
-      <p className="cx-muted">{t('admin.settings.intro')}</p>
-      {saved && <FormAlert tone="success">{t('admin.settings.saved')}</FormAlert>}
+        )}
+      />
+      <p className="cx-admin-note"><NavIcon name="info" size={18} />{t('admin.settings.intro')}</p>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {details.length > 0 && (
         <ul className="text-danger small">
-          {details.map((d) => (
-            <li key={d}>{d}</li>
-          ))}
+          {details.map((d) => <li key={d}>{d}</li>)}
         </ul>
       )}
       {!data ? (
-        <Loading />
+        error === null && <Loading />
       ) : (
-        settingGroups.map((group) => (
-          <fieldset key={group} className="cx-admin-group">
-            <legend>{t(`admin.settings.groups.${group}`)}</legend>
-            {data.filter((s) => s.group === group).map((setting) => (
-              <SettingRow
-                key={setting.key}
-                setting={setting}
-                value={setting.key in draft ? draft[setting.key] : setting.value}
-                disabled={!canManage || setting.locked}
-                fieldErrors={error instanceof ApiError ? error.fieldErrors[setting.key] ?? [] : []}
-                onChange={(value) => {
-                  setSaved(false);
-                  setDraft((d) => ({ ...d, [setting.key]: value }));
-                }}
-                onReset={canManage && setting.source === 'database' ? () => void save({ [setting.key]: null }) : undefined}
-              />
+        <div className="cx-admin-settings-layout">
+          <nav className="cx-admin-settings-nav" aria-label={t('admin.settings.groupsLabel')}>
+            <label className="cx-search-field">
+              <NavIcon name="search" size={18} />
+              <span className="visually-hidden">{t('admin.settings.find')}</span>
+              <input type="search" className="form-control" placeholder={t('admin.settings.find')} value={find} onChange={(e) => setFind(e.target.value)} />
+            </label>
+            {available.map((g) => (
+              <button key={g} type="button" className={`cx-admin-settings-group${g === current && !term ? ' is-active' : ''}`} aria-current={g === current && !term ? 'true' : undefined}
+                onClick={() => { setFind(''); setGroup(g); }}>
+                <NavIcon name={groupIcons[g]} size={20} />
+                {t(`admin.settings.groups.${g}`)}
+              </button>
             ))}
-          </fieldset>
-        ))
+          </nav>
+          <div className="cx-admin-settings-body">
+            {term ? (
+              <>
+                <h3 className="cx-admin-group-title">{t('admin.settings.results')}</h3>
+                {data.filter((s) => label(s).toLocaleLowerCase().includes(term)).length === 0 ? (
+                  <p className="cx-muted">{t('admin.none')}</p>
+                ) : (
+                  <div className="cx-admin-setting-card"><div className="cx-admin-setting-grid">{data.filter((s) => label(s).toLocaleLowerCase().includes(term)).map(field)}</div></div>
+                )}
+              </>
+            ) : (
+              <>
+                <h3 className="cx-admin-group-title">{t(`admin.settings.groups.${current}`)}</h3>
+                <p className="cx-muted">{t(`admin.settings.groupText.${current}`)}</p>
+                {sectionsOf(current).map((section) => (
+                  <fieldset key={section.key} className="cx-admin-setting-card">
+                    <legend className="cx-admin-setting-card-head">
+                      <NavIcon name={section.icon} size={24} />
+                      <span>
+                        <strong className="d-block">{t(`admin.settings.sections.${section.key}.title`)}</strong>
+                        <span className="cx-muted small">{t(`admin.settings.sections.${section.key}.text`)}</span>
+                      </span>
+                    </legend>
+                    <div className="cx-admin-setting-grid">{section.items.map(field)}</div>
+                  </fieldset>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
       )}
-    </Section>
+      {canManage && data && (
+        <div className="cx-admin-savebar" role="status">
+          <span className="cx-admin-savebar-state">
+            <NavIcon name={changes > 0 ? 'edit' : 'check'} size={20} />
+            {saved && changes === 0 ? t('admin.settings.saved') : changes > 0 ? t('admin.settings.unsaved', { count: changes }) : t('admin.settings.noChanges')}
+          </span>
+          <button type="button" className="btn btn-outline-secondary" disabled={changes === 0} onClick={() => { setDraft({}); setError(null); }}>{t('admin.discard')}</button>
+          <button type="button" className="btn btn-primary" disabled={changes === 0} onClick={() => void save(draft)}>{t('admin.save')}</button>
+        </div>
+      )}
+      <p className="cx-admin-footnote cx-muted">{t('admin.settings.lockedNote')}</p>
+    </section>
   );
 }
 
@@ -995,6 +1104,7 @@ function SettingRow({
   setting,
   value,
   disabled,
+  showSource,
   fieldErrors,
   onChange,
   onReset,
@@ -1002,6 +1112,7 @@ function SettingRow({
   setting: api.RuntimeSetting;
   value: unknown;
   disabled: boolean;
+  showSource: boolean;
   fieldErrors: readonly string[];
   onChange: (value: unknown) => void;
   onReset: (() => void) | undefined;
@@ -1009,7 +1120,13 @@ function SettingRow({
   const { t, i18n } = useTranslation();
   const id = `setting-${setting.key.replace(/:/g, '-')}`;
   const label = t(`admin.settings.keys.${setting.key.replace(/:/g, '_')}`);
-  const hint = setting.locked ? t('admin.lockedHint', { source: t(`admin.sources.${setting.source}`) }) : t(`admin.sources.${setting.source}`);
+  const source = setting.locked ? t('admin.lockedHint', { source: t(`admin.sources.${setting.source}`) }) : t(`admin.sources.${setting.source}`);
+  const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+  const extra = setting.kind === 'duration'
+    ? humanDuration(numeric, t)
+    : setting.kind === 'bytes' && numeric === 0 && setting.min === 0
+      ? t('admin.settings.zeroUnlimited')
+      : setting.kind === 'bytes' ? formatBytes(numeric, i18n.language) : null;
 
   let control: ReactNode;
   switch (setting.kind) {
@@ -1017,47 +1134,46 @@ function SettingRow({
       control = (
         <div className="form-check form-switch">
           <input id={id} className="form-check-input" type="checkbox" role="switch" checked={Boolean(value)} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-          <label className="form-check-label" htmlFor={id}>
-            {label}
-          </label>
+          <label className="form-check-label" htmlFor={id}>{label}</label>
         </div>
       );
       break;
     case 'choice':
       control = (
         <select id={id} className="form-select" value={String(value ?? '')} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-          {setting.choices?.map((c) => (
-            <option key={c} value={c}>
-              {t(`admin.choices.${c}`, { defaultValue: c })}
-            </option>
-          ))}
+          {setting.choices?.map((c) => <option key={c} value={c}>{t(`admin.choices.${c}`, { defaultValue: c })}</option>)}
         </select>
       );
       break;
     case 'languages':
     case 'extensions': {
       const list = Array.isArray(value) ? (value as string[]) : [];
-      control = (
+      const checks = (
         <div className="cx-admin-checks" role="group" aria-labelledby={`${id}-label`}>
           {setting.choices?.map((c) => (
             <label key={c} className="form-check form-check-inline">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                checked={list.includes(c)}
-                disabled={disabled}
-                onChange={(e) => onChange(e.target.checked ? [...list, c] : list.filter((x) => x !== c))}
-              />
+              <input className="form-check-input" type="checkbox" checked={list.includes(c)} disabled={disabled}
+                onChange={(e) => onChange(e.target.checked ? [...list, c] : list.filter((x) => x !== c))} />
               <span className="form-check-label">{setting.kind === 'languages' ? t(`language.${c}`) : c}</span>
             </label>
           ))}
         </div>
       );
+      control = setting.kind === 'extensions' ? (
+        <details className="cx-admin-extensions">
+          <summary>
+            <NavIcon name="chevron-down" size={18} />
+            <span id={`${id}-label`}>{label}</span>
+            <span className="cx-muted ms-auto">{t('admin.settings.extensionsCount', { count: list.length })}</span>
+          </summary>
+          {checks}
+        </details>
+      ) : checks;
       break;
     }
     default: {
-      const numeric = typeof value === 'number' ? value : Number(value ?? 0);
       const unit = setting.kind === 'bytes' ? 1024 * 1024 : 1;
+      const suffix = unitOf(setting, t);
       control = (
         <div className="input-group">
           <input
@@ -1071,36 +1187,33 @@ function SettingRow({
             disabled={disabled}
             onChange={(e) => onChange(Math.round(Number(e.target.value) * unit))}
           />
-          <span className="input-group-text">{setting.kind === 'bytes' ? 'MB' : setting.kind === 'duration' ? t('admin.seconds') : '#'}</span>
+          {suffix && <span className="input-group-text">{suffix}</span>}
         </div>
       );
     }
   }
 
+  const wide = setting.kind === 'extensions' || setting.kind === 'languages' || setting.kind === 'boolean';
   return (
-    <div className={`cx-admin-setting${setting.locked ? ' is-locked' : ''}`}>
-      {setting.kind !== 'boolean' && (
-        <label id={`${id}-label`} htmlFor={id} className="form-label">
-          {label}
-        </label>
+    <div className={`cx-admin-setting${setting.locked ? ' is-locked' : ''}${wide ? ' is-wide' : ''}`}>
+      {setting.kind !== 'boolean' && setting.kind !== 'extensions' && (
+        <label id={`${id}-label`} htmlFor={id} className="form-label">{label}</label>
       )}
       {control}
-      <div className="form-text">
-        {hint}
-        {setting.kind === 'bytes' && typeof value === 'number' && ` · ${formatBytes(value, i18n.language)}`}
-        {onReset && (
-          <>
-            {' · '}
-            <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={onReset}>
-              {t('admin.reset')}
-            </button>
-          </>
-        )}
-      </div>
-      {fieldErrors.map((code) => (
-        <div key={code} className="invalid-feedback d-block">
-          {t(`admin.errors.${code}`, { defaultValue: t('fieldErrors.invalid') })}
+      {(showSource || extra || onReset) && (
+        <div className="form-text">
+          {setting.locked && <NavIcon name="lock" size={13} />}
+          {[showSource ? source : null, extra].filter(Boolean).join(' • ')}
+          {onReset && (
+            <>
+              {' · '}
+              <button type="button" className="btn btn-link btn-sm p-0 align-baseline" onClick={onReset}>{t('admin.reset')}</button>
+            </>
+          )}
         </div>
+      )}
+      {fieldErrors.map((code) => (
+        <div key={code} className="invalid-feedback d-block">{t(`admin.errors.${code}`, { defaultValue: t('fieldErrors.invalid') })}</div>
       ))}
     </div>
   );
@@ -1108,29 +1221,155 @@ function SettingRow({
 
 // ---- Providers -------------------------------------------------------------------------------
 
+type ProviderKey = 'database' | 'search' | api.ProviderGroup['name'];
+
+const providerIcons: Record<ProviderKey, NavIconName> = {
+  database: 'database', storage: 'folder', email: 'mail', captcha: 'shield', scanning: 'shield', search: 'search',
+};
+
+/** The selected provider of a group: its "…:Provider" field. */
+const providerOf = (group: api.ProviderGroup) => {
+  const field = group.fields.find((f) => f.key.endsWith(':Provider'));
+  return field && field.value !== null && field.value !== '' ? String(field.value) : null;
+};
+
+const isOff = (name: string | null) => !name || ['none', 'disabled', 'off'].includes(name.toLowerCase());
+
+/**
+ * Providers (redesigned to the owner's mockups 2026-11-24): a card per service with its provider and
+ * state, and the selected one's configuration below with a test beside it. Saved values apply after a
+ * restart; secrets are never shown.
+ */
 function Providers({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation();
+  const overview = useLoad(api.getOverview, []);
   const { data, setData, error } = useLoad(api.getProviders, []);
+  const search = useLoad(api.getSearchStatus, []);
+  const [selected, setSelected] = useState<ProviderKey>('database');
+  const [tests, setTests] = useState<Partial<Record<ProviderKey, { outcome: string; at: Date }>>>({});
+  const groups = data ?? [];
+  const scanningOff = overview.data ? !overview.data.scanningEnabled : false;
+
+  const card = (key: ProviderKey, label: string, value: ReactNode, pill: string | null, state: string, warn = false) => (
+    <div key={key} className={`cx-card cx-provider-card${selected === key ? ' is-selected' : ''}`}>
+      <NavIcon name={providerIcons[key]} size={30} />
+      <div className="cx-provider-card-main">
+        <span className="cx-provider-label-row">
+          <span className="cx-muted small text-truncate">{label}</span>
+          {pill && <span className="cx-admin-pill is-muted">{pill}</span>}
+        </span>
+        <strong className={warn ? 'cx-admin-state' : undefined}>{value}</strong>
+      </div>
+      <span className="cx-muted small cx-provider-state">{state}</span>
+      <button type="button" className="btn btn-sm cx-admin-outline cx-provider-configure" aria-pressed={selected === key}
+        aria-label={t('admin.providers.configureNamed', { name: label })} onClick={() => setSelected(key)}>
+        {t('admin.providers.configure')}
+      </button>
+    </div>
+  );
+
+  const testState = (key: ProviderKey) => {
+    const test = tests[key];
+    return test ? t(`admin.providers.outcomes.${test.outcome}`) : t('admin.providers.notTested');
+  };
+  const selectedGroup = groups.find((g) => g.name === selected);
+
   return (
-    <>
-      <Section title={t('admin.tabs.providers')}>
-        <p className="cx-muted mb-0">{t('admin.providers.intro')}</p>
-        {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
-      </Section>
+    <section className="cx-admin-section" aria-labelledby="admin-providers-title">
+      <SectionHeading id="admin-providers-title" title={t('admin.tabs.providers')} subtitle={t('admin.providers.subtitle')} />
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      <div className="cx-provider-cards">
+        {overview.data && card('database', t('admin.overview.database'), databaseName(overview.data.databaseProvider), t('admin.providers.selected'),
+          t('admin.providers.databaseState'))}
+        {groups.map((g) => {
+          // Search runs on its built-in default when nothing is configured: the live status names it.
+          const name = providerOf(g) ?? (g.name === 'search' ? search.data?.provider ?? null : null);
+          const value = g.name === 'scanning'
+            ? <><span className={`cx-dot ${scanningOff ? 'cx-dot-warn' : 'cx-dot-ok'}`} aria-hidden="true" />{scanningOff ? t('admin.off') : name}</>
+            : name ?? t('admin.providers.none');
+          const pill = g.restartRequired ? t('admin.providers.restartRequired') : isOff(name) ? t('admin.providers.notConfigured') : t('admin.providers.selected');
+          return card(g.name, t(`admin.providers.${g.name}`), value, g.name === 'scanning' ? null : pill, testState(g.name), g.name === 'scanning');
+        })}
+        {/* Older servers do not list search among the provider groups: show the index status as its own card. */}
+        {search.data && !groups.some((g) => g.name === 'search') && card('search', t('admin.providers.search'), search.data.provider,
+          search.data.enabled ? t('admin.providers.selected') : t('admin.off'), t('admin.searchIndex.pending', { count: search.data.pending }))}
+      </div>
+
       {!data ? (
-        <Loading />
-      ) : (
-        data.map((group) => (
+        error === null && <Loading />
+      ) : selected === 'database' ? (
+        overview.data && <DatabasePanel provider={databaseName(overview.data.databaseProvider)} />
+      ) : selected === 'search' ? (
+        <SearchIndex canManage={canManage} />
+      ) : selectedGroup ? (
+        <>
           <ProviderForm
-            key={group.name}
-            group={group}
+            key={selectedGroup.name}
+            group={selectedGroup}
             canManage={canManage}
+            lastTest={tests[selectedGroup.name] ?? null}
+            onTested={(outcome) => setTests((current) => ({ ...current, [selectedGroup.name]: { outcome, at: new Date() } }))}
             onSaved={(updated) => setData((list) => list && list.map((g) => (g.name === updated.name ? updated : g)))}
           />
-        ))
+          {selectedGroup.name === 'search' && <SearchIndex canManage={canManage} />}
+        </>
+      ) : null}
+
+      <p className="cx-admin-footnote cx-muted"><NavIcon name="info" size={18} />{t('admin.providers.noMigration')}</p>
+      {scanningOff && (
+        <div className="cx-admin-warning cx-admin-warning-wide" role="note">
+          <NavIcon name="alert" size={22} />
+          <span className="flex-grow-1">
+            <strong className="d-block">{t('admin.providers.scanningOffTitle')}</strong>
+            {t('admin.providers.scanningOffText')}
+          </span>
+          {selected !== 'scanning' && groups.some((g) => g.name === 'scanning') && (
+            <button type="button" className="btn btn-link cx-admin-link" onClick={() => setSelected('scanning')}>
+              {t('admin.providers.reviewScanning')}<NavIcon name="arrow-right" size={16} />
+            </button>
+          )}
+        </div>
       )}
-      <SearchIndex canManage={canManage} />
-    </>
+    </section>
+  );
+}
+
+/** The database: chosen at setup and kept in the settings file; the page loading is the connection check. */
+function DatabasePanel({ provider }: { provider: string }) {
+  const { t, i18n } = useTranslation();
+  const [checkedAt] = useState(() => new Date());
+  return (
+    <section className="cx-card cx-provider-panel" aria-labelledby="provider-panel-title">
+      <div className="cx-provider-panel-head">
+        <NavIcon name="database" size={30} />
+        <span>
+          <h3 id="provider-panel-title">{t('admin.providers.databaseTitle')} <span className="cx-admin-pill is-muted">{provider}</span></h3>
+          <span className="cx-muted">{t('admin.providers.databaseText')}</span>
+        </span>
+      </div>
+      <div className="cx-provider-panel-grid">
+        <div className="cx-provider-form">
+          <label className="form-label" htmlFor="provider-database-current">{t('admin.providers.currentProvider')}</label>
+          <input id="provider-database-current" className="form-control" value={provider} readOnly disabled />
+          <label className="form-label mt-3" htmlFor="provider-database-connection">{t('admin.providers.connection')}</label>
+          <div className="cx-secret-field">
+            <NavIcon name="lock" size={18} />
+            <input id="provider-database-connection" className="form-control" value="••••••••••••••••" readOnly disabled />
+          </div>
+          <p className="form-text">{t('admin.providers.hidden')}</p>
+          <p className="cx-muted small mb-0">{t('admin.providers.databaseSetup')}</p>
+        </div>
+        <aside className="cx-provider-test">
+          <h4>{t('admin.providers.connectionCheck')}</h4>
+          <div className="cx-provider-test-state">
+            <NavIcon name="database" size={44} />
+            <strong>{t('admin.providers.databaseAnswered')}</strong>
+            <span className="cx-muted small">{t('admin.providers.databaseAnsweredText')}</span>
+          </div>
+          <p className="cx-provider-last">{t('admin.providers.lastChecked')} {checkedAt.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</p>
+        </aside>
+      </div>
+    </section>
   );
 }
 
@@ -1152,31 +1391,45 @@ function SearchIndex({ canManage }: { canManage: boolean }) {
     }
   };
   return (
-    <Section title={t('admin.searchIndex.title')}>
+    <section className="cx-card cx-provider-panel" aria-labelledby="provider-panel-title">
+      <div className="cx-provider-panel-head">
+        <NavIcon name="search" size={30} />
+        <span>
+          <h3 id="provider-panel-title">{t('admin.searchIndex.title')}</h3>
+          <span className="cx-muted">{t('admin.searchIndex.hint')}</span>
+        </span>
+      </div>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {notice && <FormAlert tone="success">{notice}</FormAlert>}
       {!data ? (
         <Loading />
       ) : (
         <>
-          <p className="mb-2">
+          <p className="mb-3">
             {t('admin.searchIndex.status', { provider: data.provider, count: data.pending })}
-            {!data.enabled && <span className="badge text-bg-secondary ms-2">{t('admin.off')}</span>}
+            {!data.enabled && <span className="cx-admin-pill is-muted ms-2">{t('admin.off')}</span>}
           </p>
-          <p className="cx-muted">{t('admin.searchIndex.hint')}</p>
           {canManage && (
-            <button type="button" className="btn btn-outline-primary" onClick={() => void rebuild()}>
-              {t('admin.searchIndex.rebuild')}
-            </button>
+            <button type="button" className="btn btn-outline-primary" onClick={() => void rebuild()}>{t('admin.searchIndex.rebuild')}</button>
           )}
         </>
       )}
-    </Section>
+    </section>
   );
 }
 
-function ProviderForm({ group, canManage, onSaved }: { group: api.ProviderGroup; canManage: boolean; onSaved: (group: api.ProviderGroup) => void }) {
-  const { t } = useTranslation();
+/** "Email:Smtp:Host" → "Smtp"; two-part keys belong to the general part of the form. */
+const fieldSection = (key: string) => (key.split(':').length > 2 ? key.split(':')[1]! : '');
+
+function ProviderForm({ group, canManage, lastTest, onTested, onSaved }: {
+  group: api.ProviderGroup;
+  canManage: boolean;
+  lastTest: { outcome: string; at: Date } | null;
+  onTested: (outcome: string) => void;
+  onSaved: (group: api.ProviderGroup) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const [draft, setDraft] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<unknown>(null);
   const [details, setDetails] = useState<readonly string[]>([]);
@@ -1198,189 +1451,423 @@ function ProviderForm({ group, canManage, onSaved }: { group: api.ProviderGroup;
     }
   };
 
-  return (
-    <Section
-      title={t(`admin.providers.${group.name}`)}
-      actions={group.restartRequired && <span className="badge text-bg-warning">{t('admin.providers.restartRequired')}</span>}
-    >
-      <form
-        className="cx-admin-provider"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run(async () => {
-            onSaved(await api.saveProvider(group.name, draft));
-            setDraft({});
-            setOutcome('saved');
-          });
-        }}
-      >
-        {group.fields.map((field) => {
-          const id = `provider-${field.key.replace(/:/g, '-')}`;
-          const disabled = !canManage || field.locked;
-          const current = field.key in draft ? draft[field.key] : field.value;
-          const label = t(`admin.providers.keys.${field.key.replace(/:/g, '_')}`);
-          const set = (value: unknown) => setDraft((d) => ({ ...d, [field.key]: value }));
-          return (
-            <div key={field.key} className="cx-admin-setting">
-              {field.kind === 'boolean' ? (
-                <div className="form-check form-switch">
-                  <input id={id} className="form-check-input" type="checkbox" role="switch" checked={Boolean(current)} disabled={disabled} onChange={(e) => set(e.target.checked)} />
-                  <label className="form-check-label" htmlFor={id}>
-                    {label}
-                  </label>
-                </div>
-              ) : (
-                <>
-                  <label htmlFor={id} className="form-label">
-                    {label}
-                  </label>
-                  {field.kind === 'choice' ? (
-                    <select id={id} className="form-select" value={String(current ?? '')} disabled={disabled} onChange={(e) => set(e.target.value)}>
-                      {!field.hasValue && !(field.key in draft) && <option value="">—</option>}
-                      {field.choices?.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      id={id}
-                      className="form-control"
-                      type={field.kind === 'secret' ? 'password' : field.kind === 'integer' ? 'number' : 'text'}
-                      autoComplete={field.kind === 'secret' ? 'new-password' : 'off'}
-                      placeholder={field.kind === 'secret' ? t(field.hasValue ? 'admin.providers.secretSet' : 'admin.providers.secretEmpty') : undefined}
-                      value={field.kind === 'secret' ? String(draft[field.key] ?? '') : String(current ?? '')}
-                      disabled={disabled}
-                      onChange={(e) => set(field.kind === 'integer' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)}
-                    />
-                  )}
-                </>
-              )}
-              <div className="form-text">
-                {field.locked ? t('admin.lockedHint', { source: t(`admin.sources.${field.source}`) }) : t(`admin.sources.${field.source}`)}
+  const providerField = group.fields.find((f) => f.key.endsWith(':Provider'));
+  const chosen = String((providerField && (providerField.key in draft ? draft[providerField.key] : providerField.value)) ?? '').toLowerCase();
+  // Only the fields of the chosen provider (Email:Smtp:* for SMTP), plus the shared ones.
+  const visible = group.fields.filter((f) => !fieldSection(f.key) || fieldSection(f.key).toLowerCase() === chosen);
+  const sections = [...new Set(visible.map((f) => fieldSection(f.key)))];
+  const testable = group.name !== 'captcha';
+
+  const fieldControl = (field: api.ProviderField) => {
+    const id = `provider-${field.key.replace(/:/g, '-')}`;
+    const disabled = !canManage || field.locked;
+    const current = field.key in draft ? draft[field.key] : field.value;
+    const label = t(`admin.providers.keys.${field.key.replace(/:/g, '_')}`);
+    const set = (value: unknown) => setDraft((d) => ({ ...d, [field.key]: value }));
+    return (
+      <div key={field.key} className={`cx-admin-setting${field.kind === 'boolean' || field.kind === 'secret' ? ' is-wide' : ''}`}>
+        {field.kind === 'boolean' ? (
+          <div className="form-check form-switch">
+            <input id={id} className="form-check-input" type="checkbox" role="switch" checked={Boolean(current)} disabled={disabled} onChange={(e) => set(e.target.checked)} />
+            <label className="form-check-label" htmlFor={id}>{label}</label>
+          </div>
+        ) : (
+          <>
+            <label htmlFor={id} className="form-label">{label}</label>
+            {field.kind === 'choice' ? (
+              <select id={id} className="form-select" value={String(current ?? '')} disabled={disabled} onChange={(e) => set(e.target.value)}>
+                {!field.hasValue && !(field.key in draft) && <option value="">—</option>}
+                {field.choices?.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            ) : (
+              <div className={field.kind === 'secret' ? 'cx-secret-field' : undefined}>
+                {field.kind === 'secret' && <NavIcon name="lock" size={18} />}
+                <input
+                  id={id}
+                  className="form-control"
+                  type={field.kind === 'secret' ? 'password' : field.kind === 'integer' ? 'number' : 'text'}
+                  autoComplete={field.kind === 'secret' ? 'new-password' : 'off'}
+                  placeholder={field.kind === 'secret' ? t(field.hasValue ? 'admin.providers.secretSet' : 'admin.providers.secretEmpty') : undefined}
+                  value={field.kind === 'secret' ? String(draft[field.key] ?? '') : String(current ?? '')}
+                  disabled={disabled}
+                  onChange={(e) => set(field.kind === 'integer' ? (e.target.value === '' ? null : Number(e.target.value)) : e.target.value)}
+                />
               </div>
-            </div>
-          );
-        })}
-        {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
-        {details.length > 0 && (
-          <ul className="text-danger small">
-            {details.map((d) => (
-              <li key={d}>{d}</li>
-            ))}
-          </ul>
+            )}
+          </>
         )}
-        {outcome && <FormAlert tone={outcome === 'failed' || outcome === 'unavailable' ? 'danger' : 'success'}>{t(`admin.providers.outcomes.${outcome}`)}</FormAlert>}
-        {canManage && (
-          <div className="d-flex gap-2 flex-wrap">
-            <button type="submit" className="btn btn-primary" disabled={busy || Object.keys(draft).length === 0}>
-              {t('admin.save')}
-            </button>
-            {group.name !== 'captcha' && (
-              <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={() => void run(async () => setOutcome((await api.testProvider(group.name, draft)).outcome))}>
-                {t(group.name === 'email' ? 'admin.providers.testEmail' : 'admin.providers.test')}
+        {field.locked && <div className="form-text"><NavIcon name="lock" size={13} />{t('admin.lockedHint', { source: t(`admin.sources.${field.source}`) })}</div>}
+      </div>
+    );
+  };
+
+  return (
+    <section className="cx-card cx-provider-panel" aria-labelledby="provider-panel-title">
+      <div className="cx-provider-panel-head">
+        <NavIcon name={providerIcons[group.name]} size={30} />
+        <span>
+          <h3 id="provider-panel-title">
+            {t('admin.providers.configurationOf', { name: t(`admin.providers.${group.name}`) })}
+            {group.restartRequired && <span className="cx-admin-pill is-accent ms-2">{t('admin.providers.restartRequired')}</span>}
+          </h3>
+          <span className="cx-muted">{t(`admin.providers.texts.${group.name}`)}</span>
+        </span>
+      </div>
+      <div className={`cx-provider-panel-grid${testable ? '' : ' is-single'}`}>
+        <form
+          className="cx-provider-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(async () => {
+              onSaved(await api.saveProvider(group.name, draft));
+              setDraft({});
+              setOutcome('saved');
+            });
+          }}
+        >
+          {sections.map((section) => (
+            <div key={section || 'general'} className="cx-provider-section">
+              {section && <h4 className="cx-provider-section-title">{t(`admin.providers.sections.${section}`, { defaultValue: section })}</h4>}
+              <div className="cx-admin-setting-grid">{visible.filter((f) => fieldSection(f.key) === section).map(fieldControl)}</div>
+            </div>
+          ))}
+          {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+          {details.length > 0 && (
+            <ul className="text-danger small">
+              {details.map((d) => <li key={d}>{d}</li>)}
+            </ul>
+          )}
+          {outcome && <FormAlert tone="success">{t(`admin.providers.outcomes.${outcome}`)}</FormAlert>}
+          {canManage && (
+            <div className="d-flex gap-2 flex-wrap mt-2">
+              <button type="submit" className="btn btn-primary" disabled={busy || Object.keys(draft).length === 0}>{t('admin.providers.saveConfiguration')}</button>
+              <button type="button" className="btn btn-outline-secondary" disabled={busy || Object.keys(draft).length === 0} onClick={() => setDraft({})}>
+                {t('conversations.cancel')}
+              </button>
+            </div>
+          )}
+        </form>
+        {testable && (
+          <aside className="cx-provider-test" aria-labelledby={`provider-test-${group.name}`}>
+            <h4 id={`provider-test-${group.name}`}>{t(group.name === 'email' ? 'admin.providers.testEmailTitle' : 'admin.providers.testTitle')}</h4>
+            <div className="cx-provider-test-state">
+              <NavIcon name={providerIcons[group.name]} size={44} />
+              <span className={`cx-admin-pill ${lastTest && !['failed', 'unavailable'].includes(lastTest.outcome) ? 'is-accent' : 'is-muted'}`}>
+                {lastTest ? t(`admin.providers.outcomes.${lastTest.outcome}`) : t('admin.providers.notTested')}
+              </span>
+              <span className="cx-muted small">{t(group.name === 'email' ? 'admin.providers.testEmailHint' : 'admin.providers.testHint')}</span>
+            </div>
+            {group.name === 'email' && (
+              <>
+                <label className="form-label" htmlFor="provider-test-recipient">{t('admin.providers.recipient')}</label>
+                <input id="provider-test-recipient" className="form-control mb-1" value={user?.email ?? ''} readOnly disabled />
+                <p className="form-text">{t('admin.providers.recipientHint')}</p>
+              </>
+            )}
+            {canManage && (
+              <button type="button" className="btn cx-admin-outline w-100" disabled={busy}
+                onClick={() => void run(async () => onTested((await api.testProvider(group.name, draft)).outcome))}>
+                {t(group.name === 'email' ? 'admin.providers.sendTest' : 'admin.providers.test')}
               </button>
             )}
-          </div>
+            <p className="cx-provider-last">
+              {t('admin.providers.lastTest')} {lastTest ? lastTest.at.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : '—'}
+            </p>
+            {group.name === 'email' && (
+              <div className="cx-admin-note mb-0">
+                <NavIcon name="info" size={18} />
+                <span><strong className="d-block">{t('admin.providers.deliveryTitle')}</strong>{t('admin.providers.deliveryText')}</span>
+              </div>
+            )}
+          </aside>
         )}
-      </form>
-    </Section>
+      </div>
+      <p className="cx-admin-footnote cx-muted mb-0"><NavIcon name="info" size={18} />{t('admin.providers.intro')}</p>
+    </section>
   );
 }
 
 // ---- Audit -----------------------------------------------------------------------------------
 
+const auditCategories = ['', 'auth.', 'contacts.', 'admin.user.', 'admin.organization.', 'organization.', 'admin.settings.', 'admin.provider.', 'admin.demo_data.', 'admin.search.', 'retention.'] as const;
+
+/** "admin.user.disabled" → "User disabled"; translated where a text exists. */
+function auditTitle(action: string, t: TFunction): string {
+  const parts = action.split('.');
+  const words = (parts[0] === 'admin' || parts[0] === 'auth' ? parts.slice(1) : parts).join(' ').replace(/_/g, ' ');
+  const fallback = words.charAt(0).toUpperCase() + words.slice(1);
+  return t(`admin.audit.actions.${action.replace(/\./g, '_')}`, { defaultValue: fallback });
+}
+
+function auditIcon(action: string): NavIconName {
+  if (action.startsWith('auth.sign')) return 'door';
+  if (action.startsWith('auth.') || action.startsWith('admin.user.')) return 'user';
+  if (action.includes('demo_data')) return 'database';
+  if (action.includes('organization')) return 'building';
+  if (action.startsWith('admin.settings.')) return 'settings';
+  if (action.startsWith('admin.provider.')) return 'layers';
+  if (action.startsWith('admin.search.')) return 'search';
+  if (action.startsWith('retention.')) return 'clock';
+  if (action.startsWith('contacts.')) return 'people';
+  return 'list';
+}
+
 function Audit() {
   const { t, i18n } = useTranslation();
-  const [action, setAction] = useState('');
+  const [text, setText] = useState('');
+  const [search, setSearch] = useState('');
+  const [action, setAction] = useState<string>('');
   const [outcome, setOutcome] = useState<'all' | 'success' | 'failure'>('all');
-  const [entries, setEntries] = useState<api.AuditEntry[] | null>(null);
-  const [next, setNext] = useState<string | null>(null);
-  const [error, setError] = useState<unknown>(null);
-
-  const load = useCallback(
-    async (before: string | null) => {
-      setError(null);
-      try {
-        const page = await api.getAudit({ action: action.trim(), succeeded: outcome === 'all' ? null : outcome === 'success', before });
-        setEntries((current) => (before && current ? [...current, ...page.items] : page.items));
-        setNext(page.nextBefore);
-      } catch (err) {
-        setError(err);
-      }
-    },
-    [action, outcome],
+  const [from, setFrom] = useState<string | undefined>(undefined);
+  const [to, setTo] = useState<string | undefined>(undefined);
+  const [order, setOrder] = useState<'newest' | 'oldest'>('newest');
+  const [skip, setSkip] = useState(0);
+  const [take, setTake] = useState<number>(pageSizes[0]);
+  const [open, setOpen] = useState<string | null>(null);
+  const [retention, setRetention] = useState<number | null>(null);
+  const { data, error, reload } = useLoad(
+    () => api.getAuditPage({
+      q: search, action, succeeded: outcome === 'all' ? null : outcome === 'success',
+      from: from ? new Date(`${from}T00:00:00`).toISOString() : null, to: to ? new Date(`${to}T23:59:59.999`).toISOString() : null,
+      order, skip, take,
+    }),
+    [search, action, outcome, from, to, order, skip, take],
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => void load(null), [outcome]);
+  useEffect(() => {
+    api.getSettings().then((all) => {
+      const days = all.find((s) => s.key === 'Audit:RetentionDays')?.value;
+      setRetention(typeof days === 'number' ? days : null);
+    }, () => setRetention(null));
+  }, []);
+
+  const change = <T,>(set: (value: T) => void) => (value: T) => {
+    setSkip(0);
+    set(value);
+  };
+  const filtered = search !== '' || action !== '' || outcome !== 'all' || !!from || !!to;
+  const clear = () => {
+    setText('');
+    setSearch('');
+    setAction('');
+    setOutcome('all');
+    setFrom(undefined);
+    setTo(undefined);
+    setSkip(0);
+  };
+  const range = from || to ? dateRangeText(from, to, i18n.language, t) : t('admin.audit.anyTime');
 
   return (
-    <Section title={t('admin.tabs.audit')}>
-      <form className="cx-admin-filters" role="search" onSubmit={(e) => { e.preventDefault(); void load(null); }}>
-        <label className="visually-hidden" htmlFor="audit-action">
-          {t('admin.audit.action')}
+    <section className="cx-card cx-admin-panel" aria-labelledby="admin-audit-title">
+      <SectionHeading id="admin-audit-title" title={t('admin.tabs.audit')} subtitle={t('admin.audit.subtitle')} />
+      <p className="cx-admin-note"><NavIcon name="info" size={18} />{t('admin.audit.intro')}</p>
+      <form className="cx-admin-audit-search" role="search" onSubmit={(e) => { e.preventDefault(); setSkip(0); setSearch(text.trim()); }}>
+        <label className="cx-search-field">
+          <NavIcon name="search" size={18} />
+          <span className="visually-hidden">{t('admin.audit.searchLabel')}</span>
+          <input type="search" className="form-control" placeholder={t('admin.audit.searchPlaceholder')} value={text} onChange={(e) => setText(e.target.value)} />
         </label>
-        <input id="audit-action" className="form-control" placeholder={t('admin.audit.actionPlaceholder')} value={action} onChange={(e) => setAction(e.target.value)} />
-        <label className="visually-hidden" htmlFor="audit-outcome">
-          {t('admin.audit.outcome')}
-        </label>
-        <select id="audit-outcome" className="form-select" value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
-          {(['all', 'success', 'failure'] as const).map((o) => (
-            <option key={o} value={o}>
-              {t(`admin.audit.outcomes.${o}`)}
-            </option>
-          ))}
-        </select>
-        <button type="submit" className="btn btn-primary">
-          {t('admin.search')}
-        </button>
+        <button type="submit" className="btn btn-primary">{t('admin.search')}</button>
       </form>
-      <p className="cx-meta">{t('admin.audit.intro')}</p>
+      <div className="cx-admin-audit-filters">
+        <label className="visually-hidden" htmlFor="audit-action">{t('admin.audit.action')}</label>
+        <select id="audit-action" className="form-select" value={action} onChange={(e) => change(setAction)(e.target.value)}>
+          {auditCategories.map((c) => <option key={c} value={c}>{t(`admin.audit.categories.${c ? c.replace(/\./g, '_').replace(/_$/, '') : 'all'}`)}</option>)}
+        </select>
+        <label className="visually-hidden" htmlFor="audit-outcome">{t('admin.audit.outcome')}</label>
+        <select id="audit-outcome" className="form-select" value={outcome} onChange={(e) => change(setOutcome)(e.target.value as typeof outcome)}>
+          {(['all', 'success', 'failure'] as const).map((o) => <option key={o} value={o}>{t(`admin.audit.outcomes.${o}`)}</option>)}
+        </select>
+        <details className="cx-admin-range">
+          <summary aria-label={t('admin.audit.dates')}>
+            <NavIcon name="calendar" size={18} />
+            <span>{range}</span>
+            <NavIcon name="chevron-down" size={16} />
+          </summary>
+          <div className="cx-admin-range-panel">
+            <DateFilter label={t('search.after')} value={from} onChange={change(setFrom)} />
+            <DateFilter label={t('search.before')} value={to} onChange={change(setTo)} />
+          </div>
+        </details>
+        {filtered && <button type="button" className="btn btn-link cx-admin-link" onClick={clear}>{t('search.clearFilters')}</button>}
+        <span className="cx-admin-audit-tools">
+          <button type="button" className="cx-tool" title={t('admin.audit.refresh')} onClick={reload}>
+            <NavIcon name="refresh" size={20} />
+            <span className="visually-hidden">{t('admin.audit.refresh')}</span>
+          </button>
+          <label className="visually-hidden" htmlFor="audit-order">{t('admin.sortLabel')}</label>
+          <select id="audit-order" className="form-select cx-admin-sort" value={order} onChange={(e) => change(setOrder)(e.target.value as typeof order)}>
+            <option value="newest">{t('activity.order.newest')}</option>
+            <option value="oldest">{t('activity.order.oldest')}</option>
+          </select>
+        </span>
+      </div>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
-      {!entries ? (
-        <Loading />
-      ) : entries.length === 0 ? (
-        <p className="cx-muted mb-0">{t('admin.none')}</p>
+      {!data ? (
+        error === null && <Loading />
+      ) : data.items.length === 0 ? (
+        <p className="cx-muted cx-table-empty">{t('admin.none')}</p>
       ) : (
-        <div className="table-responsive">
-          <table className="table table-sm cx-admin-audit">
+        <>
+          <table className="cx-table cx-admin-table cx-audit-table">
             <thead>
               <tr>
                 <th scope="col">{t('admin.audit.when')}</th>
-                <th scope="col">{t('admin.audit.action')}</th>
+                <th scope="col">{t('admin.audit.event')}</th>
                 <th scope="col">{t('admin.audit.actor')}</th>
                 <th scope="col">{t('admin.audit.target')}</th>
-                <th scope="col">{t('admin.audit.details')}</th>
+                <th scope="col"><span className="visually-hidden">{t('admin.audit.details')}</span></th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
-                <tr key={e.id} className={e.succeeded ? undefined : 'is-failure'}>
-                  <td className="text-nowrap">{formatDateTime(e.occurredAtUtc, i18n.language)}</td>
-                  <td>
-                    <code>{e.action}</code> {!e.succeeded && <span className="badge text-bg-danger">{t('admin.audit.failed')}</span>}
-                  </td>
-                  <td>
-                    {e.actorName ?? (e.actorUserId ? t('admin.audit.deletedUser') : t('admin.audit.anonymous'))}
-                    {e.ipAddress && <span className="cx-meta d-block">{e.ipAddress}</span>}
-                  </td>
-                  <td className="text-break">{e.targetType ? `${e.targetType} ${e.targetId ?? ''}` : '—'}</td>
-                  <td className="text-break">
-                    <code className="cx-admin-details">{e.details ?? ''}</code>
-                  </td>
-                </tr>
-              ))}
+              {data.items.map((e) => {
+                const expanded = open === e.id;
+                const actor = e.actorName ?? (e.actorUserId ? t('admin.audit.deletedUser') : t('admin.audit.anonymous'));
+                const when = new Date(e.occurredAtUtc);
+                return (
+                  <Fragment key={e.id}>
+                    <tr className={`${expanded ? 'is-open' : ''}${e.succeeded ? '' : ' is-failure'}`}>
+                      <td data-label={t('admin.audit.when')}>
+                        <span className="d-block">{when.toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <span className="cx-muted small">{when.toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</span>
+                      </td>
+                      <td data-label={t('admin.audit.event')}>
+                        <span className="cx-audit-event">
+                          <NavIcon name={auditIcon(e.action)} size={22} />
+                          <span className="min-w-0">
+                            <strong className="d-block">
+                              {auditTitle(e.action, t)}
+                              {!e.succeeded && <span className="cx-admin-pill is-danger ms-2">{t('admin.audit.failed')}</span>}
+                            </strong>
+                            <code className="cx-muted small">{e.action}</code>
+                          </span>
+                        </span>
+                      </td>
+                      <td data-label={t('admin.audit.actor')}>
+                        <span className="cx-admin-person">
+                          <Avatar user={{ id: e.actorUserId ?? 'anonymous', avatar: { initials: initialsOf(actor) } }} size="sm" />
+                          <span className="text-truncate">{actor}</span>
+                        </span>
+                      </td>
+                      <td data-label={t('admin.audit.target')} className="text-truncate">
+                        {e.targetType ? `${e.targetType}${e.targetId ? ` · ${e.targetId.slice(0, 8)}…` : ''}` : t('admin.audit.installation')}
+                      </td>
+                      <td className="cx-table-actions">
+                        <button type="button" className="cx-tool" aria-expanded={expanded} onClick={() => setOpen(expanded ? null : e.id)}
+                          title={t(expanded ? 'admin.audit.hideDetails' : 'admin.audit.showDetails')}>
+                          <NavIcon name={expanded ? 'chevron-down' : 'chevron-right'} size={18} />
+                          <span className="visually-hidden">{t(expanded ? 'admin.audit.hideDetails' : 'admin.audit.showDetails')}</span>
+                        </button>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="cx-audit-details-row">
+                        <td colSpan={5}>
+                          <AuditDetails entry={e} actor={actor} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
-        </div>
+          {data.total !== null && (
+            <AuditFooter skip={skip} take={take} total={data.total} onSkip={setSkip} onTake={(size) => { setSkip(0); setTake(size); }} />
+          )}
+        </>
       )}
-      {next && (
-        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void load(next)}>
-          {t('admin.audit.more')}
-        </button>
+      {retention !== null && (
+        <p className="cx-admin-retention cx-muted">
+          {t('admin.audit.retention', { count: retention })}
+          <Link to="/admin?tab=settings&group=audit" className="cx-admin-link">{t('admin.audit.manageRetention')}<NavIcon name="arrow-right" size={16} /></Link>
+        </p>
       )}
-    </Section>
+    </section>
+  );
+}
+
+function AuditFooter({ skip, take, total, onSkip, onTake }: { skip: number; take: number; total: number; onSkip: (skip: number) => void; onTake: (take: number) => void }) {
+  const { t } = useTranslation();
+  const pages = Math.max(1, Math.ceil(total / take));
+  return (
+    <div className="cx-table-footer">
+      <span className="cx-muted">{t('admin.showing.events', { from: total === 0 ? 0 : skip + 1, to: Math.min(skip + take, total), count: total })}</span>
+      <div className="cx-table-paging">
+        <label className="visually-hidden" htmlFor="admin-audit-page-size">{t('contacts.perPageLabel')}</label>
+        <select id="admin-audit-page-size" className="form-select form-select-sm" value={take} onChange={(e) => onTake(Number(e.target.value))}>
+          {pageSizes.map((size) => <option key={size} value={size}>{t('contacts.perPage', { count: size })}</option>)}
+        </select>
+        {pages > 1 && <Pagination page={Math.floor(skip / take) + 1} pages={pages} onPage={(page) => onSkip((page - 1) * take)} />}
+      </div>
+    </div>
+  );
+}
+
+function AuditDetails({ entry, actor }: { entry: api.AuditEntry; actor: string }) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  let details: string | null = entry.details;
+  try {
+    if (details) details = Object.entries(JSON.parse(details) as Record<string, unknown>).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`).join(' · ');
+  } catch {
+    // Not JSON: shown as recorded.
+  }
+  return (
+    <dl className="cx-audit-details">
+      <div>
+        <dt>{t('admin.audit.action')}</dt>
+        <dd><code>{entry.action}</code></dd>
+        <dt>{t('admin.audit.targetType')}</dt>
+        <dd><code>{entry.targetType ?? '—'}</code></dd>
+      </div>
+      <div>
+        <dt>{t('admin.audit.actor')}</dt>
+        <dd><code>{actor}</code></dd>
+        <dt>{t('admin.audit.targetId')}</dt>
+        <dd>
+          <code className="text-break">{entry.targetId ?? '—'}</code>
+          {entry.targetId && navigator.clipboard && (
+            <button type="button" className="cx-tool ms-1" title={t(copied ? 'admin.audit.copied' : 'admin.audit.copy')}
+              onClick={() => void navigator.clipboard.writeText(entry.targetId!).then(() => setCopied(true), () => undefined)}>
+              <NavIcon name={copied ? 'check' : 'copy'} size={16} />
+              <span className="visually-hidden">{t(copied ? 'admin.audit.copied' : 'admin.audit.copy')}</span>
+            </button>
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt>{t('admin.audit.source')}</dt>
+        <dd><code>{entry.ipAddress ?? '—'}</code></dd>
+        <dt>{t('admin.audit.additional')}</dt>
+        <dd>{details || t('admin.audit.noDetails')}</dd>
+      </div>
+    </dl>
+  );
+}
+
+/** "23–24 Nov 2026", "From 1 Nov 2026" or "Until 24 Nov 2026". */
+function dateRangeText(from: string | undefined, to: string | undefined, language: string, t: TFunction): string {
+  const format = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'short', year: 'numeric' });
+  const day = (value: string) => new Date(`${value}T00:00:00`);
+  if (from && to) return format.formatRange(day(from), day(to));
+  if (from) return t('search.sinceDate', { date: format.format(day(from)) });
+  return t('search.untilDate', { date: format.format(day(to!)) });
+}
+
+/** A date field that applies its value only once the year is complete. */
+function DateFilter({ label, value, onChange }: { label: string; value: string | undefined; onChange: (value: string | undefined) => void }) {
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => setDraft(value ?? ''), [value]);
+  return (
+    <label className="cx-search-filter">
+      <span>{label}</span>
+      <input className="form-control" type="date" value={draft} onChange={(e) => {
+        const next = e.target.value;
+        setDraft(next);
+        if (next === '') onChange(undefined);
+        else if (Number(next.slice(0, 4)) >= 1900) onChange(next);
+      }} />
+    </label>
   );
 }

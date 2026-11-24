@@ -57,6 +57,18 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   cards with member counts and a permission comparison that shows that no role grants access to
   conversations. API: `role` and `sort` on `GET /api/v1/admin/users` (and `filter=enabled`),
   `sort` on `GET /api/v1/admin/organizations`.
+- **Administration settings, providers and audit log:** **Settings** has a group list with "Find a
+  setting", section cards in two columns with units and readable durations and sizes, an optional
+  view of where each value comes from, and a save bar with the number of unsaved changes and
+  Discard. **Providers** shows a card per provider (database, email, CAPTCHA, storage, scanning,
+  search) with its state and Configure; the panel shows only the chosen provider's fields, a test
+  card (email sends a test to your own address) and, for search, the index rebuild. The database
+  is read-only there. **Audit log:** search (action, actor, target), action category, outcome and
+  date filters, newest or oldest first, event titles with icons, expandable details with a copy
+  button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
+  `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Smaller start-up download:** Spanish texts load only when Spanish is used (start-up JavaScript
+  159 kB instead of 182 kB gzip).
 - **Tab title fix:** the unread count in the browser tab title stays after the app applies your
   language (it could disappear until the next new message).
 - **Organizations page (follow-up):** "Organization" under each name (the creation date shows on

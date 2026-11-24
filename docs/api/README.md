@@ -91,6 +91,13 @@ Administration searches take `skip` and `take` (1–100). `GET /api/v1/admin/use
 `GET /api/v1/admin/organizations` takes `sort` (`nameAsc`, `nameDesc`, `members` for the most
 members first). An unknown sort is `400`.
 
+`GET /api/v1/admin/audit` filters by `action` (a prefix), `actor` (a user id), `target` (an id), `succeeded`,
+`from` and `to` (UTC instants) and `q` (text in the action, target type or id, or the actor's
+name), and orders newest first or `order=oldest` (anything else is `400`). It pages two ways:
+`before` + `limit` (newest first, the response's `nextBefore`), or `skip` + `limit`, which also
+returns `total`, the number of matching entries. `total` is `null` without `skip`, and
+`nextBefore` is `null` when ordering oldest first.
+
 ## Sending messages
 
 - `POST /api/v1/conversations/{id}/messages` with `{ "clientMessageId", "body", "replyToId"?, "attachmentIds"? }`.

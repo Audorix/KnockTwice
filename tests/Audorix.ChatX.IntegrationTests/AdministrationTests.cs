@@ -127,6 +127,24 @@ public sealed class AdministrationTests
         var signIns = (await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?action=auth."))).GetProperty("items").EnumerateArray()
             .Select(e => e.GetProperty("action").GetString()).Distinct().ToList();
         Assert.All(signIns, a => Assert.StartsWith("auth.", a, StringComparison.Ordinal));
+
+        // Redesign 2026-11: page numbers with a total, oldest first, a date range and text search.
+        var total = audit.Count;
+        var page = await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?skip=2&limit=3"));
+        Assert.Equal(total, page.GetProperty("total").GetInt32());
+        Assert.Equal(audit.Skip(2).Take(3).Select(e => e.GetProperty("id").GetGuid()), page.GetProperty("items").EnumerateArray().Select(e => e.GetProperty("id").GetGuid()));
+        var oldest = await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?skip=0&limit=1&order=oldest"));
+        Assert.Equal(audit[^1].GetProperty("id").GetGuid(), oldest.GetProperty("items")[0].GetProperty("id").GetGuid());
+        var plain = await JsonAsync(await admin.GetAsync("/api/v1/admin/audit"));
+        Assert.Equal(JsonValueKind.Null, plain.GetProperty("total").ValueKind); // the cursor form has no total
+        var future = Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(1).ToString("O"));
+        Assert.Equal(0, (await JsonAsync(await admin.GetAsync($"/api/v1/admin/audit?skip=0&from={future}"))).GetProperty("total").GetInt32());
+        Assert.Equal(total, (await JsonAsync(await admin.GetAsync($"/api/v1/admin/audit?skip=0&limit=200&to={future}"))).GetProperty("total").GetInt32());
+        var byActor = await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?skip=0&limit=200&q=admi"));
+        Assert.Contains(byActor.GetProperty("items").EnumerateArray(), e => e.GetProperty("actorName").GetString() == "Admin");
+        var byAction = await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?skip=0&limit=200&q=sessions_rev"));
+        Assert.All(byAction.GetProperty("items").EnumerateArray(), e => Assert.Contains("sessions_rev", e.GetProperty("action").GetString(), StringComparison.Ordinal));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/admin/audit?order=sideways")).StatusCode);
     }
 
     [Fact]

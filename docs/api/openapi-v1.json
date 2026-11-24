@@ -3709,7 +3709,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Audit log, newest first. Filters: action (or prefix ending with '.'), actor, target, outcome.",
+        "summary": "Audit log, newest first (order=oldest for oldest first). Filters: action (or prefix ending with '.'), actor, target, outcome, from/to, q (text in the action, target or actor name). With skip, the response has the total for page numbers.",
         "parameters": [
           {
             "name": "action",
@@ -3758,6 +3758,48 @@
                 "string"
               ],
               "format": "int32"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -7233,6 +7275,15 @@
               "string"
             ],
             "format": "date-time"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

@@ -61,7 +61,8 @@ describe('auth pages', () => {
     await u.keyboard('{Enter}');
 
     await vi.waitFor(() => expect(window.location.pathname).toBe('/account'));
-    expect(i18n.resolvedLanguage).toBe('es');
+    // Spanish texts are loaded on demand, so the switch completes a moment after sign-in.
+    await vi.waitFor(() => expect(i18n.resolvedLanguage).toBe('es'));
   });
 
   it('offers to resend the confirmation link when the email is not confirmed', async () => {

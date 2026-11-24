@@ -183,6 +183,22 @@ filters, organizations panel and sort, the permission comparison); type check cl
 of 180 kB. Checked in the browser with the demo data in dark mode at 1500 px and on a phone (375 px,
 no sideways scrolling).
 
+## Administration: settings, providers and audit log (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Settings | A group list (Access, Features, Limits, Localization, Audit, Retention) with "Find a setting"; it opens on the first group that has settings or on `?group=`. Section cards in two columns (Limits: messages, attachments, private chats); values with units ("members", "MB", "days") and a readable duration or size; locked values show a lock; allowed file types fold away; Reset per setting; "View setting sources" shows where each value comes from. A sticky save bar counts unsaved changes, with Discard and Save changes. |
+| Providers | Cards for database, email, CAPTCHA, storage, scanning and search, each with its provider, a state pill and Configure. The panel shows only the selected provider's fields, grouped in sections, with Save configuration and Cancel, and a test card on the right (email: a test to your own address, the last result and a delivery note; none for CAPTCHA). The database panel is read-only (masked connection, "The database answered"). Search adds the index rebuild. A warning while scanning is off links to it. |
+| Audit log | Search (action, actor, target) with Search; Action category, Outcome and a date range; Clear filters, Refresh, Newest/Oldest first. A table with time, event title, icon and code, actor avatar and target; a row opens details (action, target type, actor, target id with copy, source address, other details as "key: value"). 8/25/50 per page with page numbers; "Audit retention: N days" with a link to the setting. |
+| API | `GET /api/v1/admin/audit`: `from`, `to`, `q` (action, target or actor name), `skip` (returns `total`) and `order=oldest`; an unknown order is 400. OpenAPI re-exported. |
+| Bundle | Spanish texts are a separate chunk loaded when Spanish is used; English stays bundled as the fallback. Start-up JavaScript dropped from 182.1 to 159.3 kB gzip (budget 180 kB). |
+
+Validation: `AdministrationTests`, `AccountDeletionTests` and retention tests on SQLite and
+PostgreSQL (new: audit skip and total, oldest first, dates, search by actor and action, invalid
+order); web tests 95/95 (new: settings groups, units, search and save bar; providers; audit paging,
+details, search and filters); type check and build clean. Checked in the browser with the demo data
+at 1500 px in dark and light, on a phone (375 px, no sideways scrolling), and in Spanish.
+
 ## Open items
 
 - Administration, channels, search and the support inbox were restyled only through the shared
