@@ -556,7 +556,8 @@
     "becomeOwner": "Usted será el propietario.",
     "generalWorkspace": "Se crea automáticamente un espacio de trabajo General.",
     "lookingTitle": "¿Busca una organización?",
-    "lookingText": "Pida una invitación a un administrador de la organización."
+    "lookingText": "Pida una invitación a un administrador de la organización.",
+    "kind": "Organización"
   },
   "realtime": {
     "status": {
@@ -1076,10 +1077,7 @@
     "none": "No se encontró nada.",
     "results_one": "{{count}} resultado",
     "results_other": "{{count}} resultados",
-    "never": "nunca",
-    "previous": "Anterior",
-    "next": "Siguiente",
-    "range": "{{from}}–{{to}} de {{total}}",
+    "never": "Nunca",
     "seconds": "segundos",
     "reset": "Restablecer",
     "lockedHint": "Lo fija {{source}}; no se puede cambiar aquí.",
@@ -1115,18 +1113,31 @@
       "storage": "Almacenamiento de archivos",
       "scanning": "Análisis antimalware",
       "environment": "Entorno",
-      "version": "Versión"
+      "version": "Versión",
+      "title": "Resumen de la instalación",
+      "manageUsers": "Gestionar usuarios",
+      "manageOrganizations": "Gestionar organizaciones",
+      "reviewRegistration": "Revisar el registro",
+      "providersTitle": "Proveedores",
+      "providersSubtitle": "Proveedores actuales de la instalación.",
+      "viewProvider": "Ver proveedor",
+      "viewProviderNamed": "Ver proveedor: {{name}}",
+      "configure": "Configurar",
+      "configureScanning": "Configurar el análisis antimalware",
+      "scanningOffTitle": "El análisis antimalware está desactivado",
+      "scanningOffText": "Los archivos subidos no se comprueban con un antimalware.",
+      "detailsTitle": "Detalles de la instalación",
+      "applicationSettings": "Configuración de la aplicación",
+      "providerSettings": "Configuración de proveedores",
+      "shortcutsTitle": "Accesos directos",
+      "rolesTitle": "Roles y permisos",
+      "rolesText": "Revise el acceso a la instalación",
+      "settingsText": "Gestione el comportamiento de la plataforma",
+      "auditText": "Revise las acciones de administración",
+      "footnote": "La configuración de la instalación se aplica a todas las organizaciones."
     },
     "users": {
-      "search": "Buscar por correo o nombre",
-      "filter": "Mostrar",
-      "filters": {
-        "all": "Todos",
-        "disabled": "Desactivados",
-        "unconfirmed": "Correo sin confirmar",
-        "InstallationAdministrator": "Administradores",
-        "Auditor": "Auditores"
-      },
+      "search": "Buscar por nombre o correo",
       "disabled": "Desactivado",
       "lockedOut": "Bloqueado",
       "unconfirmed": "Correo sin confirmar",
@@ -1143,41 +1154,100 @@
       "confirm": "Marcar correo confirmado",
       "resend": "Reenviar confirmación",
       "resent": "Se envió un nuevo correo de confirmación.",
-      "grantRole": "Hacer {{role}}",
-      "revokeRole": "Quitar {{role}}",
       "delete": "Eliminar",
       "deleteConfirm": "¿Eliminar la cuenta de {{name}}? Se borran sus datos personales y sus mensajes muestran «Usuario eliminado». No se puede deshacer.",
-      "deleted": "Se eliminó a {{name}}."
+      "deleted": "Se eliminó a {{name}}.",
+      "subtitle": "Gestione las cuentas y los roles de la instalación.",
+      "statusLabel": "Estado",
+      "status": {
+        "all": "Estado: todos",
+        "enabled": "Estado: activas",
+        "disabled": "Estado: desactivadas",
+        "unconfirmed": "Estado: correo sin confirmar"
+      },
+      "roleLabel": "Rol",
+      "roleFilter": {
+        "all": "Rol: todos",
+        "InstallationAdministrator": "Rol: administrador",
+        "Auditor": "Rol: auditor",
+        "none": "Rol: usuario"
+      },
+      "columns": {
+        "user": "Usuario",
+        "status": "Estado",
+        "role": "Rol de instalación",
+        "sessions": "Sesiones",
+        "organizations": "Organizaciones",
+        "actions": "Acciones"
+      },
+      "manageNamed": "Gestionar {{name}}",
+      "moreFor": "Más acciones para {{name}}",
+      "viewDetails": "Ver detalles",
+      "manageRoles": "Gestionar roles",
+      "enableAccount": "Activar cuenta",
+      "disableAccount": "Desactivar cuenta",
+      "deleteAccount": "Eliminar cuenta",
+      "enabled": "Activa",
+      "unconfirmedShort": "Sin confirmar",
+      "plainUser": "Usuario",
+      "detailsFor": "Detalles de {{name}}",
+      "created": "Creada",
+      "installationRoles": "Roles de instalación",
+      "footnote": "Los roles de instalación se aplican a todas las organizaciones."
     },
     "organizations": {
       "search": "Buscar organizaciones",
       "members_one": "{{count}} miembro",
       "members_other": "{{count}} miembros",
-      "since": "desde {{date}}",
-      "open": "Miembros",
       "name": "Nombre de la organización",
       "rename": "Renombrar",
       "role": "Rol de {{name}}",
       "remove": "Quitar",
-      "removeConfirm": "¿Quitar a {{name}} de la organización? También saldrá de sus conversaciones."
+      "removeConfirm": "¿Quitar a {{name}} de la organización? También saldrá de sus conversaciones.",
+      "subtitle": "Consulte las organizaciones de la instalación y sus miembros.",
+      "columns": {
+        "organization": "Organización",
+        "members": "Miembros",
+        "created": "Creada"
+      },
+      "viewMembers": "Ver miembros",
+      "viewMembersOf": "Ver miembros de {{name}}",
+      "membersOf": "Miembros de {{name}}",
+      "removeNamed": "Quitar a {{name}}",
+      "footnote": "Esta vista incluye todas las organizaciones de la instalación."
     },
     "roles": {
-      "intro": "Los roles de la instalación son fijos en esta versión. Asígnelos en la página de usuarios. Ningún rol da acceso a conversaciones ni mensajes.",
+      "intro": "Los roles son fijos en esta versión. Asígnelos en la página Usuarios.",
       "members_one": "{{count}} persona",
       "members_other": "{{count}} personas",
       "names": {
         "InstallationAdministrator": "Administrador",
         "Auditor": "Auditor"
-      }
+      },
+      "title": "Roles de instalación",
+      "subtitle": "Roles predefinidos para la administración y la supervisión.",
+      "manageAssignments": "Gestionar asignaciones",
+      "descriptions": {
+        "InstallationAdministrator": "Gestiona la configuración, el acceso y las organizaciones de la instalación.",
+        "Auditor": "Visibilidad de solo lectura de la administración de la instalación."
+      },
+      "comparison": "Comparación de permisos",
+      "capability": "Capacidad",
+      "allowed": "Permitido",
+      "notGranted": "No concedido",
+      "developmentOnly": "Solo en desarrollo",
+      "conversations": "Acceder a conversaciones o mensajes",
+      "noConversationsTitle": "La administración no da acceso a las conversaciones",
+      "noConversationsText": "Ningún rol de instalación da acceso a conversaciones ni mensajes."
     },
     "permissions": {
-      "installation_read": "Ver la instalación, los ajustes y los proveedores",
-      "installation_manage": "Cambiar ajustes y proveedores",
-      "installation_demo_data": "Cargar datos de demostración (solo desarrollo)",
+      "installation_read": "Ver la configuración y los proveedores",
+      "installation_manage": "Cambiar la configuración y los proveedores",
+      "installation_demo_data": "Cargar datos de demostración",
       "users_read": "Ver usuarios",
-      "users_manage": "Desactivar, activar y cerrar sesiones de usuarios; gestionar roles",
+      "users_manage": "Activar, desactivar y cerrar sesión de usuarios; gestionar roles",
       "organizations_read": "Ver todas las organizaciones",
-      "organizations_manage": "Renombrar organizaciones y gestionar sus miembros",
+      "organizations_manage": "Renombrar organizaciones y gestionar miembros",
       "audit_read": "Leer el registro de auditoría"
     },
     "settings": {
@@ -1314,6 +1384,21 @@
       "rebuildConfirm": "¿Vaciar el índice de búsqueda e indexar de nuevo todos los mensajes? Los resultados estarán incompletos hasta que termine.",
       "rebuilt_one": "{{count}} mensaje en cola para indexar.",
       "rebuilt_other": "{{count}} mensajes en cola para indexar."
+    },
+    "subtitle": "Gestione el acceso, las organizaciones y la configuración de la instalación.",
+    "sortLabel": "Orden",
+    "sort": {
+      "nameAsc": "Nombre A–Z",
+      "nameDesc": "Nombre Z–A",
+      "members": "Más miembros"
+    },
+    "manage": "Gestionar",
+    "close": "Cerrar",
+    "showing": {
+      "users_one": "Mostrando {{from}}–{{to}} de {{count}} usuario",
+      "users_other": "Mostrando {{from}}–{{to}} de {{count}} usuarios",
+      "organizations_one": "Mostrando {{from}}–{{to}} de {{count}} organización",
+      "organizations_other": "Mostrando {{from}}–{{to}} de {{count}} organizaciones"
     }
   },
   "widgets": {

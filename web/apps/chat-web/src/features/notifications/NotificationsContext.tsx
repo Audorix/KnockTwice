@@ -53,7 +53,7 @@ export function desktopNotificationsSupported(): boolean {
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { client } = useRealtime();
   const { pathname, query } = useLocation();
@@ -207,10 +207,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const unread = useMemo(() => conversations.filter((c) => !c.muted).reduce((sum, c) => sum + c.unreadCount, 0), [conversations]);
 
+  // A language change resets the document title (i18n), so the count is put back after it too.
   useEffect(() => {
-    const base = baseTitle.current || 'Audorix.ChatX';
+    const base = t('app.documentTitle') || baseTitle.current || 'Audorix.ChatX';
     document.title = unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${base}` : base;
-  }, [unread]);
+  }, [unread, i18n.language, t]);
 
   const value = useMemo(() => ({ unread, invitations, mentions, dueReminders, toasts, dismiss }), [unread, invitations, mentions, dueReminders, toasts, dismiss]);
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

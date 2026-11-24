@@ -556,7 +556,8 @@
     "becomeOwner": "You’ll become the owner.",
     "generalWorkspace": "A General workspace is created automatically.",
     "lookingTitle": "Looking for an organization?",
-    "lookingText": "Ask an organization administrator for an invitation."
+    "lookingText": "Ask an organization administrator for an invitation.",
+    "kind": "Organization"
   },
   "realtime": {
     "status": {
@@ -1076,10 +1077,7 @@
     "none": "Nothing found.",
     "results_one": "{{count}} result",
     "results_other": "{{count}} results",
-    "never": "never",
-    "previous": "Previous",
-    "next": "Next",
-    "range": "{{from}}–{{to}} of {{total}}",
+    "never": "Never",
     "seconds": "seconds",
     "reset": "Reset to default",
     "lockedHint": "Set by {{source}}; it cannot be changed here.",
@@ -1115,18 +1113,31 @@
       "storage": "File storage",
       "scanning": "Malware scanning",
       "environment": "Environment",
-      "version": "Version"
+      "version": "Version",
+      "title": "Installation overview",
+      "manageUsers": "Manage users",
+      "manageOrganizations": "Manage organizations",
+      "reviewRegistration": "Review registration settings",
+      "providersTitle": "Provider configuration",
+      "providersSubtitle": "Current installation providers.",
+      "viewProvider": "View provider",
+      "viewProviderNamed": "View provider: {{name}}",
+      "configure": "Configure",
+      "configureScanning": "Configure malware scanning",
+      "scanningOffTitle": "Malware scanning is off",
+      "scanningOffText": "Uploaded files are not being checked by a malware scanner.",
+      "detailsTitle": "Installation details",
+      "applicationSettings": "Application settings",
+      "providerSettings": "Provider settings",
+      "shortcutsTitle": "Administration shortcuts",
+      "rolesTitle": "Roles & permissions",
+      "rolesText": "Review installation access",
+      "settingsText": "Manage platform behavior",
+      "auditText": "Review administrative actions",
+      "footnote": "Installation-wide settings apply across all organizations."
     },
     "users": {
-      "search": "Search by email or name",
-      "filter": "Show",
-      "filters": {
-        "all": "Everyone",
-        "disabled": "Disabled",
-        "unconfirmed": "Email not confirmed",
-        "InstallationAdministrator": "Administrators",
-        "Auditor": "Auditors"
-      },
+      "search": "Search by name or email",
       "disabled": "Disabled",
       "lockedOut": "Locked out",
       "unconfirmed": "Email not confirmed",
@@ -1143,42 +1154,101 @@
       "confirm": "Mark email confirmed",
       "resend": "Resend confirmation",
       "resent": "A new confirmation email was sent.",
-      "grantRole": "Make {{role}}",
-      "revokeRole": "Remove {{role}}",
       "delete": "Delete",
       "deleteConfirm": "Delete the account of {{name}}? Their personal data is erased and their messages show \"Deleted user\". This cannot be undone.",
-      "deleted": "{{name}} was deleted."
+      "deleted": "{{name}} was deleted.",
+      "subtitle": "Manage accounts and installation roles.",
+      "statusLabel": "Status",
+      "status": {
+        "all": "Status: All",
+        "enabled": "Status: Enabled",
+        "disabled": "Status: Disabled",
+        "unconfirmed": "Status: Email not confirmed"
+      },
+      "roleLabel": "Role",
+      "roleFilter": {
+        "all": "Role: All",
+        "InstallationAdministrator": "Role: Administrator",
+        "Auditor": "Role: Auditor",
+        "none": "Role: User"
+      },
+      "columns": {
+        "user": "User",
+        "status": "Status",
+        "role": "Installation role",
+        "sessions": "Sessions",
+        "organizations": "Organizations",
+        "actions": "Actions"
+      },
+      "manageNamed": "Manage {{name}}",
+      "moreFor": "More actions for {{name}}",
+      "viewDetails": "View details",
+      "manageRoles": "Manage roles",
+      "enableAccount": "Enable account",
+      "disableAccount": "Disable account",
+      "deleteAccount": "Delete account",
+      "enabled": "Enabled",
+      "unconfirmedShort": "Unconfirmed",
+      "plainUser": "User",
+      "detailsFor": "Details of {{name}}",
+      "created": "Created",
+      "installationRoles": "Installation roles",
+      "footnote": "Installation roles apply across all organizations."
     },
     "organizations": {
       "search": "Search organizations",
       "members_one": "{{count}} member",
       "members_other": "{{count}} members",
-      "since": "since {{date}}",
-      "open": "Members",
       "name": "Organization name",
       "rename": "Rename",
       "role": "Role of {{name}}",
       "remove": "Remove",
-      "removeConfirm": "Remove {{name}} from the organization? They also leave its conversations."
+      "removeConfirm": "Remove {{name}} from the organization? They also leave its conversations.",
+      "subtitle": "Browse organizations across this installation and review their members.",
+      "columns": {
+        "organization": "Organization",
+        "members": "Members",
+        "created": "Created"
+      },
+      "viewMembers": "View members",
+      "viewMembersOf": "View members of {{name}}",
+      "membersOf": "Members of {{name}}",
+      "removeNamed": "Remove {{name}}",
+      "footnote": "This view includes all organizations in the installation."
     },
     "roles": {
-      "intro": "Installation roles are fixed in this release. Assign them on the Users page. No role gives access to conversations or messages.",
+      "intro": "Roles are fixed in this release. Assign them on the Users page.",
       "members_one": "{{count}} person",
       "members_other": "{{count}} people",
       "names": {
         "InstallationAdministrator": "Administrator",
         "Auditor": "Auditor"
-      }
+      },
+      "title": "Installation roles",
+      "subtitle": "Built-in roles for administration and oversight.",
+      "manageAssignments": "Manage assignments",
+      "descriptions": {
+        "InstallationAdministrator": "Manage installation settings, access and organizations.",
+        "Auditor": "Read-only visibility into installation administration."
+      },
+      "comparison": "Permission comparison",
+      "capability": "Capability",
+      "allowed": "Allowed",
+      "notGranted": "Not granted",
+      "developmentOnly": "Development only",
+      "conversations": "Access conversations or message content",
+      "noConversationsTitle": "Administration does not grant conversation access",
+      "noConversationsText": "Neither installation role provides access to conversations or messages."
     },
     "permissions": {
-      "installation_read": "See the installation, settings and providers",
+      "installation_read": "View settings and providers",
       "installation_manage": "Change settings and providers",
-      "installation_demo_data": "Populate demo data (development only)",
-      "users_read": "See users",
-      "users_manage": "Disable, enable and sign out users; manage roles",
-      "organizations_read": "See all organizations",
-      "organizations_manage": "Rename organizations and manage their members",
-      "audit_read": "Read the audit log"
+      "installation_demo_data": "Populate demo data",
+      "users_read": "View users",
+      "users_manage": "Enable, disable and sign out users; manage installation roles",
+      "organizations_read": "View all organizations",
+      "organizations_manage": "Rename organizations and manage members",
+      "audit_read": "Read audit log"
     },
     "settings": {
       "intro": "These settings apply immediately, on every server. Values set by the environment or the command line are locked.",
@@ -1314,6 +1384,21 @@
       "rebuildConfirm": "Empty the search index and index every message again? Search results are incomplete until it finishes.",
       "rebuilt_one": "{{count}} message queued for indexing.",
       "rebuilt_other": "{{count}} messages queued for indexing."
+    },
+    "subtitle": "Manage access, organizations and installation settings.",
+    "sortLabel": "Sort",
+    "sort": {
+      "nameAsc": "Name A–Z",
+      "nameDesc": "Name Z–A",
+      "members": "Most members"
+    },
+    "manage": "Manage",
+    "close": "Close",
+    "showing": {
+      "users_one": "Showing {{from}}–{{to}} of {{count}} user",
+      "users_other": "Showing {{from}}–{{to}} of {{count}} users",
+      "organizations_one": "Showing {{from}}–{{to}} of {{count}} organization",
+      "organizations_other": "Showing {{from}}–{{to}} of {{count}} organizations"
     }
   },
   "widgets": {

@@ -147,6 +147,42 @@ for both people, the organizations tabs, roles, paging, sorting, search, invitat
 panel); type check clean; bundle 176.1 kB of 180 kB. Checked in the browser with the demo data in
 dark mode at 1500 px and on a phone (375 px, no sideways scrolling).
 
+## Administration overview (from the owner's mockup, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Header | Breadcrumb, title, subtitle; on the right the environment badge and version (and "Read only" for auditors). |
+| Tabs | The existing sections as underlined tabs (Overview, Users, Organizations, Roles, Settings, Providers, Audit log), still following permissions. |
+| Overview | Cards for Users (with disabled count), Organizations and Registration, each linking to its section; "Provider configuration" (database shown as SQLite/PostgreSQL, file storage, malware scanning with a state dot) with View provider / Configure links and an amber warning while scanning is off; "Installation details" (environment, version, registration) with links to application and provider settings; shortcuts to Roles & permissions, Settings and Audit log; a note that installation settings apply to all organizations. A link is shown only when the caller may open its section. |
+| Other tabs | Unchanged in this step. |
+
+No API change (the existing `GET /api/v1/admin/overview`).
+
+Also on 2026-11-24, the organizations page was aligned further with its mockup: "Organization" under
+each name (creation date on hover), the create panel shown beside the list on wide screens, the
+caller's own organizations highlighted, and clearer Manage/Open buttons.
+
+Validation: web tests 91/91 (new: the overview with counts, links, providers, the scanning warning,
+details and shortcuts, and links hidden without permission); type check clean; bundle 177.4 kB of
+180 kB. Checked in the browser with the demo data in dark mode at 1500 px and on a phone (375 px, no
+sideways scrolling).
+
+## Administration: users, organizations and roles (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Users | "Users 301" and a subtitle; a filter bar (search, Status: all/enabled/disabled/email not confirmed, Role: all/administrator/auditor/user, Search); a table with avatar, name and email, status (dot; locked out and unconfirmed shown), installation role pills, last sign-in, sessions and organizations; **Manage** opens a details panel (facts, role switches, sign out, confirm/resend, disable or enable, delete); the "…" menu has View details, Manage roles, sign out, confirm email, Disable/Enable account and Delete account (red). Sort Name A–Z/Z–A; 8/25/50 per page with page numbers; "Installation roles apply across all organizations." Auditors see View details only and read-only switches. |
+| Organizations | "Organizations 51", search with Search and a sort (name either way, most members); a table with initials tile, name, members, created date and time, and **View members** opening a side panel (rename, member roles, remove, delete organization for administrators; read-only otherwise); paging as for users; "This view includes all organizations in the installation." |
+| Roles | "Installation roles" with **Manage assignments** (to Users), the fixed-roles note, role cards (Administrator, Auditor) with member counts and descriptions, a "Permission comparison" table (Allowed / Not granted per permission; demo data marked "Development only"; a separated row showing that no role accesses conversations or message content) and the closing note. |
+| API | `GET /api/v1/admin/users`: `filter=enabled`, `role` (a role name or `none`), `sort` (`nameAsc`, `nameDesc`); `GET /api/v1/admin/organizations`: `sort` (`nameAsc`, `nameDesc`, `members`). Unknown sorts are 400. "Newest" was left out: creation dates are stored as text on SQLite and cannot be ordered there. OpenAPI re-exported. |
+| Fix | The unread count in the tab title was lost when the app applied the user's language (the i18n title reset ran after it); the title is now rebuilt on language changes too. |
+
+Validation: `AdministrationTests` and `AccountDeletionTests` on SQLite and PostgreSQL (new: status and
+role filters, sorting, invalid sort); web tests 93/93 (new: user menu and details panel, separate
+filters, organizations panel and sort, the permission comparison); type check clean; bundle 178.5 kB
+of 180 kB. Checked in the browser with the demo data in dark mode at 1500 px and on a phone (375 px,
+no sideways scrolling).
+
 ## Open items
 
 - Administration, channels, search and the support inbox were restyled only through the shared

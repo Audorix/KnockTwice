@@ -50,6 +50,8 @@ describe('OrganizationsPage (redesign)', () => {
     expect(screen.getByRole('tab', { name: 'Owned by me 1' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Member 9' })).toBeInTheDocument();
     expect(within(audorix).getByText('Owner')).toBeInTheDocument();
+    expect(within(audorix).getByText('Organization')).toBeInTheDocument();
+    expect(audorix).toHaveClass('is-owned');
     expect(within(audorix).getByRole('button', { name: 'Manage Audorix' })).toBeInTheDocument();
     expect(within(screen.getByText('Contoso Labs').closest('tr')!).getByRole('button', { name: 'Manage Contoso Labs' })).toBeInTheDocument();
     expect(within(screen.getByText('Iron Motors').closest('tr')!).getByRole('button', { name: 'Open Iron Motors' })).toBeInTheDocument();

@@ -94,6 +94,16 @@ public sealed class AdministrationTests
 
         Assert.Equal(1, (await JsonAsync(await admin.GetAsync("/api/v1/admin/users?filter=disabled"))).GetProperty("total").GetInt32());
 
+        // Redesign 2026-11: status and role are separate filters, and the order can be reversed.
+        static IEnumerable<string?> Names(System.Text.Json.JsonElement page) => page.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("displayName").GetString());
+        Assert.Equal(["Admin"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users?filter=enabled"))));
+        Assert.Equal(["Admin"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users?role=InstallationAdministrator"))));
+        Assert.Equal(["Ana"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users?role=none"))));
+        Assert.Empty(Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users?filter=disabled&role=InstallationAdministrator"))));
+        Assert.Equal(["Admin", "Ana"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users"))));
+        Assert.Equal(["Ana", "Admin"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/users?sort=nameDesc"))));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/admin/users?sort=sideways")).StatusCode);
+
         AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/users/{anaId}/enable"));
         using (var back = new ApiSession(api.CreateHttpsClient()))
         {
@@ -283,6 +293,13 @@ public sealed class AdministrationTests
         var list = await JsonAsync(await admin.GetAsync("/api/v1/admin/organizations?q=acm"));
         Assert.Equal((1, 2, 1), (list.GetProperty("total").GetInt32(), list.GetProperty("items")[0].GetProperty("members").GetInt32(),
             list.GetProperty("items")[0].GetProperty("owners").GetInt32()));
+
+        // Sorting (redesign 2026-11): by name either way, or by members (most first).
+        AssertStatus(HttpStatusCode.Created, await ben.PostAsync("/api/v1/organizations", new { name = "Zeta Solo" }));
+        static IEnumerable<string?> Names(System.Text.Json.JsonElement page) => page.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("name").GetString());
+        Assert.Equal(["Zeta Solo", "Acme"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/organizations?sort=nameDesc"))));
+        Assert.Equal(["Acme", "Zeta Solo"], Names(await JsonAsync(await admin.GetAsync("/api/v1/admin/organizations?sort=members"))));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/v1/admin/organizations?sort=newest")).StatusCode);
 
         var renamed = await JsonAsync(await admin.SendAsync(HttpMethod.Put, $"/api/v1/admin/organizations/{organization}", new { name = "Acme Renamed" }));
         Assert.Equal("Acme Renamed", renamed.GetProperty("organization").GetProperty("name").GetString());

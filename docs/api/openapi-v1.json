@@ -3780,7 +3780,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Searches accounts by email or name; filter: all, disabled, unconfirmed or a role name.",
+        "summary": "Searches accounts by email or name; filter: all, enabled, disabled, unconfirmed (or a role name); role: a role name or none; sort: nameAsc, nameDesc.",
         "parameters": [
           {
             "name": "q",
@@ -3791,6 +3791,20 @@
           },
           {
             "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
             "in": "query",
             "schema": {
               "type": "string"
@@ -4117,9 +4131,17 @@
         "tags": [
           "Administration"
         ],
+        "summary": "Searches organizations by name; sort: nameAsc, nameDesc, members (most first).",
         "parameters": [
           {
             "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
             "in": "query",
             "schema": {
               "type": "string"

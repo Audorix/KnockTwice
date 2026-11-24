@@ -3,7 +3,8 @@ export type NavIconName =
   | 'reply' | 'smile' | 'thread' | 'dots' | 'edit' | 'trash' | 'clip' | 'send'
   | 'settings' | 'user' | 'block' | 'plus' | 'message' | 'chevron-left' | 'chevron-right' | 'close'
   | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external'
-  | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history';
+  | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
+  | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -20,6 +21,49 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
         <>
           <path {...common} d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
           <path {...common} d="M14 3v5h5" />
+        </>
+      )}
+      {name === 'database' && (
+        <>
+          <ellipse {...common} cx="12" cy="5.5" rx="7.5" ry="2.75" />
+          <path {...common} d="M4.5 5.5v13c0 1.5 3.4 2.75 7.5 2.75s7.5-1.25 7.5-2.75v-13M4.5 12c0 1.5 3.4 2.75 7.5 2.75s7.5-1.25 7.5-2.75" />
+        </>
+      )}
+      {name === 'folder' && <path {...common} d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />}
+      {name === 'door' && (
+        <>
+          <path {...common} d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5V21M3 21h18" />
+          <path {...common} d="M14.5 12.5h.01" />
+        </>
+      )}
+      {name === 'layers' && (
+        <>
+          <path {...common} d="M12 3 3 8l9 5 9-5z" />
+          <path {...common} d="M3 12.5l9 5 9-5M3 16.5l9 5 9-5" />
+        </>
+      )}
+      {name === 'sliders' && (
+        <>
+          <path {...common} d="M4 7h10M18 7h2M4 17h4M12 17h8M4 12h2M10 12h10" />
+          <circle {...common} cx="16" cy="7" r="2" />
+          <circle {...common} cx="10" cy="17" r="2" />
+          <circle {...common} cx="8" cy="12" r="2" />
+        </>
+      )}
+      {name === 'list' && <path {...common} d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01" />}
+      {name === 'eye' && (
+        <>
+          <path {...common} d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" />
+          <circle {...common} cx="12" cy="12" r="3" />
+        </>
+      )}
+      {name === 'minus' && <path {...common} d="M6 12h12" />}
+      {name === 'bank' && <path {...common} d="M3 9.5 12 4l9 5.5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20.5h18" />}
+      {name === 'arrow-right' &&<path {...common} d="M5 12h14M13 6l6 6-6 6" />}
+      {name === 'alert' && (
+        <>
+          <circle {...common} cx="12" cy="12" r="9" />
+          <path {...common} d="M12 7.5v5.5M12 16.25v.01" />
         </>
       )}
       {name === 'browser' && (

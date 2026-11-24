@@ -45,6 +45,23 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   mentions grouped by day with search, All/Unread, a conversation filter and order, "Mark as read"
   per mention and "Mark all as read"; a "Coming up" column with the next reminders and scheduled
   messages.
+- **Administration:** a page header with the environment and version; underlined section tabs; an
+  installation overview with Users, Organizations and Registration cards (with links to their
+  sections), the providers in use (a warning while malware scanning is off), installation details
+  and shortcuts to roles, settings and the audit log. Links appear only for sections you may open.
+  **Users:** status and role filters, sorting, a table (status, installation role, last sign-in,
+  sessions, organizations), Manage and a "…" menu (view details, manage roles, sign out, confirm
+  email, disable or enable, delete), a details panel with role switches, 8/25/50 per page.
+  **Organizations:** search, sorting (name, most members), a table with members and creation date,
+  and members in a side panel (rename, roles, remove, delete for administrators). **Roles:** role
+  cards with member counts and a permission comparison that shows that no role grants access to
+  conversations. API: `role` and `sort` on `GET /api/v1/admin/users` (and `filter=enabled`),
+  `sort` on `GET /api/v1/admin/organizations`.
+- **Tab title fix:** the unread count in the browser tab title stays after the app applies your
+  language (it could disappear until the next new message).
+- **Organizations page (follow-up):** "Organization" under each name (the creation date shows on
+  hover), the create panel shown beside the list on wide screens, your own organization's row
+  highlighted, clearer Manage/Open buttons.
 - **Private chats page:** a page header with a "Session only" badge; when no private chat runs, an
   explanation with "Open conversations" and three facts (one sign-in session, outside chat
   history, this browser only); running chats listed with their state. The invitation is a card

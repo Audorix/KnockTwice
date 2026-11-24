@@ -26,12 +26,16 @@ public sealed record AdminOrganizationDetail(AdminOrganizationView Organization,
 /// <summary>Read model for administration screens.</summary>
 public interface IAdminDirectory
 {
-    /// <param name="filter"><c>all</c>, <c>disabled</c>, <c>unconfirmed</c> or a role name.</param>
-    Task<AdminUserPage> SearchUsersAsync(string? query, string? filter, int skip, int take, CancellationToken cancellationToken);
+    /// <param name="filter"><c>all</c>, <c>enabled</c>, <c>disabled</c>, <c>unconfirmed</c> or a role name (older clients).</param>
+    /// <param name="role">Redesign 2026-11: an installation role name, or <c>none</c> for accounts without one.</param>
+    /// <param name="sort"><c>nameAsc</c> (default) or <c>nameDesc</c>.</param>
+    Task<AdminUserPage> SearchUsersAsync(
+        string? query, string? filter, int skip, int take, CancellationToken cancellationToken, string? role = null, string? sort = null);
 
     Task<AdminUserView?> FindUserAsync(Guid userId, CancellationToken cancellationToken);
 
-    Task<AdminOrganizationPage> SearchOrganizationsAsync(string? query, int skip, int take, CancellationToken cancellationToken);
+    /// <param name="sort"><c>nameAsc</c> (default), <c>nameDesc</c> or <c>members</c> (most first).</param>
+    Task<AdminOrganizationPage> SearchOrganizationsAsync(string? query, int skip, int take, CancellationToken cancellationToken, string? sort = null);
 
     Task<AdminOrganizationDetail?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken);
 
@@ -54,15 +58,27 @@ public sealed class UserAdministrationService(
 {
     public const int MaxPageSize = 100;
 
-    public Task<AdminUserPage> SearchAsync(string? query, string? filter, int skip, int take, CancellationToken cancellationToken)
+    public static readonly IReadOnlyList<string> UserSorts = ["nameAsc", "nameDesc"];
+
+    public static readonly IReadOnlyList<string> OrganizationSorts = ["nameAsc", "nameDesc", "members"];
+
+    public Task<AdminUserPage> SearchAsync(
+        string? query, string? filter, int skip, int take, CancellationToken cancellationToken, string? role = null, string? sort = null)
     {
         if (take is < 1 or > MaxPageSize || skip < 0)
         {
             throw new RequestValidationException("take", "limit_out_of_range");
         }
 
-        return directory.SearchUsersAsync(query?.Trim(), filter?.Trim(), skip, take, cancellationToken);
+        return directory.SearchUsersAsync(query?.Trim(), filter?.Trim(), skip, take, cancellationToken, role?.Trim(), RequireSort(sort, UserSorts));
     }
+
+    /// <summary>A known sort (case-insensitive) or null for the default; anything else is 400 <c>sort_invalid</c>.</summary>
+    internal static string? RequireSort(string? sort, IReadOnlyList<string> allowed) =>
+        string.IsNullOrWhiteSpace(sort)
+            ? null
+            : allowed.FirstOrDefault(s => string.Equals(s, sort.Trim(), StringComparison.OrdinalIgnoreCase))
+              ?? throw new RequestValidationException("sort", "sort_invalid");
 
     public async Task<AdminUserView> GetAsync(Guid userId, CancellationToken cancellationToken) =>
         await directory.FindUserAsync(userId, cancellationToken).ConfigureAwait(false) ?? throw new ResourceNotFoundException("user_not_found");
@@ -179,14 +195,15 @@ public sealed class UserAdministrationService(
 /// </summary>
 public sealed class OrganizationAdministrationService(IAdminDirectory directory, OrganizationService organizations, AuditService audit)
 {
-    public Task<AdminOrganizationPage> SearchAsync(string? query, int skip, int take, CancellationToken cancellationToken)
+    public Task<AdminOrganizationPage> SearchAsync(string? query, int skip, int take, CancellationToken cancellationToken, string? sort = null)
     {
         if (take is < 1 or > UserAdministrationService.MaxPageSize || skip < 0)
         {
             throw new RequestValidationException("take", "limit_out_of_range");
         }
 
-        return directory.SearchOrganizationsAsync(query?.Trim(), skip, take, cancellationToken);
+        return directory.SearchOrganizationsAsync(query?.Trim(), skip, take, cancellationToken,
+            UserAdministrationService.RequireSort(sort, UserAdministrationService.OrganizationSorts));
     }
 
     public async Task<AdminOrganizationDetail> GetAsync(Guid organizationId, CancellationToken cancellationToken) =>

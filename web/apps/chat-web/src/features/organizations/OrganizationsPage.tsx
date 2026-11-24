@@ -33,7 +33,8 @@ function Organizations() {
   const [organizations, setOrganizations] = useState<OrganizationResponse[] | null>(null);
   const [invitations, setInvitations] = useState<MyInvitationResponse[]>([]);
   const [error, setError] = useState<unknown>(null);
-  const [creating, setCreating] = useState(false);
+  // Like the mockup, the create panel is shown beside the list on wide screens; on smaller ones it opens on request.
+  const [creating, setCreating] = useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1100px)').matches);
   const [tab, setTab] = useState<Tab>('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<Sort>('nameAsc');
@@ -168,13 +169,15 @@ function Organizations() {
                 {shown.map((o) => {
                   const manages = o.myRole === 'owner' || o.myRole === 'administrator';
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} className={o.myRole === 'owner' ? 'is-owned' : undefined}>
                       <td data-label={t('organizations.columns.organization')}>
                         <div className="cx-organization-cell">
                           <span className="cx-organization-mark" aria-hidden="true">{initialsOf(o.name)}</span>
                           <span className="min-w-0">
                             <strong className="d-block text-truncate">{o.name}</strong>
-                            <span className="cx-muted small">{t('organizations.since', { date: formatDay(o.createdAtUtc, i18n.language) })}</span>
+                            <span className="cx-muted small" title={t('organizations.since', { date: formatDay(o.createdAtUtc, i18n.language) })}>
+                              {t('organizations.kind')}
+                            </span>
                           </span>
                         </div>
                       </td>

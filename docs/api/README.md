@@ -85,7 +85,11 @@ Contacts in `GET /api/v1/contacts` include `sharedOrganizations` (`[{ id, name }
 organizations both people are active members of.
 
 Other lists that are naturally small (contacts, organizations, channels) are returned whole.
-Administration searches take `skip` and `take`.
+Administration searches take `skip` and `take` (1–100). `GET /api/v1/admin/users` also takes
+`filter` (`all`, `enabled`, `disabled`, `unconfirmed`), `role` (`InstallationAdministrator`,
+`Auditor`, or `none` for accounts without an installation role) and `sort` (`nameAsc`, `nameDesc`);
+`GET /api/v1/admin/organizations` takes `sort` (`nameAsc`, `nameDesc`, `members` for the most
+members first). An unknown sort is `400`.
 
 ## Sending messages
 

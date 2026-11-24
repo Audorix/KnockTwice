@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from '../../app/router';
 import { Avatar } from '../../shared/components/Avatar';
 import { FormAlert } from '../../shared/components/Field';
+import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
+import { Pagination } from '../../shared/components/Pagination';
+import { RowMenu, type RowMenuItem } from '../../shared/components/RowMenu';
 import { formatDateTime } from '../../shared/format';
 import { formatBytes } from '../attachments/Attachments';
 import { useAuth } from '../auth/AuthContext';
@@ -62,10 +66,21 @@ function Administration() {
   const can = (permission: string) => permissions.includes(permission);
   return (
     <div className="cx-admin">
-      <div className="cx-admin-header">
-        <h1 className="cx-page-title mb-0">{t('admin.title')}</h1>
-        {!can('installation.manage') && !can('users.manage') && <span className="badge text-bg-secondary">{t('admin.readOnly')}</span>}
-      </div>
+      <header className="cx-page-header">
+        <div>
+          <nav aria-label={t('nav.label')} className="cx-breadcrumb">
+            <span>{t('nav.workspace')}</span>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{t('admin.title')}</span>
+          </nav>
+          <h1 className="cx-page-title mb-1">{t('admin.title')}</h1>
+          <p className="cx-muted mb-0">{t('admin.subtitle')}</p>
+        </div>
+        <div className="cx-admin-badges">
+          {!can('installation.manage') && !can('users.manage') && <span className="badge text-bg-secondary">{t('admin.readOnly')}</span>}
+          {can('installation.read') && <InstallationBadge />}
+        </div>
+      </header>
       <nav className="cx-admin-tabs" aria-label={t('admin.sections')}>
         {available.map((name) => (
           <Link key={name} to={`/admin?tab=${name}`} className="cx-admin-tab" aria-current={name === tab ? 'page' : undefined}>
@@ -73,10 +88,10 @@ function Administration() {
           </Link>
         ))}
       </nav>
-      {tab === 'overview' && <Overview />}
+      {tab === 'overview' && <Overview available={available} />}
       {tab === 'users' && <Users canManage={can('users.manage')} currentUserId={user!.id} />}
       {tab === 'organizations' && <Organizations canManage={can('organizations.manage')} />}
-      {tab === 'roles' && <RolesView />}
+      {tab === 'roles' && <RolesView canManage={can('users.manage')} />}
       {tab === 'settings' && <Settings canManage={can('installation.manage')} />}
       {tab === 'providers' && <Providers canManage={can('installation.manage')} />}
       {tab === 'audit' && <Audit />}
@@ -116,57 +131,235 @@ function Loading() {
 
 // ---- Overview ------------------------------------------------------------------------------
 
-function Overview() {
+/** Environment and version in the page header (redesign 2026-11-24). */
+function InstallationBadge() {
+  const [data, setData] = useState<api.AdminOverview | null>(null);
+  useEffect(() => {
+    api.getOverview().then(setData, () => undefined);
+  }, []);
+  if (!data) return null;
+  return (
+    <>
+      <span className="cx-env-badge">{data.environment}</span>
+      <span className="cx-version">v{data.version}</span>
+    </>
+  );
+}
+
+/** A link to an administration tab, shown only when the caller may open it. */
+function TabLink({ tab, available, className, children, label }: { tab: Tab; available: readonly Tab[]; className: string; children: ReactNode; label?: string }) {
+  if (!available.includes(tab)) return null;
+  return (
+    <Link to={`/admin?tab=${tab}`} className={className} aria-label={label}>
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * The installation overview (redesigned to the owner's mockup 2026-11-24): counts with links to
+ * their sections, the providers in use (with a warning while malware scanning is off), the
+ * installation details and shortcuts to roles, settings and the audit log.
+ */
+function Overview({ available }: { available: readonly Tab[] }) {
   const { t } = useTranslation();
   const { data, error } = useLoad(api.getOverview, []);
+  const go = (label: string) => (
+    <>
+      {label}
+      <NavIcon name="arrow-right" size={16} />
+    </>
+  );
   return (
-    <Section title={t('admin.tabs.overview')}>
+    <div className="cx-admin-overview">
+      <h2 className="cx-admin-heading">{t('admin.overview.title')}</h2>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {!data ? (
-        <Loading />
+        error === null && <Loading />
       ) : (
         <>
           {data.restartRequiredFor.length > 0 && (
             <FormAlert tone="info">{t('admin.restartPending', { groups: data.restartRequiredFor.map((g) => t(`admin.providers.${g}`)).join(', ') })}</FormAlert>
           )}
-          <dl className="cx-admin-stats">
-            <Stat label={t('admin.overview.users')} value={String(data.users)} hint={data.disabledUsers ? t('admin.overview.disabled', { count: data.disabledUsers }) : undefined} />
-            <Stat label={t('admin.overview.organizations')} value={String(data.organizations)} />
-            <Stat label={t('admin.overview.registration')} value={t(`admin.registrationModes.${data.registrationMode}`)} />
-            <Stat label={t('admin.overview.database')} value={data.databaseProvider} />
-            <Stat label={t('admin.overview.storage')} value={data.storageProvider} />
-            <Stat label={t('admin.overview.scanning')} value={data.scanningEnabled ? t('admin.on') : t('admin.off')} />
-            <Stat label={t('admin.overview.environment')} value={data.environment} />
-            <Stat label={t('admin.overview.version')} value={data.version} />
-          </dl>
+          <div className="cx-admin-stat-cards">
+            <StatCard icon="people" label={t('admin.overview.users')} value={String(data.users)}
+              hint={data.disabledUsers ? t('admin.overview.disabled', { count: data.disabledUsers }) : undefined}
+              link={<TabLink tab="users" available={available} className="cx-admin-link">{go(t('admin.overview.manageUsers'))}</TabLink>} />
+            <StatCard icon="building" label={t('admin.overview.organizations')} value={String(data.organizations)}
+              link={<TabLink tab="organizations" available={available} className="cx-admin-link">{go(t('admin.overview.manageOrganizations'))}</TabLink>} />
+            <StatCard icon="door" label={t('admin.overview.registration')} value={t(`admin.registrationModes.${data.registrationMode}`)}
+              link={<TabLink tab="settings" available={available} className="cx-admin-link">{go(t('admin.overview.reviewRegistration'))}</TabLink>} />
+          </div>
+
+          <div className="cx-admin-overview-grid">
+            <section className="cx-card cx-admin-panel" aria-labelledby="admin-providers-title">
+              <h3 id="admin-providers-title">{t('admin.overview.providersTitle')}</h3>
+              <p className="cx-muted">{t('admin.overview.providersSubtitle')}</p>
+              <ul className="list-unstyled cx-admin-providers">
+                <li>
+                  <NavIcon name="database" size={22} />
+                  <span>{t('admin.overview.database')}</span>
+                  <strong>{databaseName(data.databaseProvider)}</strong>
+                  <TabLink tab="providers" available={available} className="cx-admin-link" label={t('admin.overview.viewProviderNamed', { name: t('admin.overview.database') })}>
+                    {go(t('admin.overview.viewProvider'))}
+                  </TabLink>
+                </li>
+                <li>
+                  <NavIcon name="folder" size={22} />
+                  <span>{t('admin.overview.storage')}</span>
+                  <strong>{data.storageProvider}</strong>
+                  <TabLink tab="providers" available={available} className="cx-admin-link" label={t('admin.overview.viewProviderNamed', { name: t('admin.overview.storage') })}>
+                    {go(t('admin.overview.viewProvider'))}
+                  </TabLink>
+                </li>
+                <li>
+                  <NavIcon name="shield" size={22} />
+                  <span>{t('admin.overview.scanning')}</span>
+                  <strong className="cx-admin-state">
+                    <span className={`cx-dot ${data.scanningEnabled ? 'cx-dot-ok' : 'cx-dot-warn'}`} aria-hidden="true" />
+                    {data.scanningEnabled ? t('admin.on') : t('admin.off')}
+                  </strong>
+                  <TabLink tab="providers" available={available} className="cx-admin-link" label={t('admin.overview.configureScanning')}>
+                    {go(t('admin.overview.configure'))}
+                  </TabLink>
+                </li>
+              </ul>
+              {!data.scanningEnabled && (
+                <div className="cx-admin-warning" role="note">
+                  <NavIcon name="alert" size={22} />
+                  <span>
+                    <strong className="d-block">{t('admin.overview.scanningOffTitle')}</strong>
+                    {t('admin.overview.scanningOffText')}
+                  </span>
+                </div>
+              )}
+            </section>
+
+            <section className="cx-card cx-admin-panel" aria-labelledby="admin-details-title">
+              <h3 id="admin-details-title">{t('admin.overview.detailsTitle')}</h3>
+              <dl className="cx-admin-details">
+                <dt>{t('admin.overview.environment')}</dt>
+                <dd><span className="cx-env-badge">{data.environment}</span></dd>
+                <dt>{t('admin.overview.version')}</dt>
+                <dd>{data.version}</dd>
+                <dt>{t('admin.overview.registration')}</dt>
+                <dd>{t(`admin.registrationModes.${data.registrationMode}`)}</dd>
+              </dl>
+              <div className="cx-admin-detail-links">
+                <TabLink tab="settings" available={available} className="cx-admin-link is-large">
+                  <NavIcon name="settings" size={20} />
+                  {go(t('admin.overview.applicationSettings'))}
+                </TabLink>
+                <TabLink tab="providers" available={available} className="cx-admin-link is-large">
+                  <NavIcon name="layers" size={20} />
+                  {go(t('admin.overview.providerSettings'))}
+                </TabLink>
+              </div>
+            </section>
+          </div>
+
+          <h2 className="cx-admin-heading">{t('admin.overview.shortcutsTitle')}</h2>
+          <div className="cx-admin-shortcuts">
+            <TabLink tab="roles" available={available} className="cx-card cx-admin-shortcut">
+              <NavIcon name="shield" size={30} />
+              <span><strong className="d-block">{t('admin.overview.rolesTitle')}</strong><span className="cx-muted">{t('admin.overview.rolesText')}</span></span>
+              <NavIcon name="arrow-right" size={20} />
+            </TabLink>
+            <TabLink tab="settings" available={available} className="cx-card cx-admin-shortcut">
+              <NavIcon name="sliders" size={30} />
+              <span><strong className="d-block">{t('admin.tabs.settings')}</strong><span className="cx-muted">{t('admin.overview.settingsText')}</span></span>
+              <NavIcon name="arrow-right" size={20} />
+            </TabLink>
+            <TabLink tab="audit" available={available} className="cx-card cx-admin-shortcut">
+              <NavIcon name="list" size={30} />
+              <span><strong className="d-block">{t('admin.tabs.audit')}</strong><span className="cx-muted">{t('admin.overview.auditText')}</span></span>
+              <NavIcon name="arrow-right" size={20} />
+            </TabLink>
+          </div>
+          <p className="cx-admin-footnote cx-muted">
+            <NavIcon name="info" size={18} />
+            {t('admin.overview.footnote')}
+          </p>
         </>
       )}
-    </Section>
+    </div>
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string | undefined }) {
+/** The product's own spelling of the database engines the API names by provider key. */
+const databaseName = (provider: string) => ({ sqlite: 'SQLite', postgresql: 'PostgreSQL' } as Record<string, string>)[provider.toLowerCase()] ?? provider;
+
+function StatCard({ icon, label, value, hint, link }: { icon: NavIconName; label: string; value: string; hint?: string | undefined; link: ReactNode }) {
   return (
-    <div className="cx-admin-stat">
-      <dt>{label}</dt>
-      <dd>
-        {value}
+    <div className="cx-card cx-admin-stat-card">
+      <NavIcon name={icon} size={36} />
+      <div className="cx-admin-stat-value">
+        <span className="cx-muted">{label}</span>
+        <strong>{value}</strong>
         {hint && <span className="cx-meta d-block">{hint}</span>}
-      </dd>
+      </div>
+      {link}
     </div>
   );
 }
 
 // ---- Users -----------------------------------------------------------------------------------
 
+const pageSizes = [8, 25, 50] as const;
+
+/** "Users 301" with a subtitle: the heading of a redesigned administration section (2026-11-24). */
+function SectionHeading({ id, title, count, subtitle, actions }: { id: string; title: string; count?: number | undefined; subtitle: string; actions?: ReactNode }) {
+  return (
+    <div className="cx-admin-section-head">
+      <div>
+        <h2 id={id} className="cx-admin-heading mb-1">
+          {title}
+          {count !== undefined && <> <span className="cx-admin-count">{count}</span></>}
+        </h2>
+        <p className="cx-muted mb-0">{subtitle}</p>
+      </div>
+      {actions}
+    </div>
+  );
+}
+
+/** "Showing 1–8 of 301 users", page size and page numbers under a server-paged table. */
+function PageFooter({ skip, take, total, noun, onSkip, onTake }: {
+  skip: number;
+  take: number;
+  total: number;
+  noun: 'users' | 'organizations';
+  onSkip: (skip: number) => void;
+  onTake: (take: number) => void;
+}) {
+  const { t } = useTranslation();
+  const pages = Math.max(1, Math.ceil(total / take));
+  return (
+    <div className="cx-table-footer">
+      <span className="cx-muted">{t(`admin.showing.${noun}`, { from: total === 0 ? 0 : skip + 1, to: Math.min(skip + take, total), count: total })}</span>
+      <div className="cx-table-paging">
+        <label className="visually-hidden" htmlFor={`admin-${noun}-page-size`}>{t('contacts.perPageLabel')}</label>
+        <select id={`admin-${noun}-page-size`} className="form-select form-select-sm" value={take} onChange={(e) => onTake(Number(e.target.value))}>
+          {pageSizes.map((size) => <option key={size} value={size}>{t('contacts.perPage', { count: size })}</option>)}
+        </select>
+        {pages > 1 && <Pagination page={Math.floor(skip / take) + 1} pages={pages} onPage={(page) => onSkip((page - 1) * take)} />}
+      </div>
+    </div>
+  );
+}
+
 function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId: string }) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [status, setStatus] = useState('all');
+  const [role, setRole] = useState('all');
+  const [sort, setSort] = useState('nameAsc');
   const [skip, setSkip] = useState(0);
+  const [take, setTake] = useState<number>(pageSizes[0]);
   const [notice, setNotice] = useState<string | null>(null);
-  const { data, setData, error, setError } = useLoad(() => api.searchUsers(submitted, filter, skip), [submitted, filter, skip]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const { data, setData, error, setError } = useLoad(() => api.searchUsers(submitted, status, skip, take, role, sort), [submitted, status, skip, take, role, sort]);
 
   const replace = (updated: api.AdminUser) => setData((page) => page && { ...page, items: page.items.map((u) => (u.id === updated.id ? updated : u)) });
   const act = async (action: () => Promise<api.AdminUser | unknown>, success?: string) => {
@@ -181,152 +374,250 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
     }
   };
 
+  const actions: UserActions = {
+    enable: (u) => void act(() => api.enableUser(u.id)),
+    disable: (u) => {
+      if (window.confirm(t('admin.users.disableConfirm', { name: u.displayName }))) void act(() => api.disableUser(u.id));
+    },
+    signOut: (u) => void act(async () => {
+      await api.revokeUserSessions(u.id);
+      return { ...u, activeSessions: 0 };
+    }, t('admin.users.signedOut', { name: u.displayName })),
+    confirm: (u) => void act(() => api.confirmUserEmail(u.id)),
+    resend: (u) => void act(() => api.resendConfirmation(u.id), t('admin.users.resent')),
+    toggleRole: (u, name) => void act(() => (u.roles.includes(name) ? api.revokeRole(u.id, name) : api.grantRole(u.id, name))),
+    remove: (u) => {
+      if (window.confirm(t('admin.users.deleteConfirm', { name: u.displayName }))) {
+        void act(async () => {
+          await api.deleteUser(u.id);
+          setSelected(null);
+          setData((page) => page && { ...page, total: page.total - 1, items: page.items.filter((x) => x.id !== u.id) });
+        }, t('admin.users.deleted', { name: u.displayName }));
+      }
+    },
+  };
+
   const search = (event: FormEvent) => {
     event.preventDefault();
     setSkip(0);
     setSubmitted(query.trim());
   };
+  const filterBy = (set: (value: string) => void) => (value: string) => {
+    setSkip(0);
+    set(value);
+  };
+  const shown = data?.items.find((u) => u.id === selected) ?? null;
 
   return (
-    <Section title={t('admin.tabs.users')}>
-      <form className="cx-admin-filters" onSubmit={search} role="search">
-        <label className="visually-hidden" htmlFor="admin-user-search">
-          {t('admin.users.search')}
+    <section className="cx-admin-section" aria-labelledby="admin-users-title">
+      <SectionHeading id="admin-users-title" title={t('admin.tabs.users')} count={data?.total} subtitle={t('admin.users.subtitle')} />
+      <form className="cx-card cx-admin-filter-bar" onSubmit={search} role="search">
+        <label className="cx-search-field">
+          <NavIcon name="search" size={18} />
+          <span className="visually-hidden">{t('admin.users.search')}</span>
+          <input id="admin-user-search" className="form-control" type="search" placeholder={t('admin.users.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
-        <input id="admin-user-search" className="form-control" type="search" placeholder={t('admin.users.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-        <label className="visually-hidden" htmlFor="admin-user-filter">
-          {t('admin.users.filter')}
-        </label>
-        <select id="admin-user-filter" className="form-select" value={filter} onChange={(e) => { setSkip(0); setFilter(e.target.value); }}>
-          {['all', 'disabled', 'unconfirmed', 'InstallationAdministrator', 'Auditor'].map((f) => (
-            <option key={f} value={f}>
-              {t(`admin.users.filters.${f}`)}
-            </option>
-          ))}
+        <label className="visually-hidden" htmlFor="admin-user-status">{t('admin.users.statusLabel')}</label>
+        <select id="admin-user-status" className="form-select" value={status} onChange={(e) => filterBy(setStatus)(e.target.value)}>
+          {['all', 'enabled', 'disabled', 'unconfirmed'].map((f) => <option key={f} value={f}>{t(`admin.users.status.${f}`)}</option>)}
         </select>
-        <button type="submit" className="btn btn-primary">
-          {t('admin.search')}
-        </button>
+        <label className="visually-hidden" htmlFor="admin-user-role">{t('admin.users.roleLabel')}</label>
+        <select id="admin-user-role" className="form-select" value={role} onChange={(e) => filterBy(setRole)(e.target.value)}>
+          {['all', 'InstallationAdministrator', 'Auditor', 'none'].map((r) => <option key={r} value={r}>{t(`admin.users.roleFilter.${r}`)}</option>)}
+        </select>
+        <button type="submit" className="btn btn-primary">{t('admin.search')}</button>
       </form>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {notice && <FormAlert tone="success">{notice}</FormAlert>}
-      {!data ? (
-        <Loading />
-      ) : data.items.length === 0 ? (
-        <p className="cx-muted mb-0">{t('admin.none')}</p>
-      ) : (
-        <>
-          <p className="cx-meta">{t('admin.results', { count: data.total })}</p>
-          <ul className="list-unstyled cx-admin-list">
-            {data.items.map((u) => (
-              <li key={u.id} className={`cx-admin-row${u.disabled ? ' is-disabled' : ''}`}>
-                <Avatar user={{ id: u.id, avatar: { initials: u.initials } }} size="sm" />
-                <div className="cx-admin-row-main">
-                  <strong>{u.displayName}</strong>
-                  <span className="cx-meta d-block text-truncate">{u.email}</span>
-                  <span className="cx-admin-badges">
-                    {u.disabled && <span className="badge text-bg-danger">{t('admin.users.disabled')}</span>}
-                    {u.lockedOut && <span className="badge text-bg-warning">{t('admin.users.lockedOut')}</span>}
-                    {!u.emailConfirmed && <span className="badge text-bg-secondary">{t('admin.users.unconfirmed')}</span>}
-                    {u.roles.map((r) => (
-                      <span key={r} className="badge text-bg-primary">
-                        {t(`admin.roles.names.${r}`)}
+
+      <div className="cx-card cx-table-card">
+        <div className="cx-admin-table-tools">
+          <label className="visually-hidden" htmlFor="admin-user-sort">{t('admin.sortLabel')}</label>
+          <select id="admin-user-sort" className="form-select cx-admin-sort" value={sort} onChange={(e) => filterBy(setSort)(e.target.value)}>
+            {['nameAsc', 'nameDesc'].map((s) => <option key={s} value={s}>{t(`admin.sort.${s}`)}</option>)}
+          </select>
+        </div>
+        {!data ? (
+          error === null && <Loading />
+        ) : data.items.length === 0 ? (
+          <p className="cx-muted cx-table-empty">{t('admin.none')}</p>
+        ) : (
+          <>
+            <table className="cx-table cx-admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('admin.users.columns.user')}</th>
+                  <th scope="col">{t('admin.users.columns.status')}</th>
+                  <th scope="col">{t('admin.users.columns.role')}</th>
+                  <th scope="col">{t('admin.users.lastSignIn')}</th>
+                  <th scope="col">{t('admin.users.columns.sessions')}</th>
+                  <th scope="col">{t('admin.users.columns.organizations')}</th>
+                  <th scope="col">{t('admin.users.columns.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((u) => (
+                  <tr key={u.id} className={u.disabled ? 'is-disabled' : undefined}>
+                    <td data-label={t('admin.users.columns.user')}>
+                      <span className="cx-admin-person">
+                        <Avatar user={{ id: u.id, avatar: { initials: u.initials } }} size="sm" />
+                        <span className="min-w-0">
+                          <strong className="d-block text-truncate">{u.displayName}</strong>
+                          <span className="cx-muted small d-block text-truncate">{u.email}</span>
+                        </span>
                       </span>
-                    ))}
-                  </span>
-                  <span className="cx-meta d-block">
-                    {t('admin.users.lastSignIn')}: {u.lastSignInAtUtc ? formatDateTime(u.lastSignInAtUtc, i18n.language) : t('admin.never')} ·{' '}
-                    {t('admin.users.sessions', { count: u.activeSessions })} · {t('admin.users.organizations', { count: u.organizations })}
-                  </span>
-                </div>
-                {canManage && (
-                  <div className="cx-admin-actions">
-                    {u.disabled ? (
-                      <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => void act(() => api.enableUser(u.id))}>
-                        {t('admin.users.enable')}
+                    </td>
+                    <td data-label={t('admin.users.columns.status')}><UserStatus user={u} /></td>
+                    <td data-label={t('admin.users.columns.role')}><RolePills roles={u.roles} /></td>
+                    <td data-label={t('admin.users.lastSignIn')} className="cx-muted">
+                      {u.lastSignInAtUtc ? formatDateTime(u.lastSignInAtUtc, i18n.language) : t('admin.never')}
+                    </td>
+                    <td data-label={t('admin.users.columns.sessions')}>
+                      <span title={t('admin.users.sessions', { count: u.activeSessions })}>{u.activeSessions}</span>
+                    </td>
+                    <td data-label={t('admin.users.columns.organizations')}>{u.organizations}</td>
+                    <td className="cx-table-actions">
+                      <button type="button" className="btn btn-sm cx-admin-outline" onClick={() => setSelected(u.id)} aria-label={t('admin.users.manageNamed', { name: u.displayName })}>
+                        {t('admin.manage')}
                       </button>
-                    ) : (
-                      u.id !== currentUserId && (
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => {
-                            if (window.confirm(t('admin.users.disableConfirm', { name: u.displayName }))) void act(() => api.disableUser(u.id));
-                          }}
-                        >
-                          {t('admin.users.disable')}
-                        </button>
-                      )
-                    )}
-                    {u.activeSessions > 0 && (
-                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(async () => {
-                        await api.revokeUserSessions(u.id);
-                        return { ...u, activeSessions: 0 };
-                      }, t('admin.users.signedOut', { name: u.displayName }))}>
-                        {t('admin.users.signOut')}
-                      </button>
-                    )}
-                    {!u.emailConfirmed && (
-                      <>
-                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.confirmUserEmail(u.id))}>
-                          {t('admin.users.confirm')}
-                        </button>
-                        <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.resendConfirmation(u.id), t('admin.users.resent'))}>
-                          {t('admin.users.resend')}
-                        </button>
-                      </>
-                    )}
-                    {u.id !== currentUserId && (
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-danger"
-                        onClick={() => {
-                          if (window.confirm(t('admin.users.deleteConfirm', { name: u.displayName }))) {
-                            void act(async () => {
-                              await api.deleteUser(u.id);
-                              setData((page) => page && { ...page, total: page.total - 1, items: page.items.filter((x) => x.id !== u.id) });
-                            }, t('admin.users.deleted', { name: u.displayName }));
-                          }
-                        }}
-                      >
-                        {t('admin.users.delete')}
-                      </button>
-                    )}
-                    {(['InstallationAdministrator', 'Auditor'] as const).map((role) =>
-                      u.roles.includes(role) ? (
-                        <button key={role} type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.revokeRole(u.id, role))}>
-                          {t('admin.users.revokeRole', { role: t(`admin.roles.names.${role}`) })}
-                        </button>
-                      ) : (
-                        <button key={role} type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.grantRole(u.id, role))}>
-                          {t('admin.users.grantRole', { role: t(`admin.roles.names.${role}`) })}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          <Pager skip={skip} take={25} total={data.total} onChange={setSkip} />
-        </>
-      )}
-    </Section>
+                      <RowMenu label={t('admin.users.moreFor', { name: u.displayName })} items={userMenu(u, canManage, currentUserId, t, actions, () => setSelected(u.id))} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PageFooter skip={skip} take={take} total={data.total} noun="users" onSkip={setSkip} onTake={(size) => { setSkip(0); setTake(size); }} />
+          </>
+        )}
+      </div>
+      <p className="cx-admin-footnote cx-muted">
+        <NavIcon name="info" size={18} />
+        {t('admin.users.footnote')}
+      </p>
+      {shown && <UserPanel user={shown} canManage={canManage} self={shown.id === currentUserId} actions={actions} onClose={() => setSelected(null)} />}
+    </section>
   );
 }
 
-function Pager({ skip, take, total, onChange }: { skip: number; take: number; total: number; onChange: (skip: number) => void }) {
+interface UserActions {
+  enable: (u: api.AdminUser) => void;
+  disable: (u: api.AdminUser) => void;
+  signOut: (u: api.AdminUser) => void;
+  confirm: (u: api.AdminUser) => void;
+  resend: (u: api.AdminUser) => void;
+  toggleRole: (u: api.AdminUser, role: string) => void;
+  remove: (u: api.AdminUser) => void;
+}
+
+const installationRoles = ['InstallationAdministrator', 'Auditor'] as const;
+
+function userMenu(u: api.AdminUser, canManage: boolean, currentUserId: string, t: TFunction, on: UserActions, open: () => void): RowMenuItem[] {
+  const items: RowMenuItem[] = [{ icon: 'eye', label: t('admin.users.viewDetails'), onSelect: open }];
+  if (!canManage) return items;
+  items.push({ icon: 'layers', label: t('admin.users.manageRoles'), onSelect: open });
+  if (u.activeSessions > 0) items.push({ icon: 'leave', label: t('admin.users.signOut'), onSelect: () => on.signOut(u) });
+  if (!u.emailConfirmed) items.push({ icon: 'check', label: t('admin.users.confirm'), onSelect: () => on.confirm(u) });
+  if (u.disabled) items.push({ icon: 'check', label: t('admin.users.enableAccount'), onSelect: () => on.enable(u), separated: true });
+  else if (u.id !== currentUserId) items.push({ icon: 'block', label: t('admin.users.disableAccount'), onSelect: () => on.disable(u), separated: true });
+  if (u.id !== currentUserId) items.push({ icon: 'trash', label: t('admin.users.deleteAccount'), onSelect: () => on.remove(u), danger: true });
+  return items;
+}
+
+function UserStatus({ user }: { user: api.AdminUser }) {
   const { t } = useTranslation();
-  if (total <= take) return null;
   return (
-    <div className="d-flex gap-2 align-items-center mt-2">
-      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={skip === 0} onClick={() => onChange(Math.max(0, skip - take))}>
-        {t('admin.previous')}
-      </button>
-      <span className="cx-meta">{t('admin.range', { from: skip + 1, to: Math.min(skip + take, total), total })}</span>
-      <button type="button" className="btn btn-sm btn-outline-secondary" disabled={skip + take >= total} onClick={() => onChange(skip + take)}>
-        {t('admin.next')}
-      </button>
+    <span className="cx-admin-status">
+      <span className={`cx-dot ${user.disabled ? 'cx-dot-off' : user.lockedOut ? 'cx-dot-warn' : 'cx-dot-ok'}`} aria-hidden="true" />
+      {user.disabled ? t('admin.users.disabled') : user.lockedOut ? t('admin.users.lockedOut') : t('admin.users.enabled')}
+      {!user.emailConfirmed && <span className="cx-admin-pill is-muted" title={t('admin.users.unconfirmed')}>{t('admin.users.unconfirmedShort')}</span>}
+    </span>
+  );
+}
+
+function RolePills({ roles }: { roles: string[] }) {
+  const { t } = useTranslation();
+  if (roles.length === 0) return <span className="cx-admin-pill">{t('admin.users.plainUser')}</span>;
+  return (
+    <span className="cx-tags">
+      {roles.map((r) => <span key={r} className="cx-admin-pill is-accent">{t(`admin.roles.names.${r}`)}</span>)}
+    </span>
+  );
+}
+
+/** A user's details, roles and actions in a side panel. */
+function UserPanel({ user, canManage, self, actions, onClose }: { user: api.AdminUser; canManage: boolean; self: boolean; actions: UserActions; onClose: () => void }) {
+  const { t, i18n } = useTranslation();
+  return (
+    <Drawer title={user.displayName} label={t('admin.users.detailsFor', { name: user.displayName })} onClose={onClose}>
+      <div className="cx-drawer-identity">
+        <Avatar user={{ id: user.id, avatar: { initials: user.initials } }} size="md" />
+        <p className="cx-drawer-name">{user.displayName}</p>
+        <span className="cx-muted">{user.email}</span>
+        <UserStatus user={user} />
+      </div>
+      <dl className="cx-admin-details">
+        <dt>{t('admin.users.created')}</dt>
+        <dd>{formatDateTime(user.createdAtUtc, i18n.language)}</dd>
+        <dt>{t('admin.users.lastSignIn')}</dt>
+        <dd>{user.lastSignInAtUtc ? formatDateTime(user.lastSignInAtUtc, i18n.language) : t('admin.never')}</dd>
+        <dt>{t('admin.users.columns.sessions')}</dt>
+        <dd>{user.activeSessions}</dd>
+        <dt>{t('admin.users.columns.organizations')}</dt>
+        <dd>{user.organizations}</dd>
+      </dl>
+      <fieldset className="cx-admin-roles-edit">
+        <legend className="cx-section-title">{t('admin.users.installationRoles')}</legend>
+        {installationRoles.map((r) => (
+          <div key={r} className="form-check form-switch">
+            <input id={`role-${user.id}-${r}`} className="form-check-input" type="checkbox" role="switch" checked={user.roles.includes(r)} disabled={!canManage}
+              onChange={() => actions.toggleRole(user, r)} />
+            <label className="form-check-label" htmlFor={`role-${user.id}-${r}`}>{t(`admin.roles.names.${r}`)}</label>
+          </div>
+        ))}
+      </fieldset>
+      {canManage && (
+        <div className="cx-drawer-actions">
+          {user.activeSessions > 0 && <button type="button" className="btn btn-outline-secondary" onClick={() => actions.signOut(user)}>{t('admin.users.signOut')}</button>}
+          {!user.emailConfirmed && (
+            <>
+              <button type="button" className="btn btn-outline-secondary" onClick={() => actions.confirm(user)}>{t('admin.users.confirm')}</button>
+              <button type="button" className="btn btn-outline-secondary" onClick={() => actions.resend(user)}>{t('admin.users.resend')}</button>
+            </>
+          )}
+          {user.disabled ? (
+            <button type="button" className="btn btn-outline-primary" onClick={() => actions.enable(user)}>{t('admin.users.enableAccount')}</button>
+          ) : (
+            !self && <button type="button" className="btn btn-outline-danger" onClick={() => actions.disable(user)}>{t('admin.users.disableAccount')}</button>
+          )}
+          {!self && <button type="button" className="btn btn-danger" onClick={() => actions.remove(user)}>{t('admin.users.deleteAccount')}</button>}
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
+/** A modal side panel: Escape, the close button or the backdrop close it; focus returns where it was. */
+function Drawer({ title, label, onClose, children }: { title: string; label: string; onClose: () => void; children: ReactNode }) {
+  const { t } = useTranslation();
+  const close = useRef<HTMLButtonElement>(null);
+  const opener = useRef<Element | null>(null);
+  useEffect(() => {
+    opener.current = document.activeElement;
+    close.current?.focus();
+    return () => (opener.current as HTMLElement | null)?.focus?.();
+  }, []);
+  return (
+    <div className="cx-drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className="cx-drawer cx-admin-drawer" role="dialog" aria-modal="true" aria-label={label} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+        <div className="cx-drawer-header">
+          <h2 className="cx-drawer-title text-truncate">{title}</h2>
+          <button ref={close} type="button" className="cx-tool" onClick={onClose} title={t('admin.close')}>
+            <NavIcon name="close" size={18} />
+            <span className="visually-hidden">{t('admin.close')}</span>
+          </button>
+        </div>
+        {children}
+      </aside>
     </div>
   );
 }
@@ -337,60 +628,97 @@ function Organizations({ canManage }: { canManage: boolean }) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
+  const [sort, setSort] = useState('nameAsc');
   const [skip, setSkip] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
-  const { data, error, reload } = useLoad(() => api.searchOrganizations(submitted, skip), [submitted, skip]);
+  const [take, setTake] = useState<number>(pageSizes[0]);
+  const [selected, setSelected] = useState<api.AdminOrganization | null>(null);
+  const { data, error, reload } = useLoad(() => api.searchOrganizations(submitted, skip, take, sort), [submitted, skip, take, sort]);
 
   return (
-    <Section title={t('admin.tabs.organizations')}>
-      <form className="cx-admin-filters" role="search" onSubmit={(e) => { e.preventDefault(); setSkip(0); setSubmitted(query.trim()); }}>
-        <label className="visually-hidden" htmlFor="admin-org-search">
-          {t('admin.organizations.search')}
+    <section className="cx-admin-section" aria-labelledby="admin-organizations-title">
+      <SectionHeading id="admin-organizations-title" title={t('admin.tabs.organizations')} count={data?.total} subtitle={t('admin.organizations.subtitle')} />
+      <form className="cx-card cx-admin-filter-bar" role="search" onSubmit={(e) => { e.preventDefault(); setSkip(0); setSubmitted(query.trim()); }}>
+        <label className="cx-search-field">
+          <NavIcon name="search" size={18} />
+          <span className="visually-hidden">{t('admin.organizations.search')}</span>
+          <input id="admin-org-search" className="form-control" type="search" placeholder={t('admin.organizations.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
-        <input id="admin-org-search" className="form-control" type="search" placeholder={t('admin.organizations.search')} value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button type="submit" className="btn btn-primary">
-          {t('admin.search')}
-        </button>
+        <button type="submit" className="btn btn-primary">{t('admin.search')}</button>
+        <label className="visually-hidden" htmlFor="admin-org-sort">{t('admin.sortLabel')}</label>
+        <select id="admin-org-sort" className="form-select" value={sort} onChange={(e) => { setSkip(0); setSort(e.target.value); }}>
+          {['nameAsc', 'nameDesc', 'members'].map((s) => <option key={s} value={s}>{t(`admin.sort.${s}`)}</option>)}
+        </select>
       </form>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
-      {!data ? (
-        <Loading />
-      ) : data.items.length === 0 ? (
-        <p className="cx-muted mb-0">{t('admin.none')}</p>
-      ) : (
-        <>
-          <ul className="list-unstyled cx-admin-list">
-            {data.items.map((o) => (
-              <li key={o.id} className="cx-admin-row">
-                <div className="cx-admin-row-main">
-                  <strong>{o.name}</strong>
-                  <span className="cx-meta d-block">
-                    {t('admin.organizations.members', { count: o.members })} · {t('admin.organizations.since', { date: formatDateTime(o.createdAtUtc, i18n.language) })}
-                  </span>
-                </div>
-                <button type="button" className="btn btn-sm btn-outline-primary" aria-expanded={selected === o.id} onClick={() => setSelected(selected === o.id ? null : o.id)}>
-                  {t('admin.organizations.open')}
-                </button>
-                {selected === o.id && (
-                  <OrganizationDetail
-                    id={o.id}
-                    canManage={canManage}
-                    onChanged={reload}
-                    onDeleted={() => {
-                      setSelected(null);
-                      reload();
-                    }}
-                  />
-                )}
-              </li>
-            ))}
-          </ul>
-          <Pager skip={skip} take={25} total={data.total} onChange={setSkip} />
-        </>
+      <div className="cx-card cx-table-card">
+        {!data ? (
+          error === null && <Loading />
+        ) : data.items.length === 0 ? (
+          <p className="cx-muted cx-table-empty">{t('admin.none')}</p>
+        ) : (
+          <>
+            <table className="cx-table cx-admin-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t('admin.organizations.columns.organization')}</th>
+                  <th scope="col">{t('admin.organizations.columns.members')}</th>
+                  <th scope="col">{t('admin.organizations.columns.created')}</th>
+                  <th scope="col">{t('admin.users.columns.actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((o) => (
+                  <tr key={o.id}>
+                    <td data-label={t('admin.organizations.columns.organization')}>
+                      <span className="cx-organization-cell">
+                        <span className="cx-organization-mark" aria-hidden="true">{initialsOf(o.name)}</span>
+                        <strong className="text-truncate">{o.name}</strong>
+                      </span>
+                    </td>
+                    <td data-label={t('admin.organizations.columns.members')}>
+                      <span className="cx-channel-members"><NavIcon name="people" size={18} />{t('admin.organizations.members', { count: o.members })}</span>
+                    </td>
+                    <td data-label={t('admin.organizations.columns.created')}>
+                      <span className="d-block">{new Date(o.createdAtUtc).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <span className="cx-muted small">{new Date(o.createdAtUtc).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}</span>
+                    </td>
+                    <td className="cx-table-actions">
+                      <button type="button" className="btn btn-sm btn-outline-primary cx-icon-button" onClick={() => setSelected(o)}
+                        aria-label={t('admin.organizations.viewMembersOf', { name: o.name })}>
+                        <NavIcon name="people" size={18} />
+                        {t('admin.organizations.viewMembers')}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <PageFooter skip={skip} take={take} total={data.total} noun="organizations" onSkip={setSkip} onTake={(size) => { setSkip(0); setTake(size); }} />
+          </>
+        )}
+      </div>
+      <p className="cx-admin-footnote cx-muted">
+        <NavIcon name="bank" size={18} />
+        {t('admin.organizations.footnote')}
+      </p>
+      {selected && (
+        <Drawer title={selected.name} label={t('admin.organizations.membersOf', { name: selected.name })} onClose={() => setSelected(null)}>
+          <OrganizationDetail
+            id={selected.id}
+            canManage={canManage}
+            onChanged={reload}
+            onDeleted={() => {
+              setSelected(null);
+              reload();
+            }}
+          />
+        </Drawer>
       )}
-    </Section>
+    </section>
   );
 }
+
+const initialsOf = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
 function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: string; canManage: boolean; onChanged: () => void; onDeleted: () => void }) {
   const { t } = useTranslation();
@@ -420,21 +748,24 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
       ) : (
         <>
           {canManage && (
-            <form className="cx-admin-filters" onSubmit={(e) => { e.preventDefault(); void act(() => api.renameOrganization(id, name)); }}>
-              <label className="visually-hidden" htmlFor={`org-name-${id}`}>
-                {t('admin.organizations.name')}
-              </label>
-              <input id={`org-name-${id}`} className="form-control" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-              <button type="submit" className="btn btn-outline-primary" disabled={!name.trim() || name.trim() === data.organization.name}>
-                {t('admin.organizations.rename')}
-              </button>
+            <form className="cx-admin-rename" onSubmit={(e) => { e.preventDefault(); void act(() => api.renameOrganization(id, name)); }}>
+              <label className="form-label" htmlFor={`org-name-${id}`}>{t('admin.organizations.name')}</label>
+              <div className="d-flex gap-2">
+                <input id={`org-name-${id}`} className="form-control" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+                <button type="submit" className="btn btn-outline-primary" disabled={!name.trim() || name.trim() === data.organization.name}>
+                  {t('admin.organizations.rename')}
+                </button>
+              </div>
             </form>
           )}
-          <ul className="list-unstyled mb-0">
+          <h3 className="cx-section-title mt-3">{t('admin.organizations.members', { count: data.members.length })}</h3>
+          <ul className="list-unstyled mb-0 cx-admin-members">
             {data.members.map((m) => (
               <li key={m.userId} className="cx-admin-member">
+                <Avatar user={{ id: m.userId, avatar: { initials: m.initials } }} size="sm" />
                 <span className="flex-grow-1 min-w-0">
-                  <strong>{m.displayName}</strong> <span className="cx-meta">{m.email}</span>
+                  <strong className="d-block text-truncate">{m.displayName}</strong>
+                  <span className="cx-muted small d-block text-truncate">{m.email}</span>
                 </span>
                 {canManage ? (
                   <>
@@ -443,32 +774,32 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
                     </label>
                     <select id={`role-${id}-${m.userId}`} className="form-select form-select-sm w-auto" value={m.role} onChange={(e) => void act(() => api.setMemberRole(id, m.userId, e.target.value))}>
                       {(['owner', 'administrator', 'member'] as const).map((r) => (
-                        <option key={r} value={r}>
-                          {t(`organizations.roles.${r}`)}
-                        </option>
+                        <option key={r} value={r}>{t(`organizations.roles.${r}`)}</option>
                       ))}
                     </select>
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-danger"
+                      className="cx-tool"
+                      title={t('admin.organizations.removeNamed', { name: m.displayName })}
                       onClick={() => {
                         if (window.confirm(t('admin.organizations.removeConfirm', { name: m.displayName }))) void act(() => api.removeMember(id, m.userId));
                       }}
                     >
-                      {t('admin.organizations.remove')}
+                      <NavIcon name="trash" size={18} />
+                      <span className="visually-hidden">{t('admin.organizations.removeNamed', { name: m.displayName })}</span>
                     </button>
                   </>
                 ) : (
-                  <span className="badge text-bg-secondary">{t(`organizations.roles.${m.role}`)}</span>
+                  <span className={`cx-role-pill is-${m.role}`}>{t(`organizations.roles.${m.role}`)}</span>
                 )}
               </li>
             ))}
           </ul>
           {canManage && (
-            <div className="mt-3">
+            <div className="cx-drawer-actions">
               <button
                 type="button"
-                className="btn btn-sm btn-danger"
+                className="btn btn-outline-danger"
                 onClick={() => {
                   const typed = window.prompt(t('organizations.deletion.prompt', { name: data.organization.name }));
                   if (typed === null) return;
@@ -488,31 +819,101 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
 
 // ---- Roles -----------------------------------------------------------------------------------
 
-function RolesView() {
+/** Every installation permission, in the order of the comparison table. */
+const permissionOrder = [
+  'installation.read', 'installation.manage', 'users.read', 'users.manage', 'organizations.read', 'organizations.manage', 'audit.read', 'installation.demo_data',
+] as const;
+
+function RolesView({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation();
   const { data, error } = useLoad(api.getRoles, []);
+  const roleIcon: Record<string, NavIconName> = { InstallationAdministrator: 'shield', Auditor: 'eye' };
   return (
-    <Section title={t('admin.tabs.roles')}>
-      <p className="cx-muted">{t('admin.roles.intro')}</p>
+    <section className="cx-card cx-admin-panel" aria-labelledby="admin-roles-title">
+      <SectionHeading
+        id="admin-roles-title"
+        title={t('admin.roles.title')}
+        subtitle={t('admin.roles.subtitle')}
+        actions={canManage && (
+          <Link to="/admin?tab=users" className="btn btn-primary cx-icon-button">
+            <NavIcon name="people" size={18} />
+            {t('admin.roles.manageAssignments')}
+          </Link>
+        )}
+      />
+      <p className="cx-admin-footnote cx-muted mt-2">
+        <NavIcon name="info" size={18} />
+        {t('admin.roles.intro')}
+      </p>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {!data ? (
-        <Loading />
+        error === null && <Loading />
       ) : (
-        <div className="cx-admin-roles">
-          {data.map((role) => (
-            <div key={role.name} className="cx-subpanel">
-              <h3 className="fs-6 fw-semibold mb-1">{t(`admin.roles.names.${role.name}`)}</h3>
-              <p className="cx-meta">{t('admin.roles.members', { count: role.members })}</p>
-              <ul className="mb-0">
-                {role.permissions.map((p) => (
-                  <li key={p}>{t(`admin.permissions.${p.replace('.', '_')}`)}</li>
+        <>
+          <div className="cx-admin-role-cards">
+            {data.map((role) => (
+              <div key={role.name} className="cx-admin-role-card">
+                <NavIcon name={roleIcon[role.name] ?? 'shield'} size={28} />
+                <span>
+                  <span className="cx-admin-role-name">
+                    <strong>{t(`admin.roles.names.${role.name}`)}</strong>
+                    <span className="cx-admin-pill is-outline">{t('admin.roles.members', { count: role.members })}</span>
+                  </span>
+                  <span className="cx-muted d-block">{t(`admin.roles.descriptions.${role.name}`)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <h3 className="cx-admin-subheading">{t('admin.roles.comparison')}</h3>
+          <div className="cx-admin-matrix-wrap">
+            <table className="cx-admin-matrix">
+              <thead>
+                <tr>
+                  <th scope="col">{t('admin.roles.capability')}</th>
+                  {data.map((role) => <th key={role.name} scope="col">{t(`admin.roles.names.${role.name}`)}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {permissionOrder.map((permission) => (
+                  <tr key={permission}>
+                    <th scope="row">{t(`admin.permissions.${permission.replace('.', '_')}`)}</th>
+                    {data.map((role) => (
+                      <td key={role.name}>
+                        <Granted granted={role.permissions.includes(permission)} />
+                        {permission === 'installation.demo_data' && role.permissions.includes(permission) && (
+                          <span className="cx-admin-pill is-outline ms-2">{t('admin.roles.developmentOnly')}</span>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+                <tr className="is-separated">
+                  <th scope="row">{t('admin.roles.conversations')}</th>
+                  {data.map((role) => <td key={role.name}><Granted granted={false} /></td>)}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div className="cx-admin-lock-note">
+            <NavIcon name="lock" size={24} />
+            <span>
+              <strong className="d-block">{t('admin.roles.noConversationsTitle')}</strong>
+              <span className="cx-muted">{t('admin.roles.noConversationsText')}</span>
+            </span>
+          </div>
+        </>
       )}
-    </Section>
+    </section>
+  );
+}
+
+function Granted({ granted }: { granted: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <span className={`cx-admin-granted${granted ? ' is-granted' : ''}`}>
+      <NavIcon name={granted ? 'check' : 'minus'} size={18} />
+      {granted ? t('admin.roles.allowed') : t('admin.roles.notGranted')}
+    </span>
   );
 }
 

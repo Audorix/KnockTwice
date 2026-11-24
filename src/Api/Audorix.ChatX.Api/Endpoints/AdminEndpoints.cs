@@ -65,11 +65,12 @@ internal static class AdminEndpoints
 
         // ---- Users and roles ----
         var users = admin.MapGroup("/users");
-        users.MapGet(string.Empty, async (string? q, string? filter, int? skip, int? take, UserAdministrationService service, CancellationToken ct) =>
+        users.MapGet(string.Empty, async (string? q, string? filter, string? role, string? sort, int? skip, int? take, UserAdministrationService service, CancellationToken ct) =>
         {
-            var page = await service.SearchAsync(q, filter, skip ?? 0, take ?? 25, ct);
+            var page = await service.SearchAsync(q, filter, skip ?? 0, take ?? 25, ct, role, sort);
             return TypedResults.Ok(new AdminUserPageResponse(page.Items.Select(ToResponse).ToList(), page.Total));
-        }).RequireAuthorization(Permissions.UsersRead).WithSummary("Searches accounts by email or name; filter: all, disabled, unconfirmed or a role name.");
+        }).RequireAuthorization(Permissions.UsersRead)
+            .WithSummary("Searches accounts by email or name; filter: all, enabled, disabled, unconfirmed (or a role name); role: a role name or none; sort: nameAsc, nameDesc.");
         users.MapGet("/{userId:guid}", async (Guid userId, UserAdministrationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.GetAsync(userId, ct)))).RequireAuthorization(Permissions.UsersRead);
         users.MapPost("/{userId:guid}/disable", async (Guid userId, HttpContext http, UserAdministrationService service, IServiceProvider services, CancellationToken ct) =>
@@ -120,11 +121,12 @@ internal static class AdminEndpoints
 
         // ---- Organizations ----
         var organizations = admin.MapGroup("/organizations");
-        organizations.MapGet(string.Empty, async (string? q, int? skip, int? take, OrganizationAdministrationService service, CancellationToken ct) =>
+        organizations.MapGet(string.Empty, async (string? q, string? sort, int? skip, int? take, OrganizationAdministrationService service, CancellationToken ct) =>
         {
-            var page = await service.SearchAsync(q, skip ?? 0, take ?? 25, ct);
+            var page = await service.SearchAsync(q, skip ?? 0, take ?? 25, ct, sort);
             return TypedResults.Ok(new AdminOrganizationPageResponse(page.Items.Select(ToResponse).ToList(), page.Total));
-        }).RequireAuthorization(Permissions.OrganizationsRead);
+        }).RequireAuthorization(Permissions.OrganizationsRead)
+            .WithSummary("Searches organizations by name; sort: nameAsc, nameDesc, members (most first).");
         organizations.MapGet("/{organizationId:guid}", async (Guid organizationId, OrganizationAdministrationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.GetAsync(organizationId, ct)))).RequireAuthorization(Permissions.OrganizationsRead);
         organizations.MapPut("/{organizationId:guid}", async (

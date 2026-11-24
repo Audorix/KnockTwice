@@ -106,7 +106,8 @@ internal sealed class EfRegistrationInvitations(ChatXDbContext db, TimeProvider 
 /// <summary>Administration read model. Pages are small, so per-page facts (sessions, organizations) are computed in memory.</summary>
 internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : IAdminDirectory
 {
-    public async Task<AdminUserPage> SearchUsersAsync(string? query, string? filter, int skip, int take, CancellationToken cancellationToken)
+    public async Task<AdminUserPage> SearchUsersAsync(
+        string? query, string? filter, int skip, int take, CancellationToken cancellationToken, string? role = null, string? sort = null)
     {
         var users = from u in db.Users.AsNoTracking()
                     where !u.IsVisitor && u.DeletedAtUtc == null
@@ -124,6 +125,9 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
         {
             case null or "" or "all":
                 break;
+            case "enabled":
+                users = users.Where(x => x.User.DisabledAtUtc == null);
+                break;
             case "disabled":
                 users = users.Where(x => x.User.DisabledAtUtc != null);
                 break;
@@ -131,21 +135,39 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
                 users = users.Where(x => !x.User.EmailConfirmed);
                 break;
             default:
-                var role = Domain.Authorization.Roles.Active.FirstOrDefault(r => string.Equals(r, filter, StringComparison.OrdinalIgnoreCase)) ?? filter;
-                users = users.Where(x => db.UserRoles.Any(ur => ur.UserId == x.User.Id && db.Roles.Any(r => r.Id == ur.RoleId && r.Name == role)));
+                var filterRole = Domain.Authorization.Roles.Active.FirstOrDefault(r => string.Equals(r, filter, StringComparison.OrdinalIgnoreCase)) ?? filter;
+                users = users.Where(x => db.UserRoles.Any(ur => ur.UserId == x.User.Id && db.Roles.Any(r => r.Id == ur.RoleId && r.Name == filterRole)));
                 break;
         }
 
+        // Redesign 2026-11: the role is its own filter; "none" means accounts without an installation role.
+        if (!string.IsNullOrWhiteSpace(role) && !string.Equals(role, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.Equals(role, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                users = users.Where(x => !db.UserRoles.Any(ur => ur.UserId == x.User.Id));
+            }
+            else
+            {
+                var name = Domain.Authorization.Roles.Active.FirstOrDefault(r => string.Equals(r, role, StringComparison.OrdinalIgnoreCase)) ?? role;
+                users = users.Where(x => db.UserRoles.Any(ur => ur.UserId == x.User.Id && db.Roles.Any(r => r.Id == ur.RoleId && r.Name == name)));
+            }
+        }
+
         var total = await users.CountAsync(cancellationToken).ConfigureAwait(false);
-        var page = await users.OrderBy(x => x.Profile.DisplayName).ThenBy(x => x.User.Id).Skip(skip).Take(take)
-            .Select(x => x.User.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var ordered = sort switch
+        {
+            "nameDesc" => users.OrderByDescending(x => x.Profile.DisplayName).ThenByDescending(x => x.User.Id),
+            _ => users.OrderBy(x => x.Profile.DisplayName).ThenBy(x => x.User.Id),
+        };
+        var page = await ordered.Skip(skip).Take(take).Select(x => x.User.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
         return new AdminUserPage(await DescribeUsersAsync(page, cancellationToken).ConfigureAwait(false), total);
     }
 
     public async Task<AdminUserView?> FindUserAsync(Guid userId, CancellationToken cancellationToken) =>
         (await DescribeUsersAsync([userId], cancellationToken).ConfigureAwait(false)).SingleOrDefault();
 
-    public async Task<AdminOrganizationPage> SearchOrganizationsAsync(string? query, int skip, int take, CancellationToken cancellationToken)
+    public async Task<AdminOrganizationPage> SearchOrganizationsAsync(string? query, int skip, int take, CancellationToken cancellationToken, string? sort = null)
     {
         var organizations = db.Organizations.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(query))
@@ -155,7 +177,15 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
         }
 
         var total = await organizations.CountAsync(cancellationToken).ConfigureAwait(false);
-        var page = await organizations.OrderBy(o => o.Name).ThenBy(o => o.Id).Skip(skip).Take(take).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var ordered = sort switch
+        {
+            "nameDesc" => organizations.OrderByDescending(o => o.Name).ThenByDescending(o => o.Id),
+            "members" => organizations
+                .OrderByDescending(o => db.OrganizationMembers.Count(m => m.OrganizationId == o.Id && m.Status == MembershipStatus.Active))
+                .ThenBy(o => o.Name).ThenBy(o => o.Id),
+            _ => organizations.OrderBy(o => o.Name).ThenBy(o => o.Id),
+        };
+        var page = await ordered.Skip(skip).Take(take).ToListAsync(cancellationToken).ConfigureAwait(false);
         var ids = page.Select(o => o.Id).ToList();
         var members = await db.OrganizationMembers.AsNoTracking()
             .Where(m => ids.Contains(m.OrganizationId) && m.Status == MembershipStatus.Active)

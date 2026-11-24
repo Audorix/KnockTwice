@@ -116,8 +116,11 @@ const q = (params: Record<string, string | number | boolean | null | undefined>)
 
 export const getOverview = async () => (await getJson<AdminOverview>('/api/v1/admin/overview')).body!;
 
-export const searchUsers = async (query: string, filter: string, skip: number, take = 25) =>
-  (await getJson<Page<AdminUser>>(`/api/v1/admin/users${q({ q: query, filter, skip, take })}`)).body!;
+/** Defaults (role "all", sort "nameAsc") are left out of the address. */
+const optional = (value: string, fallback: string) => (value === fallback ? null : value);
+
+export const searchUsers = async (query: string, filter: string, skip: number, take = 25, role = 'all', sort = 'nameAsc') =>
+  (await getJson<Page<AdminUser>>(`/api/v1/admin/users${q({ q: query, filter, role: optional(role, 'all'), sort: optional(sort, 'nameAsc'), skip, take })}`)).body!;
 
 const user = (id: string) => `/api/v1/admin/users/${encodeURIComponent(id)}`;
 export const disableUser = async (id: string) => (await sendJson<AdminUser>('POST', `${user(id)}/disable`))!;
@@ -132,8 +135,8 @@ export const deleteUser = (id: string) => sendJson('DELETE', user(id));
 
 export const getRoles = async () => (await getJson<AdminRole[]>('/api/v1/admin/roles')).body ?? [];
 
-export const searchOrganizations = async (query: string, skip: number, take = 25) =>
-  (await getJson<Page<AdminOrganization>>(`/api/v1/admin/organizations${q({ q: query, skip, take })}`)).body!;
+export const searchOrganizations = async (query: string, skip: number, take = 25, sort = 'nameAsc') =>
+  (await getJson<Page<AdminOrganization>>(`/api/v1/admin/organizations${q({ q: query, sort: optional(sort, 'nameAsc'), skip, take })}`)).body!;
 const organization = (id: string) => `/api/v1/admin/organizations/${encodeURIComponent(id)}`;
 export const getOrganization = async (id: string) => (await getJson<AdminOrganizationDetail>(organization(id))).body!;
 export const renameOrganization = async (id: string, name: string) => (await sendJson<AdminOrganizationDetail>('PUT', organization(id), { name }))!;
