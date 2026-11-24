@@ -70,7 +70,9 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   avatar file that is too large or not an image is skipped instead of failing the whole load; a
   demo person who removed their photo or stopped sharing their email keeps it that way. Display
   IDs: two tabs opening at once can no longer give someone a numbered ID by mistake, and only a
-  real clash reports "already taken". CI uses the v5 GitHub actions and lists failing .NET tests
+  real clash reports "already taken". Typing straight after picking an @mention, an emoji or a
+  formatting button no longer lands in the wrong place: the cursor is placed before the next key
+  instead of one frame later. CI uses the v5 GitHub actions and lists failing .NET tests
   on the run page.
 - **Version 1.0.0:** `GET /api/v1/meta` reports product `Knock Twice` and stage `stable`; Docker
   image tags are `1.0.0`.

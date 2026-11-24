@@ -2,6 +2,7 @@ import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type
 import { useTranslation } from 'react-i18next';
 import type { ConversationDetailResponse, UserSummary } from '../../shared/api/contracts';
 import { Avatar } from '../../shared/components/Avatar';
+import { useSelectionAfterRender } from '../../shared/useSelectionAfterRender';
 
 /** Phase 17: @mentions in the composer (ADR-031). */
 
@@ -70,6 +71,7 @@ export function useMentionAutocomplete(
   const [query, setQuery] = useState<Query | null>(null);
   const [active, setActive] = useState(0);
   const chosen = useRef(new Map<string, string>());
+  const select = useSelectionAfterRender(textarea);
 
   const matches = useMemo(() => {
     if (!query) return [];
@@ -91,15 +93,9 @@ export function useMentionAutocomplete(
       if (candidate.kind === 'user') chosen.current.set(candidate.label, candidate.id);
       setValue(next);
       setQuery(null);
-      const caret = query.start + insert.length;
-      requestAnimationFrame(() => {
-        const box = textarea.current;
-        if (!box) return;
-        box.focus();
-        box.setSelectionRange(caret, caret);
-      });
+      select(query.start + insert.length);
     },
-    [query, value, setValue, textarea],
+    [query, value, setValue, select],
   );
 
   const open = matches.length > 0;

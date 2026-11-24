@@ -1,5 +1,6 @@
 import type { KeyboardEvent, ReactNode, RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSelectionAfterRender } from '../../shared/useSelectionAfterRender';
 
 /** Phase 19 (ADR-033): formatting in the composer, by toolbar or keyboard shortcut. */
 
@@ -69,6 +70,7 @@ export interface Formatting {
 
 export function useFormatting(textarea: RefObject<HTMLTextAreaElement | null>, value: string, setValue: (value: string) => void): Formatting {
   const { t } = useTranslation();
+  const select = useSelectionAfterRender(textarea);
 
   const run = (action: Action) => {
     const box = textarea.current;
@@ -76,11 +78,7 @@ export function useFormatting(textarea: RefObject<HTMLTextAreaElement | null>, v
     const end = box?.selectionEnd ?? value.length;
     const next = applyFormat(action, value, start, end);
     setValue(next.value);
-    requestAnimationFrame(() => {
-      if (!box) return;
-      box.focus();
-      box.setSelectionRange(next.start, next.end);
-    });
+    select(next.start, next.end);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {

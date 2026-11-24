@@ -18,6 +18,7 @@ import { useFormatting } from './formatting';
 import * as planning from '../planning/planningApi';
 import { TimeMenu } from '../planning/TimeMenu';
 import { RichText, toPlainText, type RichTextMentions } from '../../shared/richText';
+import { useSelectionAfterRender } from '../../shared/useSelectionAfterRender';
 
 /** Who to highlight in a message: the people it mentions (by their current names), and you. */
 export function mentionsOf(entry: ConversationEntryResponse, names: Map<string, string>, me: string): RichTextMentions | undefined {
@@ -338,6 +339,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
   const names = useMemo(() => new Map(detail?.participants.map((p) => [p.user.id, p.user.displayName]) ?? []), [detail]);
   const candidates = useMemo(() => mentionCandidates(detail, me), [detail, me]);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const selectInComposer = useSelectionAfterRender(composer);
   const mention = useMentionAutocomplete(candidates, draft, setDraft, composer);
   const formatting = useFormatting(composer, draft, setDraft);
 
@@ -543,10 +545,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     const start = box?.selectionStart ?? draft.length;
     const end = box?.selectionEnd ?? draft.length;
     onDraftChange(draft.slice(0, start) + text + draft.slice(end));
-    requestAnimationFrame(() => {
-      box?.focus();
-      box?.setSelectionRange(start + text.length, start + text.length);
-    });
+    selectInComposer(start + text.length);
   };
 
   const onDraftChange = (value: string) => {
