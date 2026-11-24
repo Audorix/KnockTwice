@@ -7,11 +7,11 @@
   "keywords": ["audorix", "chatx", "chat", "live-chat", "widget", "react"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/audorix/Audorix.ChatX.git",
+    "url": "https://github.com/audorix/ChatX.git",
     "directory": "web/packages/chat-embed"
   },
-  "homepage": "https://github.com/audorix/Audorix.ChatX/tree/master/web/packages/chat-embed",
-  "bugs": "https://github.com/audorix/Audorix.ChatX/issues",
+  "homepage": "https://github.com/audorix/ChatX/tree/master/web/packages/chat-embed",
+  "bugs": "https://github.com/audorix/ChatX/issues",
   "type": "module",
   "sideEffects": false,
   "main": "./dist/index.js",

@@ -465,6 +465,6 @@ First public release. Delivery records for each phase are in [docs/releases](doc
 - **Data deletion:** account deletion and data-retention policies are still to be decided
   (delivered in Phase 13, see Unreleased).
 
-[Unreleased]: https://github.com/audorix/Audorix.ChatX/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/audorix/Audorix.ChatX/releases/tag/v1.0.0
-[0.1.0]: https://github.com/audorix/Audorix.ChatX/releases/tag/v0.1.0
+[Unreleased]: https://github.com/audorix/ChatX/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/audorix/ChatX/releases/tag/v1.0.0
+[0.1.0]: https://github.com/audorix/ChatX/releases/tag/v0.1.0

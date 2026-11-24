@@ -14,7 +14,7 @@ Security fixes are released as new patch versions. Please upgrade to the latest 
 **Do not open a public issue for security problems.**
 
 Report privately through GitHub:
-**[Report a vulnerability](https://github.com/audorix/Audorix.ChatX/security/advisories/new)**
+**[Report a vulnerability](https://github.com/audorix/ChatX/security/advisories/new)**
 (repository → *Security* → *Report a vulnerability*).
 
 Please include:

@@ -10,7 +10,7 @@ Applicable ADRs: 014 (licensing), 015 (deployment), 018 (security), 020 (release
 | Copyright holder | "Audorix" (`LICENSE`, build metadata) |
 | Vulnerability reports | GitHub private vulnerability reporting (security advisories); no email published |
 | First version | 0.1.0 (preview) |
-| Repository | https://github.com/audorix/Audorix.ChatX |
+| Repository | https://github.com/audorix/ChatX |
 
 ## Deliverables (Implementation §Phase 12)
 
