@@ -14,36 +14,34 @@ export function HomePage() {
 
   return (
     <>
-      <h1 className="cx-page-title">{user ? t('home.welcomeBack', { name: user.displayName }) : t('home.title')}</h1>
-      {!user && (
-        <p className="cx-muted">
-          {t('home.signedOut')} <Link to="/sign-in">{t('nav.signIn')}</Link> · <Link to="/register">{t('nav.register')}</Link>
-        </p>
+      {user ? (
+        <h1 className="cx-page-title">{t('home.welcomeBack', { name: user.displayName })}</h1>
+      ) : (
+        // Redesign 2026-11: the product introduction moved here from the old side panel.
+        <section className="cx-hero" aria-labelledby="home-title">
+          <h1 id="home-title" className="cx-hero-title">{t('app.tagline')}</h1>
+          <p className="cx-hero-intro">{t('app.intro')}</p>
+          <p className="cx-hero-actions">
+            <Link to="/register" className="btn btn-primary">{t('nav.register')}</Link>
+            <Link to="/sign-in" className="btn btn-outline-primary">{t('nav.signIn')}</Link>
+          </p>
+        </section>
       )}
 
       <ReadinessIndicator />
       <DemoDataCard />
 
-      <div className="cx-grid">
-        <section className="cx-card" aria-labelledby="included-title">
-          <h2 id="included-title" className="cx-card-title">
-            {t('foundation.includedTitle')}
-          </h2>
-          <ul className="cx-checklist">
-            {includedItems.map((item) => (
-              <li key={item}>{t(`foundation.included.${item}`)}</li>
-            ))}
-          </ul>
-          <p className="cx-meta mb-0">{t('foundation.languageCount', { count: supportedLanguages.length })}</p>
-        </section>
-
-        <section className="cx-card" aria-labelledby="next-title">
-          <h2 id="next-title" className="cx-card-title">
-            {t('foundation.nextTitle')}
-          </h2>
-          <p className="cx-muted mb-0">{t('foundation.next')}</p>
-        </section>
-      </div>
+      <section className="cx-card" aria-labelledby="included-title">
+        <h2 id="included-title" className="cx-card-title">
+          {t('foundation.includedTitle')}
+        </h2>
+        <ul className="cx-checklist cx-checklist-columns">
+          {includedItems.map((item) => (
+            <li key={item}>{t(`foundation.included.${item}`)}</li>
+          ))}
+        </ul>
+        <p className="cx-meta mb-0">{t('foundation.languageCount', { count: supportedLanguages.length })}</p>
+      </section>
     </>
   );
 }

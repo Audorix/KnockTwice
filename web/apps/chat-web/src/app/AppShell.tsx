@@ -80,7 +80,9 @@ export function AppShell() {
       firstRender.current = false;
       return;
     }
-    main.current?.focus();
+    // Without scrolling: the signed-out top bar sits above <main> and must stay in view.
+    main.current?.focus({ preventScroll: true });
+    window.scrollTo?.(0, 0);
   }, [pathname]);
 
   const skip = (
@@ -105,30 +107,16 @@ export function AppShell() {
     );
   }
 
+  // Signed-out pages (redesign 2026-11): a slim top bar, the page centred on the canvas, and a footer.
   return (
     <div className="cx-shell">
       {skip}
-      <header className="cx-identity">
+      <header className="cx-topbar">
         <Link to="/" className="cx-brand text-reset text-decoration-none">
           <BrandMark />
-          <span>
-            <span className="cx-product d-block">{t('app.name')}</span>
-            <span className="cx-badge">{t('app.stage')}</span>
-          </span>
+          <span className="cx-product">{t('app.name')}</span>
+          <span className="cx-badge">{t('app.stage')}</span>
         </Link>
-
-        <div className="cx-identity-copy">
-          <p className="cx-tagline">{t('app.tagline')}</p>
-          <p className="cx-intro">{t('app.intro')}</p>
-        </div>
-
-        <div className="cx-identity-footer">
-          <LanguageSelector />
-          <p className="cx-footnote mb-0">{t('app.footer')}</p>
-        </div>
-      </header>
-
-      <div className="cx-content-column">
         <nav className="cx-topnav" aria-label={t('nav.label')}>
           <Link to="/sign-in" className="btn btn-sm btn-outline-primary" aria-current={pathname === '/sign-in' ? 'page' : undefined}>
             {t('nav.signIn')}
@@ -137,13 +125,18 @@ export function AppShell() {
             {t('nav.register')}
           </Link>
         </nav>
+      </header>
 
-        <main id="main" ref={main} className="cx-content" tabIndex={-1}>
-          <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
-            <Page />
-          </Suspense>
-        </main>
-      </div>
+      <main id="main" ref={main} className="cx-content" tabIndex={-1}>
+        <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
+          <Page />
+        </Suspense>
+      </main>
+
+      <footer className="cx-site-footer">
+        <LanguageSelector />
+        <p className="cx-footnote mb-0">{t('app.footer')}</p>
+      </footer>
     </div>
   );
 }

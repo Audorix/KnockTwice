@@ -1,0 +1,715 @@
+/*
+ * Audorix.ChatX design layer (redesign of 2026-11), loaded after theme.css.
+ *
+ * Direction: calm, cool surfaces and our teal accent. The signed-in chat fills the window in three
+ * full-height regions told apart by tone, not by floating cards: the navigation rail, the list
+ * panel and the conversation. Other pages keep cards on the canvas. Signed-out pages centre their
+ * content under a slim top bar. Everything here is written for this project; only the tokens in
+ * theme.css hold colours.
+ */
+
+/* ---- Base controls ------------------------------------------------------------------------ */
+
+body {
+  font-size: var(--bs-body-font-size);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+.cx-page-title,
+.cx-card-title {
+  letter-spacing: -0.005em;
+}
+
+.cx-page-title {
+  font-size: 1.375rem;
+  font-weight: 650;
+}
+
+.form-control,
+.form-select {
+  border-color: transparent;
+  background-color: var(--cx-field);
+  color: var(--cx-text);
+  border-radius: var(--cx-radius-sm);
+}
+
+.form-control::placeholder {
+  color: var(--cx-text-muted);
+  opacity: 0.85;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: rgba(var(--cx-primary-rgb), 0.55);
+  background-color: var(--cx-surface);
+  box-shadow: 0 0 0 0.2rem rgba(var(--cx-primary-rgb), 0.15);
+}
+
+.form-check-input {
+  border-color: var(--cx-border);
+  background-color: var(--cx-field);
+}
+
+.form-check-input:checked {
+  background-color: var(--cx-primary);
+  border-color: var(--cx-primary);
+}
+
+.btn {
+  border-radius: var(--cx-radius-sm);
+  font-weight: 550;
+}
+
+.btn-sm {
+  border-radius: 0.4rem;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--cx-text);
+  --bs-btn-border-color: var(--cx-border);
+  --bs-btn-hover-bg: var(--cx-raised);
+  --bs-btn-hover-color: var(--cx-text);
+  --bs-btn-hover-border-color: var(--cx-border);
+  --bs-btn-active-bg: var(--cx-raised);
+  --bs-btn-active-color: var(--cx-text);
+}
+
+.badge {
+  font-weight: 600;
+}
+
+.cx-card {
+  border-color: var(--cx-border);
+  border-radius: var(--cx-radius);
+  box-shadow: var(--cx-shadow);
+}
+
+.cx-subpanel {
+  border-color: transparent;
+  background: var(--cx-raised);
+}
+
+/* ---- Signed-out pages: top bar, centred content, footer --------------------------------------- */
+
+.cx-shell {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+}
+
+.cx-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+}
+
+.cx-topbar .cx-brand {
+  gap: 0.5rem;
+}
+
+.cx-topbar .cx-mark,
+.cx-rail-brand .cx-mark {
+  --cx-mark-ink: var(--cx-surface);
+  color: var(--cx-primary);
+}
+
+.cx-topbar .cx-product {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.cx-topbar .cx-badge {
+  margin: 0;
+  background: var(--cx-primary-soft);
+  color: var(--cx-primary);
+}
+
+.cx-topbar .cx-topnav {
+  flex-wrap: nowrap;
+  padding: 0;
+}
+
+.cx-topbar .cx-topnav .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 575.98px) {
+  .cx-topbar .cx-badge {
+    display: none;
+  }
+
+  .cx-topbar .cx-product {
+    font-size: 1rem;
+  }
+}
+
+.cx-shell > .cx-content {
+  width: 100%;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+}
+
+.cx-site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1rem 1.5rem;
+  border-top: 1px solid var(--cx-border);
+  color: var(--cx-text-muted);
+}
+
+.cx-site-footer .cx-language-label,
+.cx-site-footer .cx-footnote {
+  color: var(--cx-text-muted);
+}
+
+.cx-hero {
+  padding: 1.5rem 0 0.5rem;
+  text-align: center;
+}
+
+.cx-hero-title {
+  max-width: 40rem;
+  margin: 0 auto 0.75rem;
+  font-size: clamp(1.625rem, 1.2rem + 1.8vw, 2.5rem);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.cx-hero-intro {
+  max-width: 38rem;
+  margin: 0 auto 1.25rem;
+  color: var(--cx-text-muted);
+  font-size: 1.0625rem;
+}
+
+.cx-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.cx-checklist-columns {
+  columns: 2 16rem;
+  column-gap: 2rem;
+}
+
+.cx-checklist-columns li {
+  break-inside: avoid;
+}
+
+/* Sign-in, registration and recovery: one centred card. */
+.cx-auth-card {
+  margin: 1.5rem auto 0;
+  padding: 1.75rem;
+}
+
+.cx-auth-card .cx-card-title {
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .cx-topbar {
+    padding: 1rem 2rem;
+  }
+
+  .cx-shell > .cx-content {
+    padding: 2rem 2rem 3rem;
+  }
+
+  .cx-site-footer {
+    padding: 1.25rem 2rem 1.75rem;
+  }
+}
+
+/* ---- Signed-in shell: rail ------------------------------------------------------------------ */
+
+.cx-rail {
+  background: var(--cx-rail);
+  border-color: var(--cx-border);
+}
+
+.cx-rail-link {
+  border-radius: var(--cx-radius-sm);
+}
+
+.cx-rail-link:hover {
+  background: var(--cx-raised);
+}
+
+.cx-rail-link[aria-current='page'] {
+  background: var(--cx-primary-soft);
+}
+
+@media (min-width: 768px) {
+  .cx-app {
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+  }
+
+  .cx-rail {
+    padding: 1rem 0.375rem;
+  }
+
+  .cx-rail-link {
+    padding: 0.5rem 0.125rem;
+  }
+
+  .cx-rail-link .cx-rail-label {
+    font-size: 0.65rem;
+  }
+
+  /* Chat pages fill the window edge to edge; the panels carry the tone. */
+  .cx-app-main.is-chat {
+    padding: 0;
+    gap: 0;
+  }
+
+  .is-chat .cx-conversations {
+    gap: 0;
+  }
+}
+
+/* ---- Conversation list panel ------------------------------------------------------------------ */
+
+.cx-conversation-list {
+  background: var(--cx-panel);
+}
+
+.cx-conversation-list .cx-card-header {
+  margin-bottom: 0.75rem;
+}
+
+.cx-conversation-list .cx-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.cx-conversation-item {
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--cx-radius-sm);
+}
+
+.cx-conversation-item:hover {
+  background: var(--cx-raised);
+}
+
+.cx-conversation-item.is-active {
+  background: var(--cx-primary-soft);
+}
+
+.cx-conversation-item .cx-avatar-sm {
+  width: 2.375rem;
+  height: 2.375rem;
+}
+
+.cx-conversation-name {
+  font-size: 0.9375rem;
+}
+
+.cx-conversation-item .badge.rounded-pill {
+  min-width: 1.375rem;
+  background: var(--cx-primary) !important;
+  color: var(--cx-on-primary) !important;
+}
+
+[data-bs-theme='dark'] .cx-conversation-item .badge.rounded-pill {
+  background: var(--cx-bubble-other) !important;
+}
+
+@media (min-width: 768px) {
+  .is-chat .cx-conversations {
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  }
+
+  .is-chat .cx-conversation-list {
+    height: 100vh;
+    height: 100dvh;
+    padding: 1.25rem 0.875rem;
+    border: 0;
+    border-right: 1px solid var(--cx-border);
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* ---- Conversation ------------------------------------------------------------------------------ */
+
+.cx-conversation-view .cx-card-header {
+  margin: 0;
+  padding: 0.875rem 1.25rem;
+  border-bottom: 1px solid var(--cx-border);
+}
+
+.cx-conversation-view .cx-card-header .cx-card-title {
+  font-size: 1.0625rem;
+}
+
+.cx-conversation-view .cx-level-select {
+  width: auto;
+}
+
+.cx-conversation-main > .cx-card:only-child:not(.cx-conversation-view) {
+  display: grid;
+  place-items: center;
+  color: var(--cx-text-muted);
+}
+
+@media (min-width: 768px) {
+  .is-chat .cx-conversation-main {
+    height: 100vh;
+    height: 100dvh;
+    background: var(--cx-chat);
+  }
+
+  .is-chat .cx-conversation-main > .cx-card {
+    flex: 1;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--cx-chat);
+  }
+
+  .is-chat .cx-conversation-view > :not(.cx-card-header):not(.cx-timeline):not(.cx-composer):not(.cx-typing) {
+    margin-inline: 1.25rem;
+  }
+}
+
+/* The history: full width, airy, messages grouped by side. */
+.cx-timeline {
+  padding: 1rem 1.25rem 0.5rem;
+  border-top: 0;
+  background: var(--cx-chat);
+}
+
+.cx-history-entry {
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.75rem auto;
+  padding: 0.125rem 0.75rem;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  background: var(--cx-raised);
+  font-size: 0.8125rem;
+}
+
+.cx-typing {
+  margin: 0;
+  padding: 0 1.25rem;
+}
+
+/* ---- Messages ---------------------------------------------------------------------------------- */
+
+.cx-message {
+  position: relative;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0.5rem 0;
+}
+
+.cx-message > .cx-avatar {
+  margin-top: 1.25rem;
+}
+
+.cx-message-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  max-width: min(38rem, 80%);
+}
+
+.cx-message.is-mine {
+  flex-direction: row-reverse;
+}
+
+.cx-message.is-mine .cx-message-stack {
+  align-items: flex-end;
+}
+
+.cx-message-author {
+  padding-inline: 0.125rem;
+  color: var(--cx-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cx-bubble {
+  max-width: 100%;
+  padding: 0.625rem 0.875rem 0.5rem;
+  border: 0;
+  border-radius: 0.875rem;
+  border-top-left-radius: 0.25rem;
+  background: var(--cx-bubble-other);
+  color: var(--cx-bubble-other-text);
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
+}
+
+.cx-message.is-mine .cx-bubble {
+  border: 0;
+  border-radius: 0.875rem;
+  border-top-right-radius: 0.25rem;
+  background: var(--cx-bubble-mine);
+  color: var(--cx-text);
+}
+
+/* Everything inside a teal bubble follows its text colour. */
+.cx-message:not(.is-mine) .cx-bubble .cx-message-meta,
+.cx-message:not(.is-mine) .cx-bubble .cx-meta {
+  color: var(--cx-bubble-other-muted);
+}
+
+.cx-message:not(.is-mine) .cx-bubble a,
+.cx-message:not(.is-mine) .cx-bubble .btn-link,
+.cx-message:not(.is-mine) .cx-bubble .cx-rich a {
+  color: inherit;
+}
+
+.cx-message:not(.is-mine) .cx-bubble .cx-quote {
+  border-left-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.cx-message:not(.is-mine) .cx-bubble .cx-mention {
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+.cx-message:not(.is-mine) .cx-bubble .cx-rich code,
+.cx-message:not(.is-mine) .cx-bubble .cx-code-block {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.cx-message:not(.is-mine) .cx-bubble .cx-rich-quote {
+  border-left-color: rgba(255, 255, 255, 0.5);
+  color: var(--cx-bubble-other-muted);
+}
+
+.cx-message.is-deleted .cx-bubble {
+  background: transparent;
+  border: 1px dashed var(--cx-border);
+  color: var(--cx-text-muted);
+  box-shadow: none;
+}
+
+.cx-message.is-deleted .cx-bubble .cx-message-meta {
+  color: var(--cx-text-muted);
+}
+
+.cx-message.is-highlighted .cx-bubble {
+  outline: 2px solid var(--cx-accent);
+  outline-offset: 2px;
+}
+
+.cx-message-body {
+  line-height: 1.45;
+}
+
+.cx-message-meta {
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+}
+
+/* Message tools: a small toolbar beside the bubble, shown on hover and keyboard focus. */
+.cx-message-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  align-self: center;
+  padding: 0.125rem;
+  border-radius: var(--cx-radius-sm);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease-in-out;
+}
+
+/* Hover (a tap on touch screens counts) or keyboard focus reveals the tools; hidden tools stay
+   focusable, so keyboard users reach them by tabbing. */
+.cx-message:hover .cx-message-tools,
+.cx-message:focus-within .cx-message-tools,
+.cx-message-tools:has([aria-expanded='true']) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Phones: the tools float over the bubble's top corner instead of taking a column. */
+@media (max-width: 575.98px) {
+  .cx-message-stack {
+    max-width: 85%;
+  }
+
+  .cx-message-tools {
+    position: absolute;
+    top: -0.875rem;
+    right: 0.25rem;
+    z-index: 5;
+  }
+
+  .cx-message.is-mine .cx-message-tools {
+    right: auto;
+    left: 0.25rem;
+  }
+}
+
+.cx-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--cx-text-muted);
+}
+
+.cx-tool:hover,
+.cx-tool[aria-expanded='true'] {
+  background: var(--cx-raised);
+  color: var(--cx-text);
+}
+
+.cx-tool.is-danger:hover {
+  color: var(--cx-down);
+}
+
+.cx-message-tools .cx-reaction-picker {
+  position: relative;
+}
+
+/* Menus opened from the toolbar (reactions, "More") float above the history. */
+.cx-message-tools .cx-reaction-menu {
+  bottom: 2.25rem;
+  z-index: 20;
+  box-shadow: var(--cx-shadow-pop);
+}
+
+.cx-message.is-mine .cx-message-tools .cx-reaction-menu {
+  right: auto;
+  left: 0;
+}
+
+/* Messages being sent: the same shape, a little faded. */
+.cx-message.is-pending .cx-bubble {
+  border-top-right-radius: 0.25rem;
+}
+
+/* ---- Composer ---------------------------------------------------------------------------------- */
+
+.cx-composer {
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--cx-border);
+  background: var(--cx-chat);
+}
+
+.cx-composer .cx-format-bar {
+  margin-bottom: 0.375rem;
+}
+
+.cx-composer .cx-format-button {
+  height: 1.75rem;
+  min-width: 1.75rem;
+}
+
+.cx-composer-row {
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.cx-composer-row .cx-mention-anchor {
+  flex: 1;
+  min-width: 0;
+}
+
+.cx-composer-row textarea.form-control {
+  min-height: 2.75rem;
+  max-height: 12rem;
+  padding: 0.6rem 0.875rem;
+  resize: none;
+}
+
+.cx-composer .cx-attach-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cx-text-muted);
+}
+
+.cx-composer .cx-attach-button:hover {
+  background: var(--cx-raised);
+  color: var(--cx-text);
+}
+
+.cx-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+
+.cx-composer .form-text {
+  font-size: 0.75rem;
+  opacity: 0.85;
+}
+
+/* Phones: no keyboard shortcuts to explain and no room for a toolbar (Markdown typing still
+   formats); the history takes what is left above the composer and the tab bar. */
+@media (max-width: 767.98px) {
+  .cx-composer {
+    padding: 0.5rem 0.625rem 0.625rem;
+  }
+
+  .cx-composer .cx-format-bar,
+  .cx-composer .form-text {
+    display: none;
+  }
+
+  .cx-conversation-view .cx-card-header {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .cx-timeline {
+    padding-inline: 0.75rem;
+  }
+
+  .is-chat .cx-conversation-view {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .is-chat .cx-timeline {
+    height: calc(100dvh - 22.25rem);
+  }
+}
+
+/* ---- Other signed-in pages --------------------------------------------------------------------- */
+
+@media (min-width: 768px) {
+  .cx-app-main:not(.is-chat) {
+    padding: 1.75rem 2rem 2rem;
+  }
+}

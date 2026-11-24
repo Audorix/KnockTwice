@@ -13,6 +13,7 @@ import { useMentionAutocomplete, type MentionCandidate } from './mentions';
 import { useFormatting } from './formatting';
 import * as planning from '../planning/planningApi';
 import { RichText } from '../../shared/richText';
+import { ToolButton } from '../../shared/components/ToolButton';
 
 /** Phase 16: emoji reactions and threads (ADR-030). */
 
@@ -84,7 +85,7 @@ export function ReactionBar({
 }
 
 /** The "React" button: six quick emoji, a larger grid and a field for any other emoji. */
-export function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) {
+export function ReactionPicker({ onPick, compact = false }: { onPick: (emoji: string) => void; compact?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [more, setMore] = useState(false);
@@ -113,9 +114,13 @@ export function ReactionPicker({ onPick }: { onPick: (emoji: string) => void }) 
 
   return (
     <span className="cx-reaction-picker" ref={box}>
-      <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
-        {t('messages.react')}
-      </button>
+      {compact ? (
+        <ToolButton icon="smile" label={t('messages.react')} aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)} />
+      ) : (
+        <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
+          {t('messages.react')}
+        </button>
+      )}
       {open && (
         <div className="cx-reaction-menu" role="dialog" aria-label={t('messages.react')} onKeyDown={onKey}>
           <div className="cx-emoji-row">

@@ -7,6 +7,7 @@ import { errorMessage } from '../auth/errors';
 import * as api from './conversationsApi';
 import { toPlainText } from '../../shared/richText';
 import { localInputValue, presetTimes } from '../planning/TimeMenu';
+import { ToolButton } from '../../shared/components/ToolButton';
 
 /** Phase 18 (ADR-032): pins, saved messages and forwarding. */
 
@@ -21,7 +22,7 @@ export interface MessageTools {
 }
 
 /** The "More" menu of a message: save, pin, forward, remind me. */
-export function MessageMenu({ entry, tools }: { entry: ConversationEntryResponse; tools: MessageTools }) {
+export function MessageMenu({ entry, tools, compact = false }: { entry: ConversationEntryResponse; tools: MessageTools; compact?: boolean }) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [remind, setRemind] = useState(false);
@@ -49,9 +50,13 @@ export function MessageMenu({ entry, tools }: { entry: ConversationEntryResponse
 
   return (
     <span className="cx-reaction-picker" ref={box}>
-      <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
-        {t('tools.more')}
-      </button>
+      {compact ? (
+        <ToolButton icon="dots" label={t('tools.more')} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)} />
+      ) : (
+        <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
+          {t('tools.more')}
+        </button>
+      )}
       {open && remind && (
         <span className="cx-reaction-menu cx-tools-menu cx-time-menu" role="menu" aria-label={t('planning.remindMe')} onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
           {presetTimes().map((choice) => (

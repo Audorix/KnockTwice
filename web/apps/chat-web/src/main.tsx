@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/theme.css';
+import './styles/design.css';
 import { initI18n } from './i18n/i18n';
 import { AuthProvider } from './features/auth/AuthContext';
 import { AppShell } from './app/AppShell';

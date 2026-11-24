@@ -1,28 +1,43 @@
 /*
  * Audorix.ChatX theme layer on top of Bootstrap 5.3.
- * Original design tokens: a deep teal primary, warm neutral surfaces, system fonts.
+ * Design tokens (redesign of 2026-11): our teal accent on calm, cool surfaces. Light: a soft
+ * lavender-grey canvas with white working surfaces. Dark: layered slate greys (never pure black),
+ * each region one step apart. Layout rules for the signed-in app live in design.css.
  */
 
 :root,
 [data-bs-theme='light'] {
-  --cx-primary: #0b6e66;
-  --cx-primary-rgb: 11, 110, 102;
-  --cx-primary-strong: #08524c;
+  --cx-primary: #0f766e;
+  --cx-primary-rgb: 15, 118, 110;
+  --cx-primary-strong: #0b5c56;
+  --cx-primary-soft: rgba(15, 118, 110, 0.1);
+  --cx-on-primary: #ffffff;
   --cx-accent: #e0a526;
   --cx-surface: #ffffff;
-  --cx-canvas: #f3f5f4;
-  --cx-border: #dfe5e3;
-  --cx-text: #1d2725;
-  --cx-text-muted: #56635f;
-  --cx-identity-bg: linear-gradient(160deg, #0b6e66 0%, #0a4f5c 100%);
+  --cx-canvas: #f4f6fa;
+  --cx-raised: #eef1f6;
+  --cx-rail: #ffffff;
+  --cx-panel: #f4f6fa;
+  --cx-chat: #ffffff;
+  --cx-field: #eef1f6;
+  --cx-bubble-mine: #f0f2f7;
+  --cx-bubble-other: #0f766e;
+  --cx-bubble-other-text: #ffffff;
+  --cx-bubble-other-muted: rgba(255, 255, 255, 0.78);
+  --cx-border: #e4e8ef;
+  --cx-text: #1f2937;
+  --cx-text-muted: #6b7486;
+  --cx-identity-bg: linear-gradient(160deg, #0f766e 0%, #0e5a63 100%);
   --cx-identity-text: #f4fbf9;
   --cx-identity-muted: rgba(244, 251, 249, 0.82);
-  --cx-mark-ink: #0a4f5c;
+  --cx-mark-ink: #0e5a63;
   --cx-ok: #1f8a4c;
   --cx-warn: #b7791f;
-  --cx-down: #c2413a;
-  --cx-radius: 0.875rem;
-  --cx-shadow: 0 1px 2px rgba(16, 32, 29, 0.06), 0 8px 24px rgba(16, 32, 29, 0.06);
+  --cx-down: #d23f3f;
+  --cx-radius: 0.75rem;
+  --cx-radius-sm: 0.5rem;
+  --cx-shadow: 0 1px 2px rgba(31, 41, 55, 0.04), 0 6px 20px rgba(31, 41, 55, 0.05);
+  --cx-shadow-pop: 0 8px 28px rgba(31, 41, 55, 0.14);
 
   --bs-primary: var(--cx-primary);
   --bs-primary-rgb: var(--cx-primary-rgb);
@@ -32,24 +47,39 @@
   --bs-body-bg: var(--cx-canvas);
   --bs-body-color: var(--cx-text);
   --bs-body-font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif;
+  --bs-body-font-size: 0.9375rem;
+  --bs-border-color: var(--cx-border);
+  --bs-border-radius: var(--cx-radius-sm);
   --bs-focus-ring-color: rgba(var(--cx-primary-rgb), 0.35);
 }
 
 [data-bs-theme='dark'] {
-  --cx-primary: #4fc3b5;
-  --cx-primary-rgb: 79, 195, 181;
-  --cx-primary-strong: #7fd6cb;
-  --cx-surface: #18211f;
-  --cx-canvas: #101715;
-  --cx-border: #2a3633;
-  --cx-text: #e5eeeb;
-  --cx-text-muted: #a3b2ae;
-  --cx-identity-bg: linear-gradient(160deg, #0d3b38 0%, #0b2a33 100%);
-  --cx-mark-ink: #0d3b38;
+  --cx-primary: #3cc4b4;
+  --cx-primary-rgb: 60, 196, 180;
+  --cx-primary-strong: #6fd8cb;
+  --cx-primary-soft: rgba(60, 196, 180, 0.14);
+  --cx-on-primary: #ffffff;
+  --cx-surface: #232a32;
+  --cx-canvas: #1b2128;
+  --cx-raised: #2b333c;
+  --cx-rail: #2a3139;
+  --cx-panel: #252c34;
+  --cx-chat: #1e242b;
+  --cx-field: #2d353f;
+  --cx-bubble-mine: #2d353f;
+  --cx-bubble-other: #0f6b64;
+  --cx-bubble-other-text: #ffffff;
+  --cx-bubble-other-muted: rgba(255, 255, 255, 0.75);
+  --cx-border: #333c46;
+  --cx-text: #e4e9f0;
+  --cx-text-muted: #9aa4b4;
+  --cx-identity-bg: linear-gradient(160deg, #134e4a 0%, #13363f 100%);
+  --cx-mark-ink: #134e4a;
   --cx-ok: #4cc27f;
   --cx-warn: #e2b04a;
-  --cx-down: #ef7a72;
-  --cx-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --cx-down: #f07a72;
+  --cx-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --cx-shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
 body {
@@ -523,7 +553,7 @@ body {
   font-size: 1.25rem;
 }
 
-.cx-avatar-c0 { background: #0b6e66; }
+.cx-avatar-c0 { background: #0f766e; }
 .cx-avatar-c1 { background: #3b5ba9; }
 .cx-avatar-c2 { background: #8a4fa3; }
 .cx-avatar-c3 { background: #b3541e; }

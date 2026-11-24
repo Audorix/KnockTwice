@@ -31,6 +31,7 @@ import { Avatar } from '../../shared/components/Avatar';
 import { FormAlert } from '../../shared/components/Field';
 import { LockGlyph } from '../../shared/components/LockGlyph';
 import { NavIcon } from '../../shared/components/NavIcon';
+import { ToolButton } from '../../shared/components/ToolButton';
 import { formatDateTime } from '../../shared/format';
 import { acceptFor, AttachButton, AttachmentList, DraftFileList, formatBytes, useDraftFiles } from '../attachments/Attachments';
 import * as files from '../attachments/attachmentsApi';
@@ -867,10 +868,18 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
           </div>
           <button
             type="submit"
-            className="btn btn-primary"
+            className={`btn btn-primary${editing ? '' : ' cx-send'}`}
+            title={editing ? undefined : t('messages.send')}
             disabled={editing ? !draft.trim() : drafts.busy || (!draft.trim() && drafts.readyIds.length === 0)}
           >
-            {t(editing ? 'messages.save' : 'messages.send')}
+            {editing ? (
+              t('messages.save')
+            ) : (
+              <>
+                <NavIcon name="send" size={18} />
+                <span className="visually-hidden">{t('messages.send')}</span>
+              </>
+            )}
           </button>
         </div>
         <div className="d-flex justify-content-between align-items-start gap-2">
@@ -962,66 +971,55 @@ function MessageItem({
   return (
     <li id={`msg-${entry.id}`} className={`cx-message${mine ? ' is-mine' : ''}${deleted ? ' is-deleted' : ''}${highlighted ? ' is-highlighted' : ''}`}>
       {!mine && entry.actor && <Avatar user={entry.actor} size="sm" />}
-      <div className="cx-bubble">
+      <div className="cx-message-stack">
         {showAuthor && !mine && <div className="cx-message-author">{entry.actor?.displayName ?? t('conversations.someone')}</div>}
-        {entry.forwardedFrom && !deleted && (
-          <div className="cx-meta cx-forwarded">{t('tools.forwardedFrom', { name: entry.forwardedFrom.displayName })}</div>
-        )}
-        {entry.threadRootId && onOpenThread && (
-          <button type="button" className="btn btn-sm btn-link p-0 cx-meta cx-thread-echo" onClick={onOpenThread}>
-            {t('messages.threadReplyShown')} · {t('messages.openThread')}
-          </button>
-        )}
-        {entry.replyTo && (
-          <blockquote className="cx-quote">
-            <strong>{entry.replyTo.author?.displayName ?? t('conversations.someone')}</strong>{' '}
-            {entry.replyTo.deleted ? <em>{t('messages.deleted')}</em> : entry.replyTo.excerpt}
-          </blockquote>
-        )}
-        {deleted ? (
-          <p className="cx-message-body">
-            <em>{t('messages.deleted')}</em>
-          </p>
-        ) : (
-          <>
-            {entry.body && <RichText className="cx-message-body" text={entry.body} mentions={mentionsOf(entry, names, me)} />}
-            <AttachmentList items={entry.attachments ?? []} urlFor={attachmentLink} />
-            <ReactionBar entry={entry} me={me} names={names} canReact={canReact} onToggle={onReact} />
-          </>
-        )}
-        {!entry.threadRootId && onOpenThread && <ThreadSummary entry={entry} onOpen={onOpenThread} />}
-        <div className="cx-message-meta">
-          <time dateTime={entry.createdAtUtc}>{formatDateTime(entry.createdAtUtc, language)}</time>
-          {entry.editedAtUtc && !deleted && <span>· {t('messages.edited')}</span>}
-          {entry.pinned && !deleted && <span>· {t('tools.pinnedLabel')}</span>}
-          {entry.saved && !deleted && <span>· {t('tools.savedLabel')}</span>}
-          {receipt && <span>· {receipt}</span>}
-          {!deleted && (
-            <span className="cx-message-actions">
-              <button type="button" className="btn btn-sm btn-link p-0" onClick={onReply}>
-                {t('messages.reply')}
-              </button>
-              {canReact && <ReactionPicker onPick={(emoji) => onReact(emoji, true)} />}
-              {onOpenThread && !entry.threadRootId && (
-                <button type="button" className="btn btn-sm btn-link p-0" onClick={onOpenThread}>
-                  {t('messages.replyInThread')}
-                </button>
-              )}
-              <MessageMenu entry={entry} tools={tools} />
-              {canEdit && (
-                <button type="button" className="btn btn-sm btn-link p-0" onClick={onEdit}>
-                  {t('messages.edit')}
-                </button>
-              )}
-              {canDelete && (
-                <button type="button" className="btn btn-sm btn-link p-0 text-danger" onClick={onDelete}>
-                  {t('messages.delete')}
-                </button>
-              )}
-            </span>
+        <div className="cx-bubble">
+          {entry.forwardedFrom && !deleted && (
+            <div className="cx-meta cx-forwarded">{t('tools.forwardedFrom', { name: entry.forwardedFrom.displayName })}</div>
           )}
+          {entry.threadRootId && onOpenThread && (
+            <button type="button" className="btn btn-sm btn-link p-0 cx-meta cx-thread-echo" onClick={onOpenThread}>
+              {t('messages.threadReplyShown')} · {t('messages.openThread')}
+            </button>
+          )}
+          {entry.replyTo && (
+            <blockquote className="cx-quote">
+              <strong>{entry.replyTo.author?.displayName ?? t('conversations.someone')}</strong>{' '}
+              {entry.replyTo.deleted ? <em>{t('messages.deleted')}</em> : entry.replyTo.excerpt}
+            </blockquote>
+          )}
+          {deleted ? (
+            <p className="cx-message-body">
+              <em>{t('messages.deleted')}</em>
+            </p>
+          ) : (
+            <>
+              {entry.body && <RichText className="cx-message-body" text={entry.body} mentions={mentionsOf(entry, names, me)} />}
+              <AttachmentList items={entry.attachments ?? []} urlFor={attachmentLink} />
+            </>
+          )}
+          <div className="cx-message-meta">
+            <time dateTime={entry.createdAtUtc}>{formatDateTime(entry.createdAtUtc, language)}</time>
+            {entry.editedAtUtc && !deleted && <span>· {t('messages.edited')}</span>}
+            {entry.pinned && !deleted && <span>· {t('tools.pinnedLabel')}</span>}
+            {entry.saved && !deleted && <span>· {t('tools.savedLabel')}</span>}
+            {receipt && <span>· {receipt}</span>}
+          </div>
         </div>
+        {!deleted && <ReactionBar entry={entry} me={me} names={names} canReact={canReact} onToggle={onReact} />}
+        {!entry.threadRootId && onOpenThread && <ThreadSummary entry={entry} onOpen={onOpenThread} />}
       </div>
+      {!deleted && (
+        // Shown on hover and keyboard focus (always on touch screens); the buttons keep their words as names.
+        <div className="cx-message-tools" role="toolbar" aria-label={t('messages.actions')}>
+          <ToolButton icon="reply" label={t('messages.reply')} onClick={onReply} />
+          {canReact && <ReactionPicker compact onPick={(emoji) => onReact(emoji, true)} />}
+          {onOpenThread && !entry.threadRootId && <ToolButton icon="thread" label={t('messages.replyInThread')} onClick={onOpenThread} />}
+          {canEdit && <ToolButton icon="edit" label={t('messages.edit')} onClick={onEdit} />}
+          {canDelete && <ToolButton icon="trash" label={t('messages.delete')} danger onClick={onDelete} />}
+          <MessageMenu compact entry={entry} tools={tools} />
+        </div>
+      )}
     </li>
   );
 }

@@ -598,6 +598,7 @@
     "typingMany_other": "{{count}} personas están escribiendo…",
     "jumpToLatest": "Mensajes nuevos ↓",
     "react": "Reaccionar",
+    "actions": "Acciones del mensaje",
     "you": "Usted",
     "reactWith": "Reaccionar con {{emoji}}",
     "reactionSummary_one": "{{emoji}}: {{count}} persona — {{names}}",

@@ -7,6 +7,7 @@ they are called out here.
 
 ## [Unreleased]
 
+the UI redesign ([delivery record](docs/releases/ui-redesign.md)),
 Phase 24, throughput ([delivery record](docs/releases/phase-24-throughput.md)),
 Phase 23, send-path speed ([delivery record](docs/releases/phase-23-send-path.md)),
 Phase 22, performance ([delivery record](docs/releases/phase-22-performance.md)),
@@ -19,6 +20,15 @@ threads ([delivery record](docs/releases/phase-16-reactions-threads.md)),
 Phase 15, notifications ([delivery record](docs/releases/phase-15-notifications.md)), Phase 14,
 message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 13, 1.0 hardening
 ([delivery record](docs/releases/phase-13-hardening.md)).
+
+### Changed (UI redesign)
+
+- **New look:** calmer surfaces in light and dark (slate greys instead of near-black), the chat fills
+  the window edge to edge, teal bubbles for other people and grey for your own, and a cleaner message
+  box.
+- **Message actions** appear as small icons beside a message on hover, tap or keyboard focus instead
+  of a row of links under every message.
+- **Signed-out pages** have a slim top bar and centred content; the home page introduces the product.
 
 ### Changed (Phase 24)
 
