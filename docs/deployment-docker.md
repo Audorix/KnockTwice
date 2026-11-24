@@ -28,8 +28,8 @@ Sign-in cookies are `Secure`, so the application must be reached over HTTPS.
 ## 1. Get the code and configure secrets
 
 ```sh
-git clone https://github.com/audorix/ChatX.git
-cd Audorix.ChatX
+git clone https://github.com/Audorix/KnockTwice.git
+cd KnockTwice
 cp docker/.env.production.example docker/.env.production
 chmod 600 docker/.env.production
 ```

@@ -35,7 +35,7 @@ what each one includes, its release gate, and how to send feedback.
 | **4** | [Partner collaboration and data control](ROADMAP.md#release-4-partner-collaboration-and-data-control) | Work with external partners, connect business systems, and move or recover conversation data. |
 | **5** | [AI-assisted support](ROADMAP.md#release-5-ai-assisted-support) | Give agents source-backed drafts and handoff summaries they can review. |
 
-Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/ChatX/issues).
+Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/KnockTwice/issues).
 
 ## Features
 

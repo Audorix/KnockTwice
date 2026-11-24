@@ -16,7 +16,7 @@
     <Copyright>Copyright (c) 2026 Audorix</Copyright>
     <Product>Knock Twice</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/audorix/ChatX</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Audorix/KnockTwice</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <!-- CA1848/CA1873: LoggerMessage source generators are not required for the foundation's few log sites. -->
     <NoWarn>$(NoWarn);CA1848;CA1873</NoWarn>

@@ -6,7 +6,7 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
 
 ## [Unreleased]
 
-## [1.0.0] - 2026-11-24
+## [1.0.0] - 2026-11-25
 
 The first stable release, under the product name **Knock Twice**. It contains everything since 0.1.0:
 the UI redesign ([delivery record](docs/releases/ui-redesign.md)),
@@ -518,6 +518,6 @@ First public release. Delivery records for each phase are in [docs/releases](doc
 - **Data deletion:** account deletion and data-retention policies are still to be decided
   (delivered in Phase 13, see Unreleased).
 
-[Unreleased]: https://github.com/audorix/ChatX/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/audorix/ChatX/releases/tag/v1.0.0
-[0.1.0]: https://github.com/audorix/ChatX/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Audorix/KnockTwice/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Audorix/KnockTwice/releases/tag/v1.0.0
+[0.1.0]: https://github.com/Audorix/KnockTwice/releases/tag/v0.1.0
