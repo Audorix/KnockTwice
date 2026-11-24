@@ -15,7 +15,8 @@ public sealed record AdminUserView(
 
 public sealed record AdminUserPage(IReadOnlyList<AdminUserView> Items, int Total);
 
-public sealed record AdminOrganizationView(Guid Id, string Name, DateTimeOffset CreatedAtUtc, int Members, int Owners);
+/// <param name="PhotoVersion">The organization picture's version, or null when it has none.</param>
+public sealed record AdminOrganizationView(Guid Id, string Name, DateTimeOffset CreatedAtUtc, int Members, int Owners, int? PhotoVersion = null);
 
 public sealed record AdminOrganizationPage(IReadOnlyList<AdminOrganizationView> Items, int Total);
 

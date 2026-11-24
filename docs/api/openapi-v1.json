@@ -4610,6 +4610,42 @@
         }
       }
     },
+    "/api/v1/admin/organizations/{organizationId}/photo": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "An organization's picture, for administrators (404 when it has none).",
+        "parameters": [
+          {
+            "name": "organizationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/organizations/{organizationId}/delete": {
       "post": {
         "tags": [
@@ -7417,6 +7453,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },

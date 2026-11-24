@@ -23,7 +23,8 @@ public sealed record AdminRoleRequest(string? Role);
 
 public sealed record AdminSessionsRevokedResponse(int Revoked);
 
-public sealed record AdminOrganizationResponse(Guid Id, string Name, DateTimeOffset CreatedAtUtc, int Members, int Owners);
+/// <param name="PhotoUrl">The organization's picture for administrators (versioned), or null for its initials.</param>
+public sealed record AdminOrganizationResponse(Guid Id, string Name, DateTimeOffset CreatedAtUtc, int Members, int Owners, string? PhotoUrl = null);
 
 public sealed record AdminOrganizationPageResponse(IReadOnlyList<AdminOrganizationResponse> Items, int Total);
 

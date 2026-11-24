@@ -76,6 +76,8 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       restoreMocks: true,
       css: false,
+      // Several tests walk through whole pages (setup wizard, channels): 5 s was too tight on a busy machine.
+      testTimeout: 20_000,
     },
   };
 });

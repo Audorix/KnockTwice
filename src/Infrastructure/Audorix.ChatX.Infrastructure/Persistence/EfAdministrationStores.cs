@@ -228,7 +228,8 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
             page.Select(o => new AdminOrganizationView(
                 o.Id, o.Name, o.CreatedAtUtc,
                 members.Count(m => m.OrganizationId == o.Id),
-                members.Count(m => m.OrganizationId == o.Id && m.Role == OrganizationRole.Owner))).ToList(),
+                members.Count(m => m.OrganizationId == o.Id && m.Role == OrganizationRole.Owner),
+                o.PhotoKey is null ? null : o.PhotoVersion)).ToList(),
             total);
     }
 
@@ -252,7 +253,8 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
             .ThenBy(m => m.User.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
         return new AdminOrganizationDetail(
-            new AdminOrganizationView(organization.Id, organization.Name, organization.CreatedAtUtc, views.Count, views.Count(v => v.Role == OrganizationRole.Owner)),
+            new AdminOrganizationView(organization.Id, organization.Name, organization.CreatedAtUtc, views.Count, views.Count(v => v.Role == OrganizationRole.Owner),
+                organization.PhotoKey is null ? null : organization.PhotoVersion),
             views);
     }
 

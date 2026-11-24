@@ -51,6 +51,24 @@ function preview(item: ConversationSummaryResponse, me: string | undefined, t: T
   return item.type === 'direct' || !last.author ? text : `${last.author.displayName.split(' ')[0]}: ${text}`;
 }
 
+/** Browser storage can be missing or blocked (private windows): the page works without it. */
+function readLast(key: string | null): string | null {
+  if (!key) return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLast(key: string, id: string) {
+  try {
+    window.localStorage.setItem(key, id);
+  } catch {
+    // Not remembered; nothing else depends on it.
+  }
+}
+
 function Conversations() {
   const { t, i18n } = useTranslation();
   const { query } = useLocation();
@@ -140,6 +158,24 @@ function Conversations() {
     }
   };
 
+  // Remember the open conversation (this browser, this account) and come back to it: on wide
+  // screens it opens with its messages; on phones the list shows it selected (owner request 2026-11-24).
+  const lastKey = user ? `chatx.lastConversation.${user.id}` : null;
+  const [last, setLast] = useState<string | null>(() => readLast(lastKey));
+  useEffect(() => {
+    if (!selectedId || !lastKey) return;
+    setLast(selectedId);
+    writeLast(lastKey, selectedId);
+  }, [selectedId, lastKey]);
+  const lastAvailable = !!last && !!items?.some((item) => item.id === last);
+  useEffect(() => {
+    if (selectedId || creating || !lastAvailable || !last) return;
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
+      navigate(`/conversations?id=${encodeURIComponent(last)}`, { replace: true });
+    }
+  }, [selectedId, creating, lastAvailable, last]);
+  const highlightedId = selectedId ?? (lastAvailable ? last : null);
+
   const open = (id: string) => {
     setNotice(null);
     setCreating(false);
@@ -160,8 +196,8 @@ function Conversations() {
     <li key={item.id}>
       <button
         type="button"
-        className={`cx-conversation-item${item.id === selectedId ? ' is-active' : ''}${item.unreadCount > 0 ? ' has-unread' : ''}`}
-        aria-current={item.id === selectedId ? 'true' : undefined}
+        className={`cx-conversation-item${item.id === highlightedId ? ' is-active' : ''}${item.unreadCount > 0 ? ' has-unread' : ''}`}
+        aria-current={item.id === highlightedId ? 'true' : undefined}
         onClick={() => open(item.id)}
       >
         <ConversationAvatar item={item} />

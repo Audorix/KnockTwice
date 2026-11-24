@@ -59,6 +59,12 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   drawer says "Email not shared". API: `handle` on `GET /api/v1/users/me` and in
   `PUT /api/v1/users/me` (400 `handle_invalid` or `handle_taken`), `shareEmailWithContacts` in the
   preferences, `GET /api/v1/contacts/{userId}/details`. Migration AddDisplayIdAndEmailSharing.
+- **Back to your last chat:** Chats remembers the conversation you had open (in this browser, per
+  account). On wide screens it opens again with its messages; on phones the list shows it selected.
+- **Sign out** button beside the profile gear at the bottom of the sidebar (wide screens; phones
+  sign out from My profile).
+- **Landing page on phones held upright** goes straight from the introduction to the features,
+  without the chat preview.
 - **Phones:** Support, Private and Admin moved from the bottom tab bar into a "More" (⋯) menu at
   its end, which shows the private chat invitation count.
 - **Pre-release fixes:** Escape in a confirmation or photo dialog no longer also closes the panel it
@@ -72,7 +78,11 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   IDs: two tabs opening at once can no longer give someone a numbered ID by mistake, and only a
   real clash reports "already taken". Typing straight after picking an @mention, an emoji or a
   formatting button no longer lands in the wrong place: the cursor is placed before the next key
-  instead of one frame later. CI uses the v5 GitHub actions and lists failing .NET tests
+  instead of one frame later. Addresses starting with "//" no longer show a blank page (they are
+  corrected like other addresses). The typed organization name is compared the same way in every
+  browser language. A locked avatar file is skipped like a broken one. The administration's
+  organization list shows organization pictures (`photoUrl`, `GET
+  /api/v1/admin/organizations/{id}/photo`). CI uses the v5 GitHub actions and lists failing .NET tests
   on the run page.
 - **Version 1.0.0:** `GET /api/v1/meta` reports product `Knock Twice` and stage `stable`; Docker
   image tags are `1.0.0`.

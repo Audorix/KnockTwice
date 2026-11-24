@@ -90,6 +90,27 @@ public sealed class OrganizationMediaService(
         return stream is null ? null : new OrganizationImageContent(stream, type, version);
     }
 
+    /// <summary>The picture or background image for installation administrators (no membership needed), or null.</summary>
+    public async Task<OrganizationImageContent?> OpenImageForAdministratorAsync(Guid organizationId, OrganizationImage kind, CancellationToken cancellationToken)
+    {
+        var organization = await store.FindOrganizationAsync(organizationId, cancellationToken).ConfigureAwait(false);
+        if (organization is null)
+        {
+            return null;
+        }
+
+        var (key, type, version) = kind == OrganizationImage.Banner
+            ? (organization.BannerKey, organization.BannerContentType, organization.BannerVersion)
+            : (organization.PhotoKey, organization.PhotoContentType, organization.PhotoVersion);
+        if (key is null || type is null)
+        {
+            return null;
+        }
+
+        var stream = await storage.OpenReadAsync(key, cancellationToken).ConfigureAwait(false);
+        return stream is null ? null : new OrganizationImageContent(stream, type, version);
+    }
+
     private async Task SaveAsync(CancellationToken cancellationToken)
     {
         if (!await store.TrySaveChangesAsync(cancellationToken).ConfigureAwait(false))

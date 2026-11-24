@@ -1,5 +1,5 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
@@ -49,6 +49,38 @@ describe('ConversationsPage', () => {
   beforeEach(async () => {
     resetCsrfToken();
     await i18n.changeLanguage('en');
+    window.localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it('comes back to the last conversation: opened on wide screens, selected in the list on phones', async () => {
+    const routes = {
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': csrf,
+      'GET /api/v1/conversations/page?limit=50': () => json(200, page([group])),
+      'GET /api/v1/conversations/c-team': () =>
+        json(200, { conversation: group, description: null, participants: [{ user: me, role: 'owner', joinedAtUtc: '2026-11-22T09:00:00Z' }] }),
+      'GET /api/v1/conversations/c-team/history': () => json(200, { items: [], nextCursor: null, hasMore: false }),
+    };
+    window.localStorage.setItem('chatx.lastConversation.u-ana', 'c-team');
+
+    // Phone: the list shows it selected, without opening it over the list.
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: !q.includes('min-width'), media: q, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    window.history.replaceState(null, '', '/conversations');
+    mockFetch(routes);
+    const { unmount } = render(<AuthProvider><ConversationsPage /></AuthProvider>);
+    const item = await screen.findByRole('button', { name: /Team/ });
+    expect(item).toHaveAttribute('aria-current', 'true');
+    expect(window.location.search).toBe('');
+    unmount();
+
+    // Wide screen: it opens, with its messages.
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: true, media: q, addEventListener: () => undefined, removeEventListener: () => undefined }));
+    window.history.replaceState(null, '', '/conversations');
+    mockFetch(routes);
+    render(<AuthProvider><ConversationsPage /></AuthProvider>);
+    await waitFor(() => expect(window.location.search).toBe('?id=c-team'));
   });
 
   it('lists conversations with unread counts, shows history and marks the open conversation read', async () => {

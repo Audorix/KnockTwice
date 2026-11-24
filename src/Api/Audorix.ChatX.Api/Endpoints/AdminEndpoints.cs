@@ -129,6 +129,24 @@ internal static class AdminEndpoints
             .WithSummary("Searches organizations by name; sort: nameAsc, nameDesc, members (most first).");
         organizations.MapGet("/{organizationId:guid}", async (Guid organizationId, OrganizationAdministrationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.GetAsync(organizationId, ct)))).RequireAuthorization(Permissions.OrganizationsRead);
+        // The organization picture for the administration list: administrators are usually not members.
+        organizations.MapGet("/{organizationId:guid}/photo", async (Guid organizationId, int? v, HttpContext http, OrganizationMediaService media, CancellationToken ct) =>
+        {
+            var image = await media.OpenImageForAdministratorAsync(organizationId, Domain.Organizations.OrganizationImage.Photo, ct);
+            if (image is null)
+            {
+                return Results.NotFound();
+            }
+
+            AttachmentEndpoints.SetDownloadHeaders(http.Response, "photo", image.ContentType, forceDownload: false, cacheable: true);
+            if (v == image.Version)
+            {
+                http.Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+            }
+
+            return Results.Stream(image.Content, image.ContentType);
+        }).RequireAuthorization(Permissions.OrganizationsRead)
+            .WithSummary("An organization's picture, for administrators (404 when it has none).");
         organizations.MapPut("/{organizationId:guid}", async (
             Guid organizationId, AdminRenameOrganizationRequest request, HttpContext http, OrganizationAdministrationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.RenameAsync(http.User.RequireUserId(), organizationId, request.Name, ct))))
@@ -229,7 +247,8 @@ internal static class AdminEndpoints
     private static AdminUserResponse ToResponse(AdminUserView u) =>
         new(u.Id, u.Email, u.DisplayName, u.Initials, u.EmailConfirmed, u.Disabled, u.LockedOut, u.Roles, u.CreatedAtUtc, u.LastSignInAtUtc, u.ActiveSessions, u.Organizations);
 
-    private static AdminOrganizationResponse ToResponse(AdminOrganizationView o) => new(o.Id, o.Name, o.CreatedAtUtc, o.Members, o.Owners);
+    private static AdminOrganizationResponse ToResponse(AdminOrganizationView o) => new(o.Id, o.Name, o.CreatedAtUtc, o.Members, o.Owners,
+        o.PhotoVersion is { } version ? $"/api/v1/admin/organizations/{o.Id}/photo?v={version}" : null);
 
     private static AdminOrganizationDetailResponse ToResponse(AdminOrganizationDetail d) => new(
         ToResponse(d.Organization),

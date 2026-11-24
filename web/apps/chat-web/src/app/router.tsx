@@ -31,7 +31,8 @@ export interface RouteLocation {
 
 export function useLocation(): RouteLocation {
   const current = useSyncExternalStore(subscribe, snapshot, snapshot);
-  const url = new URL(current, window.location.origin);
+  // Origin + path, not new URL(path, origin): a path starting with "//" would otherwise name another host.
+  const url = new URL(window.location.origin + current);
   return { pathname: url.pathname, query: url.searchParams };
 }
 

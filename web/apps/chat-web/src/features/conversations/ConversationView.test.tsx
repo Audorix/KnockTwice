@@ -396,8 +396,7 @@ describe('ConversationView', () => {
     box.setSelectionRange(5, 7);
     await user.keyboard('{Control>}b{/Control}');
     expect(box).toHaveValue('ship **it**');
-    // The selection is restored on the next animation frame; wait for it before selecting again,
-    // or that pending restore can land after the new selection (it did on fast CI runners).
+    // The formatted text keeps the word selected (applied right after the text renders).
     await waitFor(() => expect(box.selectionStart).toBe(7));
     box.setSelectionRange(0, 4);
     await user.click(screen.getByRole('button', { name: 'Strikethrough' }));

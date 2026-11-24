@@ -8,6 +8,7 @@ import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { Pagination } from '../../shared/components/Pagination';
 import { RowMenu, type RowMenuItem } from '../../shared/components/RowMenu';
 import { useConfirm } from '../../shared/components/ConfirmDialog';
+import { OrganizationMark } from '../organizations/OrganizationMark';
 import { formatDateTime } from '../../shared/format';
 import { formatBytes } from '../attachments/Attachments';
 import { useAuth } from '../auth/AuthContext';
@@ -664,7 +665,7 @@ function Organizations({ canManage }: { canManage: boolean }) {
                   <tr key={o.id}>
                     <td data-label={t('admin.organizations.columns.organization')}>
                       <span className="cx-organization-cell">
-                        <span className="cx-organization-mark" aria-hidden="true">{initialsOf(o.name)}</span>
+                        <OrganizationMark organization={o} />
                         <strong className="text-truncate">{o.name}</strong>
                       </span>
                     </td>

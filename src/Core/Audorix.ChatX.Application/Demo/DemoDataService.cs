@@ -142,9 +142,9 @@ public sealed class DemoDataService(
 
                 assigned++;
             }
-            catch (Exception ex) when (ex is PayloadTooLargeException or RequestValidationException or IOException)
+            catch (Exception ex) when (ex is PayloadTooLargeException or RequestValidationException or IOException or UnauthorizedAccessException)
             {
-                // A picture that is too large, not PNG/JPEG/WebP or unreadable is skipped; the others still load.
+                // A picture that is too large, not PNG/JPEG/WebP, unreadable or locked is skipped; the others still load.
             }
         }
 

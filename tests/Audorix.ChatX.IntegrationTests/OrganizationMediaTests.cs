@@ -24,7 +24,7 @@ public sealed class OrganizationMediaTests
         await using var api = await StartAsync(db);
         var (ana, _) = await SignedInAsync(api, "ana@example.org", "Ana");
         var (ben, _) = await SignedInAsync(api, "ben@example.org", "Ben");
-        var (carl, _) = await SignedInAsync(api, "carl@example.org", "Carl");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
         using var _1 = ana;
         using var _2 = ben;
         using var _3 = carl;
@@ -54,6 +54,21 @@ public sealed class OrganizationMediaTests
         var listed = (await JsonAsync(await ben.GetAsync("/api/v1/organizations"))).EnumerateArray().Single();
         Assert.Equal($"{basePath}/photo?v=1", listed.GetProperty("photoUrl").GetString());
         Assert.Equal(HttpStatusCode.NotFound, (await carl.GetAsync($"{basePath}/photo")).StatusCode);
+
+        // An installation administrator who is not a member sees it in the administration list.
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            Assert.True((await scope.ServiceProvider.GetRequiredService<Application.Identity.IUserAccountManager>()
+                .AddToRoleAsync(carlId, Domain.Authorization.Roles.InstallationAdministrator, Ct)).Succeeded);
+        }
+
+        using var admin = new ApiSession(api.CreateHttpsClient());
+        AssertStatus(HttpStatusCode.OK, await admin.LoginAsync("carl@example.org", Password));
+        var adminRow = (await JsonAsync(await admin.GetAsync("/api/v1/admin/organizations"))).GetProperty("items").EnumerateArray().Single();
+        var adminUrl = adminRow.GetProperty("photoUrl").GetString();
+        Assert.Equal($"/api/v1/admin/organizations/{org}/photo?v=1", adminUrl);
+        Assert.Equal(picture, await (await admin.GetAsync(adminUrl!)).Content.ReadAsByteArrayAsync(Ct));
+        Assert.Equal(HttpStatusCode.Forbidden, (await ben.GetAsync(adminUrl!)).StatusCode);
 
         // Removing the background leaves the picture.
         var removed = await JsonAsync(await ana.SendAsync(HttpMethod.Delete, $"{basePath}/banner"));

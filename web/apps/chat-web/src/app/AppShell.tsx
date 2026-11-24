@@ -78,7 +78,9 @@ export function AppShell() {
   const main = useRef<HTMLElement>(null);
   // "/contacts/" is "/contacts" and "/index.html" is "/": the address is corrected, so layouts and the
   // highlighted menu item follow. Any other unknown address says so instead of showing the home page.
-  const canonical = pathname === '/index.html' ? '/' : pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+  // Leading and trailing slashes are collapsed ("//contacts/" would otherwise read as another host).
+  const trimmed = `/${pathname.replace(/^\/+|\/+$/g, '')}`;
+  const canonical = trimmed === '/index.html' ? '/' : trimmed;
   useEffect(() => {
     if (canonical !== pathname) navigate(`${canonical}${window.location.search}${window.location.hash}`, { replace: true });
   }, [canonical, pathname]);
@@ -288,7 +290,7 @@ function MoreMenu({ items }: { items: { to: string; label: string; icon: NavIcon
 function AppNavigation() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { unread, invitations, mentions, dueReminders } = useNotifications();
   const activity = mentions + dueReminders;
   const supportDesk = useSupportDesk(user?.id);
@@ -346,17 +348,25 @@ function AppNavigation() {
       <p className="cx-rail-section" aria-hidden="true">{t('nav.workspace')}</p>
       <ul className="cx-rail-items list-unstyled" aria-label={t('nav.workspace')}>{workspace.map(renderItem)}</ul>
       {more.length > 0 && <MoreMenu items={more} />}
-      <Link to="/account" className="cx-rail-user" aria-current={pathname === '/account' ? 'page' : undefined}>
-        <Avatar user={user} size="sm" />
-        <span className="cx-rail-user-text">
-          <span className="cx-rail-user-name">{user.displayName}</span>
-          <RealtimeIndicator />
-        </span>
-        <span className="cx-rail-user-settings">
-          <NavIcon name="settings" size={20} />
-        </span>
-        <span className="cx-rail-label cx-rail-user-label">{t('nav.profile')}</span>
-      </Link>
+      {/* The profile link, and beside it Sign out (wide screens only; phones sign out from My profile). */}
+      <div className="cx-rail-account">
+        <Link to="/account" className="cx-rail-user" aria-current={pathname === '/account' ? 'page' : undefined}>
+          <Avatar user={user} size="sm" />
+          <span className="cx-rail-user-text">
+            <span className="cx-rail-user-name">{user.displayName}</span>
+            <RealtimeIndicator />
+          </span>
+          <span className="cx-rail-user-settings">
+            <NavIcon name="settings" size={20} />
+          </span>
+          <span className="cx-rail-label cx-rail-user-label">{t('nav.profile')}</span>
+        </Link>
+        <button type="button" className="cx-tool cx-rail-signout" title={t('nav.signOut')}
+          onClick={() => void signOut().then(() => navigate('/', { replace: true }))}>
+          <NavIcon name="leave" size={20} />
+          <span className="visually-hidden">{t('nav.signOut')}</span>
+        </button>
+      </div>
     </nav>
   );
 }

@@ -28,6 +28,8 @@ export interface AdminOrganization {
   createdAtUtc: string;
   members: number;
   owners: number;
+  /** The organization's picture for administrators (2026-11-24), or null for its initials. */
+  photoUrl?: string | null;
 }
 
 export interface AdminOrganizationMember {

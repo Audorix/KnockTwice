@@ -8340,3 +8340,65 @@ button.cx-person:hover .cx-person-name {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- Sign out beside the profile gear (wide screens only) and the phone landing page (2026-11-24) ---- */
+
+.cx-rail-signout {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  /* Phones: the profile link stays a tab of the bar; there is no sign-out button there. */
+  .cx-rail-account {
+    display: contents;
+  }
+
+  /* Phones held upright: the landing page skips the chat preview and leads with the text. */
+  @media (orientation: portrait) {
+    .cx-landing-preview {
+      display: none;
+    }
+  }
+}
+
+@media (min-width: 768px) {
+  .cx-rail-account {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: auto;
+  }
+
+  .cx-rail-account .cx-rail-user {
+    margin-top: 0;
+  }
+
+  .cx-rail-signout {
+    display: inline-flex;
+    color: var(--cx-text-muted);
+  }
+
+  .cx-rail-signout:hover {
+    color: var(--cx-down, var(--cx-text));
+  }
+}
+
+@media (min-width: 1200px) {
+  .cx-rail-account {
+    flex-direction: row;
+    align-items: center;
+    gap: 0;
+    border-top: 1px solid var(--cx-border);
+  }
+
+  .cx-rail-account .cx-rail-user {
+    flex: 1;
+    min-width: 0;
+    border-top: 0;
+  }
+
+  .cx-rail-account .cx-rail-signout {
+    margin-top: 0.6rem;
+  }
+}

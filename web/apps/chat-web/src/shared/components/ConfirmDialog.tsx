@@ -36,7 +36,8 @@ export function ConfirmDialog({ title, text, children, keepLabel, confirmLabel, 
     return () => (opener.current as HTMLElement | null)?.focus?.();
   }, [typeToConfirm]);
   // Same comparison as the server (case-insensitive).
-  const ready = !typeToConfirm || typed.trim().toLocaleLowerCase() === typeToConfirm.toLocaleLowerCase();
+  // toLowerCase, not toLocaleLowerCase: the browser's language must not change the comparison (Turkish "I").
+  const ready = !typeToConfirm || typed.trim().toLowerCase() === typeToConfirm.toLowerCase();
   return (
     <div className="cx-dialog-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onKeep(); }}>
       <div className="cx-dialog cx-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby={`${id}-title`}
