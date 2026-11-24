@@ -267,9 +267,14 @@
       "submit": "Sign in",
       "rememberMe": "Keep me signed in on this device",
       "forgot": "Forgot your password?",
-      "noAccount": "New here?",
+      "noAccount": "New to ChatX?",
       "resend": "Send a new confirmation link",
-      "or": "or"
+      "or": "or",
+      "welcome": "Welcome back",
+      "subtitle": "Sign in to continue to ChatX.",
+      "createAccount": "Create an account",
+      "emailPlaceholder": "you@example.com",
+      "passwordPlaceholder": "Enter your password"
     },
     "external": {
       "google": "Continue with Google",
@@ -310,7 +315,20 @@
       "title": "Email confirmation",
       "verifying": "Confirming your email address…",
       "done": "Your email address is confirmed. You can now sign in."
-    }
+    },
+    "panel": {
+      "title1": "A better place",
+      "title2": "connect.",
+      "text": "Pick up the conversation with your people and teams.",
+      "bubbleA": "Ready when you are.",
+      "bubbleB": "Let's get started.",
+      "conversations": "Conversations",
+      "channels": "Channels",
+      "collaboration": "Collaboration",
+      "titleTo": "to"
+    },
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "account": {
     "verified": "Email verified",
@@ -2286,6 +2304,48 @@
         "link_platform_invalid": "Choose a platform.",
         "link_visibility_invalid": "Choose who sees it."
       }
+    }
+  },
+  "landing": {
+    "featuresLink": "Features",
+    "backHome": "Back to home",
+    "theme": "Colour theme",
+    "footerBrand": "Audorix",
+    "footerTagline": "Open source. Made for connection.",
+    "license": "Open source under the MIT license.",
+    "licenseShort": "MIT license.",
+    "eyebrow": "Open source · Self-hosted",
+    "title1": "Your conversations.",
+    "title2": "Your team.",
+    "title3": "Your space.",
+    "lead": "Bring people together with direct messages, team channels, and effortless file sharing.",
+    "features": {
+      "connected": {
+        "title": "Stay connected",
+        "text": "Direct and group conversations."
+      },
+      "organize": {
+        "title": "Organize your team",
+        "text": "Workspaces and channels for every project."
+      },
+      "share": {
+        "title": "Share with ease",
+        "text": "Keep files close to the conversation."
+      },
+      "host": {
+        "title": "Host it your way",
+        "text": "Run ChatX on your own infrastructure."
+      }
+    },
+    "included": "What's included in {{stage}}",
+    "preview": {
+      "m1": "Project update: the new design is ready for review! 🎨",
+      "m2": "Looks great! I'll go through it today and share feedback.",
+      "m3": "Here's the latest draft for the team.",
+      "search": "Search conversations…",
+      "direct": "Direct messages",
+      "channels": "Channels",
+      "compose": "Message #design-team…"
     }
   }
 }

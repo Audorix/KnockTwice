@@ -50,6 +50,23 @@ describe('auth pages', () => {
     expect(screen.getByLabelText('Password')).toHaveValue('');
   });
 
+  it('welcomes back and can show the password while typing it', async () => {
+    mockFetch(base);
+    const u = userEvent.setup();
+    render(<AuthProvider><SignInPage /></AuthProvider>);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
+    expect(screen.getByText('Sign in to continue to ChatX.')).toBeInTheDocument();
+    const password = screen.getByLabelText('Password');
+    await u.type(password, 'secret words');
+    expect(password).toHaveAttribute('type', 'password');
+    await u.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password).toHaveAttribute('type', 'text');
+    await u.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password).toHaveAttribute('type', 'password');
+    expect(screen.getByRole('link', { name: 'Forgot your password?' })).toHaveAttribute('href', '/forgot-password');
+  });
+
   it('signs in, applies the account language and goes to the requested page', async () => {
     window.history.replaceState(null, '', '/sign-in?returnUrl=%2Faccount');
     mockFetch({ ...base, 'POST /api/v1/auth/login': () => json(200, { ...user, preferences: { uiLanguage: 'es' } }) });

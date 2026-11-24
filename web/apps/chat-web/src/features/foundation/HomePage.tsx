@@ -5,6 +5,7 @@ import { Link } from '../../app/router';
 import { canAdminister } from '../../app/navigationRules';
 import type { ConversationSummaryResponse, OrganizationResponse, WorkspaceResponse } from '../../shared/api/contracts';
 import { Avatar } from '../../shared/components/Avatar';
+import { BrandMark } from '../../shared/components/BrandMark';
 import { NavIcon, type NavIconName } from '../../shared/components/NavIcon';
 import { supportedLanguages } from '../../i18n/i18n';
 import { useAuth } from '../auth/AuthContext';
@@ -26,22 +27,115 @@ export function HomePage() {
   return user ? <Welcome /> : <Introduction />;
 }
 
+/** The signed-out landing page (redesign 2026-11, owner mockup). */
 function Introduction() {
   const { t } = useTranslation();
+  const { config } = useAuth();
+  const features: { key: string; icon: NavIconName }[] = [
+    { key: 'connected', icon: 'people' },
+    { key: 'organize', icon: 'layers' },
+    { key: 'share', icon: 'clip' },
+    { key: 'host', icon: 'server' },
+  ];
   return (
-    <>
-      {/* Redesign 2026-11: the product introduction moved here from the old side panel. */}
-      <section className="cx-hero" aria-labelledby="home-title">
-        <h1 id="home-title" className="cx-hero-title">{t('app.tagline')}</h1>
-        <p className="cx-hero-intro">{t('app.intro')}</p>
-        <p className="cx-hero-actions">
-          <Link to="/register" className="btn btn-primary">{t('nav.register')}</Link>
-          <Link to="/sign-in" className="btn btn-outline-primary">{t('nav.signIn')}</Link>
-        </p>
+    <div className="cx-landing">
+      <section className="cx-landing-hero" aria-labelledby="home-title">
+        <div className="cx-landing-copy">
+          <p className="cx-landing-eyebrow">{t('landing.eyebrow')}</p>
+          <h1 id="home-title" className="cx-landing-title">
+            <span>{t('landing.title1')}</span> <span>{t('landing.title2')}</span> <span className="is-accent">{t('landing.title3')}</span>
+          </h1>
+          <p className="cx-landing-lead">{t('landing.lead')}</p>
+          <p className="cx-landing-actions">
+            {config?.registrationEnabled !== false && <Link to="/register" className="btn btn-primary btn-lg">{t('nav.register')}</Link>}
+            <Link to="/sign-in" className="btn btn-outline-primary btn-lg">{t('nav.signIn')}</Link>
+          </p>
+          <p className="cx-muted mb-0">{t('landing.license')}</p>
+        </div>
+        <ProductPreview />
       </section>
-      <ReadinessIndicator />
-      <BuildCard />
-    </>
+
+      <ul id="features" className="list-unstyled cx-landing-features" aria-label={t('landing.featuresLink')}>
+        {features.map((f) => (
+          <li key={f.key} className="cx-card cx-landing-feature">
+            <NavIcon name={f.icon} size={36} />
+            <span>
+              <strong className="d-block">{t(`landing.features.${f.key}.title`)}</strong>
+              <span className="cx-muted">{t(`landing.features.${f.key}.text`)}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <ReadinessIndicator compact />
+
+      <details className="cx-card cx-landing-included">
+        <summary>
+          <span>{t('landing.included', { stage: t('app.stage') })}</span>
+          <NavIcon name="chevron-down" size={20} />
+        </summary>
+        <BuildCard />
+      </details>
+    </div>
+  );
+}
+
+/** A still picture of the app for the landing page (decorative; the text says what it does). */
+function ProductPreview() {
+  const { t } = useTranslation();
+  const people = [
+    { initials: 'JM', name: 'Jamie', time: '10:14', text: t('landing.preview.m1') },
+    { initials: 'RK', name: 'Riley', time: '10:18', text: t('landing.preview.m2') },
+    { initials: 'AS', name: 'Avery', time: '10:24', text: t('landing.preview.m3') },
+  ];
+  return (
+    <div className="cx-landing-preview" aria-hidden="true">
+      <span className="cx-landing-blob is-a" />
+      <span className="cx-landing-blob is-b" />
+      <div className="cx-mock">
+        <div className="cx-mock-rail">
+          <NavIcon name="chats" size={18} />
+          <NavIcon name="people" size={18} />
+          <NavIcon name="clip" size={18} />
+          <NavIcon name="server" size={18} />
+          <span className="cx-mock-me">AS</span>
+        </div>
+        <div className="cx-mock-side">
+          <div className="cx-mock-brand"><BrandMark size={22} /> {t('app.name')}</div>
+          <div className="cx-mock-search"><NavIcon name="search" size={13} /> {t('landing.preview.search')}</div>
+          <div className="cx-mock-group">{t('landing.preview.direct')} <NavIcon name="chevron-down" size={12} /></div>
+          <div className="cx-mock-item"><span className="cx-mock-avatar">JM</span> Jamie</div>
+          <div className="cx-mock-item"><span className="cx-mock-avatar">RK</span> Riley</div>
+          <div className="cx-mock-group">{t('landing.preview.channels')} <NavIcon name="chevron-down" size={12} /></div>
+          {['design-team', 'engineering', 'product', 'general'].map((name, i) => (
+            <div key={name} className={`cx-mock-item${i === 0 ? ' is-active' : ''}`}># {name}</div>
+          ))}
+        </div>
+        <div className="cx-mock-chat">
+          <div className="cx-mock-head"># design-team <span><NavIcon name="people" size={16} /> <NavIcon name="dots" size={16} /></span></div>
+          {people.map((p) => (
+            <div key={p.initials} className="cx-mock-message">
+              <span className="cx-mock-avatar is-large">{p.initials}</span>
+              <div>
+                <div><strong>{p.name}</strong> <span className="cx-mock-time">{p.time}</span></div>
+                <div>{p.text}</div>
+              </div>
+            </div>
+          ))}
+          <div className="cx-mock-file">
+            <NavIcon name="file" size={20} />
+            <span><strong>Project Design v3.pdf</strong><br /><span className="cx-mock-time">2.4 MB · PDF</span></span>
+            <NavIcon name="download" size={16} />
+          </div>
+          <div className="cx-mock-composer">
+            <NavIcon name="plus" size={16} />
+            <span>{t('landing.preview.compose')}</span>
+            <NavIcon name="smile" size={16} />
+            <span className="cx-mock-send"><NavIcon name="send" size={14} /></span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

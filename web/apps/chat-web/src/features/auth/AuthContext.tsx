@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthConfigurationResponse, CurrentUserResponse } from '../../shared/api/contracts';
 import { isSupportedLanguage, selectLanguage } from '../../i18n/i18n';
-import { setThemePreference } from '../../shared/theme';
+import { restoreLocalTheme, setThemePreference } from '../../shared/theme';
 import { getAuthConfiguration, getCurrentUser, logout } from './authApi';
 import { disablePush } from '../notifications/pushApi';
 
@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserState(next);
     const language = next?.preferences.uiLanguage;
     if (isSupportedLanguage(language)) void selectLanguage(language);
-    setThemePreference(next?.preferences.theme);
+    if (next) setThemePreference(next.preferences.theme);
+    else restoreLocalTheme();
   }, []);
 
   const refresh = useCallback(async () => {
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await logout();
     } finally {
       setUserState(null);
-      setThemePreference('system');
+      restoreLocalTheme();
     }
   }, []);
 

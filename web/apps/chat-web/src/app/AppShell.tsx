@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState, type ComponentType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from './router';
 import { useAuth } from '../features/auth/AuthContext';
@@ -21,6 +21,8 @@ import { NotificationToasts, useNotifications } from '../features/notifications/
 import { NavIcon, type NavIconName } from '../shared/components/NavIcon';
 import { listOrganizations } from '../features/organizations/organizationsApi';
 import { canAdminister, supportOrganizations } from './navigationRules';
+import { currentLanguage, selectLanguage, supportedLanguages } from '../i18n/i18n';
+import { chooseLocalTheme, currentResolvedTheme } from '../shared/theme';
 
 /**
  * Phase 22: pages other than the chat and the sign-in flow are loaded on demand, so the first
@@ -108,9 +110,11 @@ export function AppShell() {
     );
   }
 
-  // Signed-out pages (redesign 2026-11): a slim top bar, the page centred on the canvas, and a footer.
+  // Signed-out pages (redesign 2026-11, owner mockups): the brand, then Features or "Back to home",
+  // a light/dark switch, the language and the account buttons; the page; a footer.
+  const home = pathname === '/';
   return (
-    <div className="cx-shell">
+    <div className={`cx-shell${home ? ' is-landing' : ' is-auth'}`}>
       {skip}
       <header className="cx-topbar">
         <Link to="/" className="cx-brand text-reset text-decoration-none">
@@ -119,12 +123,22 @@ export function AppShell() {
           <span className="cx-badge">{t('app.stage')}</span>
         </Link>
         <nav className="cx-topnav" aria-label={t('nav.label')}>
-          <Link to="/sign-in" className="btn btn-sm btn-outline-primary" aria-current={pathname === '/sign-in' ? 'page' : undefined}>
-            {t('nav.signIn')}
-          </Link>
-          <Link to="/register" className="btn btn-sm btn-primary" aria-current={pathname === '/register' ? 'page' : undefined}>
-            {t('nav.register')}
-          </Link>
+          {home ? (
+            <a href="#features" className="cx-topnav-link">{t('landing.featuresLink')}</a>
+          ) : (
+            <Link to="/" className="cx-topnav-link">
+              <NavIcon name="back" size={18} />
+              {t('landing.backHome')}
+            </Link>
+          )}
+          <ThemeSwitch />
+          <LanguageSelector compact />
+          {home && (
+            <>
+              <Link to="/sign-in" className="btn btn-outline-primary">{t('nav.signIn')}</Link>
+              <Link to="/register" className="btn btn-primary">{t('nav.register')}</Link>
+            </>
+          )}
         </nav>
       </header>
 
@@ -135,10 +149,49 @@ export function AppShell() {
       </main>
 
       <footer className="cx-site-footer">
-        <LanguageSelector />
-        <p className="cx-footnote mb-0">{t('app.footer')}</p>
+        <span className="cx-footer-brand">
+          <BrandMark size={30} />
+          <strong>{t('landing.footerBrand')}</strong>
+        </span>
+        <span className="cx-footer-divider" aria-hidden="true" />
+        <p className="cx-footnote mb-0">{t('landing.footerTagline')}</p>
+        <span className="cx-footer-spacer" />
+        <span className="cx-footer-languages" role="group" aria-label={t('language.label')}>
+          {supportedLanguages.map((language, index) => (
+            <Fragment key={language}>
+              {index > 0 && <span aria-hidden="true">/</span>}
+              <button type="button" className="btn btn-link p-0" lang={language} aria-pressed={currentLanguage() === language}
+                onClick={() => void selectLanguage(language)}>
+                {t(`language.${language}`)}
+              </button>
+            </Fragment>
+          ))}
+        </span>
+        <span className="cx-footer-divider" aria-hidden="true" />
+        <span className="cx-footnote">{t('landing.licenseShort')}</span>
       </footer>
     </div>
+  );
+}
+
+/** Light/dark for signed-out visitors, remembered in this browser (redesign 2026-11). */
+function ThemeSwitch() {
+  const { t } = useTranslation();
+  const [theme, setTheme] = useState(currentResolvedTheme);
+  const choose = (value: 'light' | 'dark') => {
+    chooseLocalTheme(value);
+    setTheme(value);
+  };
+  return (
+    <span className="cx-theme-switch" role="group" aria-label={t('landing.theme')}>
+      {(['light', 'dark'] as const).map((value) => (
+        <button key={value} type="button" className={theme === value ? 'is-active' : undefined} aria-pressed={theme === value}
+          onClick={() => choose(value)} title={t(`preferences.themes.${value}`)}>
+          <NavIcon name={value === 'light' ? 'sun' : 'moon'} size={18} />
+          <span className="visually-hidden">{t(`preferences.themes.${value}`)}</span>
+        </button>
+      ))}
+    </span>
   );
 }
 

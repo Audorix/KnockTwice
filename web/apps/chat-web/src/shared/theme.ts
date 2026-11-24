@@ -31,8 +31,43 @@ export function currentThemePreference(): ThemePreference {
   return preference;
 }
 
-/** Called once at start-up: follow the system until a user's choice is known. */
+const storageKey = 'chatx.theme';
+
+/** The theme as it shows now (a "system" preference resolved). */
+export function currentResolvedTheme(): 'light' | 'dark' {
+  return resolve();
+}
+
+/**
+ * Signed-out pages (redesign 2026-11): a light/dark choice kept in this browser only. Signed-in
+ * users' account preference replaces it while they are signed in.
+ */
+export function chooseLocalTheme(value: 'light' | 'dark'): void {
+  try {
+    window.localStorage.setItem(storageKey, value);
+  } catch {
+    // Storage can be unavailable (private mode, blocked site data); the choice still applies now.
+  }
+  setThemePreference(value);
+}
+
+function storedTheme(): ThemePreference | null {
+  try {
+    const value = window.localStorage.getItem(storageKey);
+    return isThemePreference(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Back to this browser's signed-out choice (or the system). */
+export function restoreLocalTheme(): void {
+  setThemePreference(storedTheme() ?? 'system');
+}
+
+/** Called once at start-up: this browser's choice, else the system, until a user's choice is known. */
 export function initTheme(): void {
+  preference = storedTheme() ?? 'system';
   apply();
   media?.addEventListener('change', () => {
     if (preference === 'system') apply();

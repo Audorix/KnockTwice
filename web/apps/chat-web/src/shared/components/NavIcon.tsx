@@ -6,7 +6,7 @@ export type NavIconName =
   | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
   | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
   | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid'
-  | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
+  | 'sun' | 'moon' | 'server' | 'eye-off' | 'message-dots' | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
   | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
@@ -44,7 +44,30 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
           <circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
         </g>
       )}
-      {name === 'home' && <path {...common} d="M3.5 11 12 4l8.5 7M5.5 9.5V20h5v-5.5h3V20h5V9.5" />}
+      {name === 'sun' && (
+        <>
+          <circle {...common} cx="12" cy="12" r="4" />
+          <path {...common} d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" />
+        </>
+      )}
+      {name === 'moon' && <path {...common} d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />}
+      {name === 'server' && (
+        <>
+          <rect {...common} x="3" y="4" width="18" height="7" rx="2" />
+          <rect {...common} x="3" y="13" width="18" height="7" rx="2" />
+          <path {...common} d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6" />
+        </>
+      )}
+      {name === 'eye-off' && (
+        <path {...common} d="M3 3l18 18M10.6 6.2A9.8 9.8 0 0 1 12 6c5 0 8.5 4.5 9.5 6a17 17 0 0 1-3 3.6M6.4 7.6A16.5 16.5 0 0 0 2.5 12c1 1.5 4.5 6 9.5 6a9.6 9.6 0 0 0 4.2-1M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      )}
+      {name === 'message-dots' && (
+        <>
+          <path {...common} d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H11l-5 4v-4H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+          <path {...common} d="M8 10.5h.01M12 10.5h.01M16 10.5h.01" />
+        </>
+      )}
+      {name === 'home' &&<path {...common} d="M3.5 11 12 4l8.5 7M5.5 9.5V20h5v-5.5h3V20h5V9.5" />}
       {name === 'tools' && (
         <path {...common} d="M14.5 6.5a3.5 3.5 0 0 0 4.6 4.3L21 12.7l-2.3 2.3-1.9-1.9-6.9 6.9a1.8 1.8 0 0 1-2.6-2.6l6.9-6.9-1.9-1.9L14.6 6l.2.1M4 4l3 1 4 4-2 2-4-4z" />
       )}

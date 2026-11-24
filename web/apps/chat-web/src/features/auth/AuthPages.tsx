@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, navigate, useLocation } from '../../app/router';
 import { currentLanguage } from '../../i18n/i18n';
 import { Field, FormAlert } from '../../shared/components/Field';
+import { NavIcon } from '../../shared/components/NavIcon';
 import { ApiError } from '../../shared/api/httpClient';
 import { Captcha } from '../captcha/Captcha';
 import { useAuth } from './AuthContext';
@@ -11,15 +12,88 @@ import { errorMessage, fieldErrors } from './errors';
 
 /** Sign-in, registration, recovery and verification screens. */
 
-function AuthCard({ title, children, footer }: { title: string; children: ReactNode; footer?: ReactNode }) {
+/**
+ * The account pages' card (redesign 2026-11, owner mockup): a dark welcome panel beside the form
+ * on wide screens; on phones only the form.
+ */
+function AuthCard({ title, subtitle, children, footer }: { title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }) {
   return (
-    <section className="cx-card cx-auth-card" aria-labelledby="page-title">
-      <h1 id="page-title" className="cx-page-title">
-        {title}
-      </h1>
-      {children}
-      {footer && <div className="cx-auth-footer">{footer}</div>}
-    </section>
+    <div className="cx-auth-split">
+      <WelcomePanel />
+      <section className="cx-auth-form" aria-labelledby="page-title">
+        <span className="cx-auth-icon" aria-hidden="true"><NavIcon name="message-dots" size={44} /></span>
+        <h1 id="page-title" className="cx-auth-title">{title}</h1>
+        {subtitle && <p className="cx-auth-subtitle">{subtitle}</p>}
+        {children}
+        {footer && <div className="cx-auth-footer">{footer}</div>}
+      </section>
+    </div>
+  );
+}
+
+function WelcomePanel() {
+  const { t } = useTranslation();
+  return (
+    <aside className="cx-auth-panel" aria-hidden="true">
+      <span className="cx-auth-arc is-top" />
+      <span className="cx-auth-arc is-bottom" />
+      <p className="cx-auth-panel-title">
+        {t('auth.panel.title1')}<br />{t('auth.panel.titleTo')} <span>{t('auth.panel.title2')}</span>
+      </p>
+      <p className="cx-auth-panel-text">{t('auth.panel.text')}</p>
+      <div className="cx-auth-bubbles">
+        <svg className="cx-auth-loop" viewBox="0 0 420 200" focusable="false">
+          <path d="M330 40c60 10 70 80 20 95S120 150 80 120 40 40 90 45" fill="none" stroke="currentColor" strokeWidth="3" />
+        </svg>
+        <div className="cx-auth-bubble is-a">
+          <span className="cx-auth-bubble-avatar">A</span>
+          <span>{t('auth.panel.bubbleA')}</span>
+          <time>10:24</time>
+        </div>
+        <div className="cx-auth-bubble is-b">
+          <span className="cx-auth-bubble-avatar">B</span>
+          <span>{t('auth.panel.bubbleB')}</span>
+          <time>10:25</time>
+        </div>
+      </div>
+      <p className="cx-auth-panel-foot">
+        <NavIcon name="message" size={20} /> {t('auth.panel.conversations')}
+        <span>·</span>
+        <NavIcon name="layers" size={20} /> {t('auth.panel.channels')}
+        <span>·</span>
+        <NavIcon name="people" size={20} /> {t('auth.panel.collaboration')}
+      </p>
+    </aside>
+  );
+}
+
+/** A password field with a show/hide button (the field stays a password field for managers and screen readers until shown). */
+function PasswordField({ label, value, onChange, autoComplete, placeholder, errors }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  placeholder?: string;
+  errors?: readonly string[];
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const [shown, setShown] = useState(false);
+  const invalid = (errors?.length ?? 0) > 0;
+  return (
+    <div className="mb-3">
+      <label htmlFor={id} className="form-label">{label}</label>
+      <div className="cx-password">
+        <input id={id} className={`form-control${invalid ? ' is-invalid' : ''}`} type={shown ? 'text' : 'password'} autoComplete={autoComplete}
+          required value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? `${id}-error` : undefined} />
+        <button type="button" className="cx-password-toggle" onClick={() => setShown((s) => !s)} aria-pressed={shown}
+          aria-label={shown ? t('auth.hidePassword') : t('auth.showPassword')} aria-controls={id}>
+          <NavIcon name={shown ? 'eye-off' : 'eye'} size={20} />
+        </button>
+      </div>
+      {invalid && <div id={`${id}-error`} className="invalid-feedback d-block">{errors!.join(' ')}</div>}
+    </div>
   );
 }
 
@@ -66,16 +140,14 @@ export function SignInPage() {
 
   return (
     <AuthCard
-      title={t('auth.signIn.title')}
+      title={t('auth.signIn.welcome')}
+      subtitle={t('auth.signIn.subtitle')}
       footer={
-        <>
-          <Link to="/forgot-password">{t('auth.signIn.forgot')}</Link>
-          {config?.registrationEnabled && (
-            <span>
-              {t('auth.signIn.noAccount')} <Link to="/register">{t('nav.register')}</Link>
-            </span>
-          )}
-        </>
+        config?.registrationEnabled && (
+          <span>
+            {t('auth.signIn.noAccount')} <Link to="/register">{t('auth.signIn.createAccount')}</Link>
+          </span>
+        )
       }
     >
       {query.get('accountDeleted') === '1' && !error && <FormAlert tone="success">{t('account.deletion.done')}</FormAlert>}
@@ -87,24 +159,23 @@ export function SignInPage() {
         </p>
       )}
       <form onSubmit={submit} noValidate>
-        <Field label={t('auth.fields.email')} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Field
-          label={t('auth.fields.password')}
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <Field label={t('auth.fields.email')} type="email" autoComplete="username" required value={email} placeholder={t('auth.signIn.emailPlaceholder')}
+          onChange={(e) => setEmail(e.target.value)} />
+        <PasswordField label={t('auth.fields.password')} autoComplete="current-password" value={password} onChange={setPassword}
+          placeholder={t('auth.signIn.passwordPlaceholder')} />
         <div className="form-check mb-3">
           <input id="remember-me" className="form-check-input" type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} />
           <label htmlFor="remember-me" className="form-check-label">
             {t('auth.signIn.rememberMe')}
           </label>
         </div>
-        <button type="submit" className="btn btn-primary w-100" disabled={busy || !email || !password}>
+        <button type="submit" className="btn btn-primary btn-lg w-100 cx-icon-button justify-content-center" disabled={busy || !email || !password}>
           {busy ? t('auth.working') : t('auth.signIn.submit')}
+          {!busy && <NavIcon name="arrow-right" size={20} />}
         </button>
+        <p className="text-center mt-3 mb-0">
+          <Link to="/forgot-password">{t('auth.signIn.forgot')}</Link>
+        </p>
       </form>
       {config && config.externalProviders.length > 0 && (
         <div className="cx-external">

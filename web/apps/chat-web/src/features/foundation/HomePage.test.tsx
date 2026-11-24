@@ -89,6 +89,25 @@ describe('Home page (redesign 2026-11)', () => {
     expect(screen.queryByText('Administration & development')).not.toBeInTheDocument();
   });
 
+  it('introduces the product to signed-out visitors, with the status and what is included', async () => {
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(401, { code: 'unauthorized' }),
+      'GET /health/ready': () => json(200, { status: 'healthy', checks: [] }),
+    });
+    const user = userEvent.setup();
+    render(<AuthProvider><HomePage /></AuthProvider>);
+
+    expect(await screen.findByRole('heading', { level: 1, name: /Your conversations\. Your team\. Your space\./ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/register');
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
+    const features = screen.getByRole('list', { name: 'Features' });
+    expect(within(features).getAllByRole('listitem')).toHaveLength(4);
+    expect(await screen.findByText('API ready')).toBeInTheDocument();
+    await user.click(screen.getByText("What's included in Preview 0.1"));
+    expect(screen.getByText('Liveness and readiness checks', { exact: false })).toBeVisible();
+  });
+
   it('opens the development tools for administrators of a development installation', async () => {
     mockFetch(routes(['installation.read', 'installation.demo_data'], true));
     const user = userEvent.setup();

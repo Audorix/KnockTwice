@@ -67,6 +67,13 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **Landing page and sign-in:** signed-out visitors see "Your conversations. Your team. Your
+  space." with a picture of the app, four features, a one-line service status and what the preview
+  includes (folded). The top bar has Features (or Back to home), a light/dark switch remembered in
+  this browser, the language and the account buttons; the footer has the languages and the
+  license. Sign-in, registration and recovery use a two-panel card ("A better place to connect."
+  beside the form); sign-in says "Welcome back", has placeholders, a show/hide password button and
+  "New to ChatX? Create an account".
 - **Home (welcome page):** a Home item in the sidebar; the date, development tools (administrators
   on development installations) and the connection state at the top; "Welcome back" with Open chats
   and New conversation; shortcuts to people, channels, saved messages and your profile; recent

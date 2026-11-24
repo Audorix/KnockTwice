@@ -7,9 +7,10 @@ import { updatePreferences } from '../auth/authApi';
 /**
  * Native <select>: keyboard and screen-reader behaviour come from the platform.
  * Language names are shown in their own language so they are recognizable in either UI.
- * Signed-in users' choice is also saved to their account preferences.
+ * Signed-in users' choice is also saved to their account preferences. `compact` keeps the label
+ * for assistive technology only (the signed-out top bar).
  */
-export function LanguageSelector() {
+export function LanguageSelector({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation();
   const auth = useOptionalAuth();
   const user = auth?.user ?? null;
@@ -17,8 +18,8 @@ export function LanguageSelector() {
   const id = useId();
 
   return (
-    <div className="cx-language">
-      <label htmlFor={id} className="form-label cx-language-label">
+    <div className={`cx-language${compact ? ' is-compact' : ''}`}>
+      <label htmlFor={id} className={compact ? 'visually-hidden' : 'form-label cx-language-label'}>
         {t('language.label')}
       </label>
       <select

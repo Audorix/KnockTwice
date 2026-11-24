@@ -267,9 +267,14 @@
       "submit": "Iniciar sesión",
       "rememberMe": "Mantener la sesión iniciada en este dispositivo",
       "forgot": "¿Olvidó su contraseña?",
-      "noAccount": "¿Es nuevo aquí?",
+      "noAccount": "¿Es nuevo en ChatX?",
       "resend": "Enviar un nuevo enlace de confirmación",
-      "or": "o"
+      "or": "o",
+      "welcome": "Hola de nuevo",
+      "subtitle": "Inicie sesión para continuar en ChatX.",
+      "createAccount": "Crear una cuenta",
+      "emailPlaceholder": "usted@ejemplo.com",
+      "passwordPlaceholder": "Escriba su contraseña"
     },
     "external": {
       "google": "Continuar con Google",
@@ -310,7 +315,20 @@
       "title": "Confirmación del correo",
       "verifying": "Confirmando su dirección de correo…",
       "done": "Su dirección de correo está confirmada. Ya puede iniciar sesión."
-    }
+    },
+    "panel": {
+      "title1": "Un lugar mejor",
+      "title2": "conectar.",
+      "text": "Retome la conversación con su gente y sus equipos.",
+      "bubbleA": "Cuando quiera.",
+      "bubbleB": "¡Empecemos!",
+      "conversations": "Conversaciones",
+      "channels": "Canales",
+      "collaboration": "Colaboración",
+      "titleTo": "para"
+    },
+    "showPassword": "Mostrar la contraseña",
+    "hidePassword": "Ocultar la contraseña"
   },
   "account": {
     "verified": "Correo verificado",
@@ -2286,6 +2304,48 @@
         "link_platform_invalid": "Elija una plataforma.",
         "link_visibility_invalid": "Elija quién lo ve."
       }
+    }
+  },
+  "landing": {
+    "featuresLink": "Funciones",
+    "backHome": "Volver al inicio",
+    "theme": "Tema de color",
+    "footerBrand": "Audorix",
+    "footerTagline": "Código abierto. Hecho para conectar.",
+    "license": "Código abierto con licencia MIT.",
+    "licenseShort": "Licencia MIT.",
+    "eyebrow": "Código abierto · Autoalojado",
+    "title1": "Sus conversaciones.",
+    "title2": "Su equipo.",
+    "title3": "Su espacio.",
+    "lead": "Reúna a las personas con mensajes directos, canales de equipo y archivos compartidos sin esfuerzo.",
+    "features": {
+      "connected": {
+        "title": "Siempre en contacto",
+        "text": "Conversaciones directas y de grupo."
+      },
+      "organize": {
+        "title": "Organice su equipo",
+        "text": "Espacios de trabajo y canales para cada proyecto."
+      },
+      "share": {
+        "title": "Comparta fácilmente",
+        "text": "Los archivos, junto a la conversación."
+      },
+      "host": {
+        "title": "Alójelo a su manera",
+        "text": "Ejecute ChatX en su propia infraestructura."
+      }
+    },
+    "included": "Qué incluye {{stage}}",
+    "preview": {
+      "m1": "¡Novedades del proyecto: el nuevo diseño está listo para revisar! 🎨",
+      "m2": "¡Tiene muy buena pinta! Lo reviso hoy y les cuento.",
+      "m3": "Aquí está el último borrador para el equipo.",
+      "search": "Buscar conversaciones…",
+      "direct": "Mensajes directos",
+      "channels": "Canales",
+      "compose": "Mensaje para #design-team…"
     }
   }
 }

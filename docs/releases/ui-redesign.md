@@ -253,6 +253,22 @@ Escape); the account, contacts and conversations tests still pass; type check an
 bundle 168.2 kB of 180 kB. Checked in the browser with the demo data at 1600 px in dark and light,
 the development tools panel, and on a phone (375 px, no sideways scrolling). No API changes.
 
+## Landing page and sign-in (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Top bar | Brand and "Preview 0.1"; **Features** (a jump to the feature cards) on the landing page, **Back to home** on the account pages; a light/dark switch for signed-out visitors, kept in this browser (`chatx.theme` in local storage; a signed-in account's theme still wins, and signing out returns to the browser's choice); the language; Sign in and Create account on the landing page. |
+| Landing | "Open source · Self-hosted", "Your conversations. Your team. Your space." (the last in teal), the lead, Create account (when registration is open) and Sign in, "Open source under the MIT license."; a still, decorative picture of the app (sidebar, channels, messages, a file, the composer) over soft shapes; four feature cards; the service status in one row; "What's included in Preview 0.1" folded open on request. |
+| Account pages | Sign-in, registration, recovery and verification share a two-panel card: a dark panel ("A better place to connect.", two message bubbles joined by a loop, Conversations · Channels · Collaboration) and the form. Only the form on narrower screens. Sign-in: "Welcome back", "Sign in to continue to ChatX.", placeholders, a show/hide password button, Sign in with an arrow, Forgot your password?, "New to ChatX? Create an account". |
+| Footer | Brand, "Open source. Made for connection.", English / Español, "MIT license." (the account pages leave out the brand). |
+
+Validation: web tests 101/101 (new: the landing page with its features, status and folded list;
+sign-in heading, the show/hide password button and the forgot link); the existing sign-in,
+registration and recovery tests pass on the new card; type check and build clean; bundle 171.0 kB
+of 180 kB (the landing page is part of the first download, so the budget is getting closer).
+Checked in the browser at 1600 px in light and dark (landing, sign-in, registration) and on a phone
+(375 px, no sideways scrolling). No API changes.
+
 ## Open items
 
 - Administration, channels and search were restyled only through the shared tokens; a dedicated
