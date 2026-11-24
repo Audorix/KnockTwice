@@ -56,7 +56,7 @@ describe('auth pages', () => {
     render(<AuthProvider><SignInPage /></AuthProvider>);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
-    expect(screen.getByText('Sign in to continue to ChatX.')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to continue to Knock Twice.')).toBeInTheDocument();
     const password = screen.getByLabelText('Password');
     await u.type(password, 'secret words');
     expect(password).toHaveAttribute('type', 'password');

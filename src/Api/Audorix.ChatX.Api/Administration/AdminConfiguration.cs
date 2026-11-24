@@ -496,7 +496,7 @@ internal sealed class ProviderSettingsManager(
     private static async Task<string> TestEmailAsync(IServiceProvider services, string to, CancellationToken cancellationToken)
     {
         var spanish = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es";
-        var subject = spanish ? "Correo de prueba de Audorix.ChatX" : "Audorix.ChatX test email";
+        var subject = spanish ? "Correo de prueba de Knock Twice" : "Knock Twice test email";
         var body = spanish ? "La configuración de correo de la administración funciona." : "The email settings from the administration page work.";
         await services.GetRequiredService<IEmailSender>()
             .SendAsync(new EmailMessage(to, subject, body, $"<p>{System.Net.WebUtility.HtmlEncode(body)}</p>", "admin-test"), cancellationToken).ConfigureAwait(false);

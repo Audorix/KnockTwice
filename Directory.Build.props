@@ -10,11 +10,11 @@
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <InvariantGlobalization>false</InvariantGlobalization>
     <SatelliteResourceLanguages>en;es</SatelliteResourceLanguages>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <Authors>Audorix.ChatX contributors</Authors>
     <Company>Audorix</Company>
     <Copyright>Copyright (c) 2026 Audorix</Copyright>
-    <Product>Audorix.ChatX</Product>
+    <Product>Knock Twice</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/audorix/Audorix.ChatX</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

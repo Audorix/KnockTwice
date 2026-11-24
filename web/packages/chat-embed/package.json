@@ -1,6 +1,6 @@
 {
   "name": "@audorix/chatx-embed",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "React integration for the Audorix.ChatX website chat (loads your installation's widget.js).",
   "license": "MIT",
   "author": "Audorix",
@@ -10,7 +10,7 @@
     "url": "https://github.com/audorix/Audorix.ChatX.git",
     "directory": "web/packages/chat-embed"
   },
-  "homepage": "https://github.com/audorix/Audorix.ChatX/tree/main/web/packages/chat-embed",
+  "homepage": "https://github.com/audorix/Audorix.ChatX/tree/master/web/packages/chat-embed",
   "bugs": "https://github.com/audorix/Audorix.ChatX/issues",
   "type": "module",
   "sideEffects": false,

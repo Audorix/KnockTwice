@@ -17,7 +17,7 @@ public sealed class EmailOptions
 
     public string? FromAddress { get; set; } = "no-reply@chatx.localhost";
 
-    public string FromName { get; set; } = "Audorix.ChatX";
+    public string FromName { get; set; } = "Knock Twice";
 
     public SmtpEmailOptions Smtp { get; set; } = new();
 

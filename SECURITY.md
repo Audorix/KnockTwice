@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 0.1.x | Yes |
+| 1.0.x | Yes |
+| 0.1.x | No (preview; upgrade to 1.0) |
 
 Security fixes are released as new patch versions. Please upgrade to the latest patch release.
 

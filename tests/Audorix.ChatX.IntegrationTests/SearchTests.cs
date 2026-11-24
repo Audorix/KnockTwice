@@ -56,7 +56,8 @@ public sealed class SearchTests
         Assert.Equal(budget, found.Single().Message);
         Assert.Equal(withBen, found.Single().Conversation);
         Assert.Empty(await SearchAsync(ben, "secreto"));
-        Assert.Single(await SearchAsync(carl, "secreto"));
+        // Indexing is asynchronous: Carl's message may be indexed after Ben's.
+        Assert.Single(await WaitForAsync(carl, "secreto", 1));
 
         // History from the join.
         var plans = await WaitForAsync(carl, "plan", 1);

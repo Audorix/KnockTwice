@@ -30,6 +30,8 @@ dist/
 !.env.example
 !.env.production.example
 docker/.env
+# Local Compose overrides with secrets (docs/deployment-docker.md)
+docker/compose.override*.yaml
 appsettings.*.local.json
 
 # Editors and OS

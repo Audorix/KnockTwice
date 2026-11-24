@@ -36,7 +36,7 @@ internal static class SetupMode
         services.AddSingleton<IValidateOptions<LocalizationSettings>, LocalizationSettingsValidator>();
         services.AddChatXRequestLocalization();
         services.AddChatXProblemDetails();
-        services.AddChatXOpenApi("Audorix.ChatX in setup mode: only the setup API is available until setup is completed (send the setup code from the server log in X-Setup-Token).");
+        services.AddChatXOpenApi("Knock Twice in setup mode: only the setup API is available until setup is completed (send the setup code from the server log in X-Setup-Token).");
         services.AddChatXDatabaseProviders(builder.Environment.ContentRootPath);
         services.AddSingleton<SetupCoordinator>();
         services.AddSingleton<SetupProvisioner>();
@@ -104,7 +104,7 @@ internal static class SetupMode
                 var line = new string('=', 64);
                 Console.Out.WriteLine();
                 Console.Out.WriteLine(line);
-                Console.Out.WriteLine($"  Audorix.ChatX setup code:  {coordinator.DisplayToken}");
+                Console.Out.WriteLine($"  Knock Twice setup code:  {coordinator.DisplayToken}");
                 Console.Out.WriteLine($"  Open {where} to complete setup.");
                 Console.Out.WriteLine($"  The code is also saved to {codeFile}");
                 Console.Out.WriteLine(line);

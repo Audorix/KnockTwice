@@ -1,16 +1,26 @@
-# Audorix.ChatX
+<p align="center">
+  <img src="web/apps/chat-web/public/favicon.svg" width="96" height="96" alt="Knock Twice logo">
+</p>
 
-Open-source, self-hosted team and customer chat built with ASP.NET Core (.NET 10) and React.
-One messaging engine serves personal chat, business communication and an embeddable website chat.
-Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
+# Knock Twice
 
-> **Version 0.1.0, preview.** Feature-complete for its first release and covered by automated
-> tests on both databases. APIs may still change before 1.0. See the [changelog](CHANGELOG.md).
+**by Audorix.** Open-source, self-hosted team and customer chat built with ASP.NET Core (.NET 10)
+and React. One messaging engine serves personal chat, business communication and an embeddable
+website chat. Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
+
+The code base keeps its original name, **Audorix.ChatX**: namespaces, projects, packages and the
+`ChatXWidget` JavaScript API all use it.
+
+> **Version 1.0.0.** Covered by automated tests on both databases. See the
+> [changelog](CHANGELOG.md).
 
 ## Features
 
 - **Chat:** direct and group conversations, replies, edits and deletions, delivered/read receipts,
   typing indicators, presence, unread counts and realtime updates (SignalR) across devices.
+- **Messages:** reactions, threads, @mentions with an Activity page, pinned and saved messages,
+  forwarding, rich text (bold, italic, code, lists, links), drafts, scheduled messages and
+  reminders.
 - **Files:** images, PDF, Office, text and ZIP attachments.
   - Checked by content and kept private.
   - Stored on disk or in S3-compatible storage.
@@ -22,14 +32,17 @@ Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
 - **Website chat:** embed a chat on any website with one script tag or a React component.
   - Visitors can be anonymous or identified by a token your server signs.
   - Members answer in their normal chat.
-  - Support agents work an inbox with assignment and open/closed status.
+  - Support agents work an inbox with subjects, assignment, internal notes and open, pending or
+    closed status.
+- **Profiles:** profile photos and links (website, GitHub, LinkedIn, YouTube, Instagram, X) shown to
+  contacts, light and dark themes.
 - **Administration:** live settings, email/storage/captcha providers, user and organization
   management, roles (Administrator, Auditor) and an audit log.
 - **Accounts:** email confirmation, password reset, revocable sessions, Google/Microsoft sign-in,
   Cloudflare Turnstile, rate limits, CSRF protection, account deletion that keeps conversations
   readable ("Deleted user").
 - **Notifications:** email when messages stay unread (batched, daily or off) and browser push while
-  ChatX is closed, following each person's preview setting.
+  Knock Twice is closed, following each person's preview setting.
 - **Search:** find messages and file names across your conversations (prefix, accent-blind), with
   filters; database full-text by default, OpenSearch optional.
 - **Data retention:** inactive website visitors and never confirmed accounts are removed
@@ -39,6 +52,7 @@ Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
   - Health endpoints.
   - Explicit migrations.
   - Docker images and Compose profiles.
+  - Optional Redis for running several API instances.
 
 ## Get started
 
@@ -73,7 +87,7 @@ A complete example with server-signed identities is in
 | API (guide + OpenAPI reference) | [api/README.md](docs/api/README.md) · [openapi-v1.json](docs/api/openapi-v1.json) |
 | Architecture | [ARCHITECTURE.md](docs/ARCHITECTURE.md) · [solution boundaries](docs/development/architecture-boundaries.md) |
 | Architecture decisions | [ADR.md](docs/ADR.md) |
-| Roadmap and phases | [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · delivery records in [docs/releases](docs/releases) (release 0.1.0: [Phase 12](docs/releases/phase-12-open-source-release.md); next: [Phase 13](docs/releases/phase-13-hardening.md), [Phase 14](docs/releases/phase-14-search.md), [Phase 15](docs/releases/phase-15-notifications.md), [Phase 16](docs/releases/phase-16-reactions-threads.md), [Phase 17](docs/releases/phase-17-mentions.md), [Phase 18](docs/releases/phase-18-message-tools.md), [Phase 19](docs/releases/phase-19-rich-text.md), [Phase 20](docs/releases/phase-20-planning.md), [Phase 21](docs/releases/phase-21-release-readiness.md), [Phase 22](docs/releases/phase-22-performance.md), [Phase 23](docs/releases/phase-23-send-path.md), [Phase 24](docs/releases/phase-24-throughput.md)) |
+| Roadmap and phases | [IMPLEMENTATION.md](docs/IMPLEMENTATION.md) · delivery records in [docs/releases](docs/releases) (release 0.1.0: [Phase 12](docs/releases/phase-12-open-source-release.md); next: [Phase 13](docs/releases/phase-13-hardening.md), [Phase 14](docs/releases/phase-14-search.md), [Phase 15](docs/releases/phase-15-notifications.md), [Phase 16](docs/releases/phase-16-reactions-threads.md), [Phase 17](docs/releases/phase-17-mentions.md), [Phase 18](docs/releases/phase-18-message-tools.md), [Phase 19](docs/releases/phase-19-rich-text.md), [Phase 20](docs/releases/phase-20-planning.md), [Phase 21](docs/releases/phase-21-release-readiness.md), [Phase 22](docs/releases/phase-22-performance.md), [Phase 23](docs/releases/phase-23-send-path.md), [Phase 24](docs/releases/phase-24-throughput.md), [UI redesign](docs/releases/ui-redesign.md); release 1.0.0: everything above) |
 | Testing | [development/testing.md](docs/development/testing.md) |
 | Third-party licenses | [third-party-licenses.md](docs/third-party-licenses.md) |
 

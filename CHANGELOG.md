@@ -1,12 +1,14 @@
 # Changelog
 
-All notable changes to Audorix.ChatX are documented here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
-[Semantic Versioning](https://semver.org/). Before 1.0, minor versions may contain breaking changes;
-they are called out here.
+All notable changes to Knock Twice (code base: Audorix.ChatX) are documented here. The format
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/): from 1.0 on, breaking changes only in major versions.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-24
+
+The first stable release, under the product name **Knock Twice**. It contains everything since 0.1.0:
 the UI redesign ([delivery record](docs/releases/ui-redesign.md)),
 Phase 24, throughput ([delivery record](docs/releases/phase-24-throughput.md)),
 Phase 23, send-path speed ([delivery record](docs/releases/phase-23-send-path.md)),
@@ -20,6 +22,22 @@ threads ([delivery record](docs/releases/phase-16-reactions-threads.md)),
 Phase 15, notifications ([delivery record](docs/releases/phase-15-notifications.md)), Phase 14,
 message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 13, 1.0 hardening
 ([delivery record](docs/releases/phase-13-hardening.md)).
+
+### Changed (1.0.0)
+
+- **New name and logo: Knock Twice, by Audorix.** The app, page titles, sign-in and home pages,
+  emails (subjects, signatures and the default sender name), push notifications and the API
+  documentation use the new name, with a new logo and browser icon. The code base keeps
+  **Audorix.ChatX**: namespaces, projects, packages, the `ChatXWidget` JavaScript API, `X-ChatX-*`
+  headers and data-protection names are unchanged, so existing installations, sign-ins, stored
+  secrets and embedded website chats keep working.
+- **Version 1.0.0:** `GET /api/v1/meta` reports product `Knock Twice` and stage `stable`; Docker
+  image tags are `1.0.0`.
+- **Upgrading from 0.1.0:** back up, then run `migrate` (see
+  [database-migrations.md](docs/database-migrations.md)). Release 1.0.0 adds these migrations on
+  both databases: AddChangeLog, AddConversationPins, AddChannelArchiving, AddSupportNotesAndSubjects
+  and AddProfilePhotosAndLinks, besides those listed under each phase below. Emails sent with the
+  default sender name now come from "Knock Twice"; a sender name you configured stays.
 
 ### Changed (UI redesign)
 
@@ -447,5 +465,6 @@ First public release. Delivery records for each phase are in [docs/releases](doc
 - **Data deletion:** account deletion and data-retention policies are still to be decided
   (delivered in Phase 13, see Unreleased).
 
-[Unreleased]: https://github.com/audorix/Audorix.ChatX/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/audorix/Audorix.ChatX/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/audorix/Audorix.ChatX/releases/tag/v1.0.0
 [0.1.0]: https://github.com/audorix/Audorix.ChatX/releases/tag/v0.1.0

@@ -36,7 +36,7 @@ describe('AppShell (signed in)', () => {
   beforeEach(async () => {
     resetCsrfToken();
     await i18n.changeLanguage('en');
-    document.title = 'Audorix.ChatX';
+    document.title = 'Knock Twice';
     window.history.replaceState(null, '', '/contacts');
   });
 
@@ -71,7 +71,7 @@ describe('AppShell (signed in)', () => {
     const nav = screen.getByRole('navigation', { name: 'Main navigation' });
     expect(await within(chats).findByLabelText('2 unread messages')).toHaveTextContent('2');
     expect(within(nav).getByRole('link', { name: /Profile/ })).toHaveAttribute('href', '/account');
-    expect(document.title).toBe('(2) Audorix.ChatX');
+    expect(document.title).toBe('(2) Knock Twice');
 
     // The account's saved theme wins over the system setting.
     expect(document.documentElement.getAttribute('data-bs-theme')).toBe('dark');

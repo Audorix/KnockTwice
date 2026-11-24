@@ -119,8 +119,10 @@ export function AppShell() {
       <header className="cx-topbar">
         <Link to="/" className="cx-brand text-reset text-decoration-none">
           <BrandMark />
-          <span className="cx-product">{t('app.name')}</span>
-          <span className="cx-badge">{t('app.stage')}</span>
+          <span className="cx-brand-text">
+            <span className="cx-product">{t('app.name')}</span>
+            <span className="cx-brand-by">{t('nav.brandBy')}</span>
+          </span>
         </Link>
         <nav className="cx-topnav" aria-label={t('nav.label')}>
           {home ? (

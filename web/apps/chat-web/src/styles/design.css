@@ -7678,3 +7678,22 @@ button.cx-person:hover .cx-person-name {
     padding: 1.75rem 2rem 2rem;
   }
 }
+
+/* ---- Knock Twice brand lockup (2026-11-24): mark, name, then "by Audorix" ---- */
+
+.cx-brand-text {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.cx-brand-text .cx-product {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.cx-brand-by {
+  color: var(--cx-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}

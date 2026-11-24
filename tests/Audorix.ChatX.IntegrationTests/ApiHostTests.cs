@@ -124,7 +124,7 @@ public sealed class ApiHostTests
 
         Assert.Equal(new[] { "en", "es" }, meta!.SupportedLanguages);
         Assert.Equal("v1", meta.ApiVersion);
-        Assert.Equal("preview", meta.Stage);
+        Assert.Equal("stable", meta.Stage);
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public sealed class ApiHostTests
         Assert.Equal(HttpStatusCode.OK, devResponse.StatusCode);
         var document = await devResponse.Content.ReadAsStringAsync(Ct);
         Assert.Contains("/api/v1/meta", document, StringComparison.Ordinal);
-        Assert.Contains("Audorix.ChatX API", document, StringComparison.Ordinal);
+        Assert.Contains("Knock Twice API", document, StringComparison.Ordinal);
         Assert.Equal(HttpStatusCode.NotFound, prodResponse.StatusCode);
     }
 

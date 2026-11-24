@@ -169,6 +169,13 @@ internal static class ChatXHost
         {
             logger.LogWarning("Development mode (Identity:AutoConfirmEmail): new accounts are confirmed without email verification. Do not use this on a shared installation.");
         }
+
+        // The setup wizard's development mode also allows demo data, whose accounts share a published
+        // password. Fine on a test machine; dangerous anywhere others can sign in.
+        if (app.Services.GetRequiredService<IOptions<Application.Demo.DemoDataSettings>>().Value.Enabled && !app.Environment.IsDevelopment())
+        {
+            logger.LogWarning("DemoData:Enabled is on outside the Development environment: administrators can load demo accounts that share a published password. Turn it off (or set up without development mode) on any installation others can reach.");
+        }
     }
 
     private static void LogInvalidConfiguration(ILogger logger, IEnumerable<string> failures) =>

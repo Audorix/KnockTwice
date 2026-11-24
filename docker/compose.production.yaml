@@ -10,7 +10,7 @@ x-api-image: &api-image
   build:
     context: ..
     dockerfile: docker/api.Dockerfile
-  image: ${CHATX_API_IMAGE:-audorix/chatx-api:0.1.0}
+  image: ${CHATX_API_IMAGE:-audorix/chatx-api:1.0.0}
 
 x-api-environment: &api-environment
   ASPNETCORE_ENVIRONMENT: Production
@@ -68,7 +68,7 @@ services:
     build:
       context: ..
       dockerfile: docker/web.Dockerfile
-    image: ${CHATX_WEB_IMAGE:-audorix/chatx-web:0.1.0}
+    image: ${CHATX_WEB_IMAGE:-audorix/chatx-web:1.0.0}
     ports:
       # Localhost only: terminate TLS in front of it and forward to this port.
       - "127.0.0.1:${CHATX_WEB_PORT:-8080}:8080"

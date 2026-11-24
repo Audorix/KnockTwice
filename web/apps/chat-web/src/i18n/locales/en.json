@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "Audorix.ChatX",
-    "documentTitle": "Audorix.ChatX",
+    "name": "Knock Twice",
+    "documentTitle": "Knock Twice",
     "skipToContent": "Skip to main content",
-    "stage": "Preview 0.1",
+    "stage": "1.0",
     "tagline": "Open-source communication, built in the open.",
     "intro": "Chat with contacts and colleagues, organize teams in workspaces and channels, share files, keep private chats that are never saved, and add a chat to your website. Self-hosted, with SQLite or PostgreSQL.",
     "footer": "Open source under the MIT License."
@@ -19,7 +19,7 @@
     "private": "Private",
     "home": "Home",
     "profile": "Profile",
-    "brandName": "ChatX",
+    "brandName": "Knock Twice",
     "brandBy": "by Audorix",
     "workspace": "Workspace",
     "chats": "Chats",
@@ -267,11 +267,11 @@
       "submit": "Sign in",
       "rememberMe": "Keep me signed in on this device",
       "forgot": "Forgot your password?",
-      "noAccount": "New to ChatX?",
+      "noAccount": "New to Knock Twice?",
       "resend": "Send a new confirmation link",
       "or": "or",
       "welcome": "Welcome back",
-      "subtitle": "Sign in to continue to ChatX.",
+      "subtitle": "Sign in to continue to Knock Twice.",
       "createAccount": "Create an account",
       "emailPlaceholder": "you@example.com",
       "passwordPlaceholder": "Enter your password"
@@ -932,7 +932,7 @@
       "review": "Review"
     },
     "code": {
-      "title": "Welcome to Audorix.ChatX",
+      "title": "Welcome to Knock Twice",
       "intro": "This installation has not been set up yet. The wizard chooses the database, configures email and creates the first administrator. Nothing is saved until the last step.",
       "label": "Setup code",
       "hint": "Shown in a banner in the API console when it starts without a completed setup, and saved to App_Data/setup-code.txt in the API project folder.",
@@ -1006,7 +1006,7 @@
       "developmentMode": "Development mode",
       "developmentModeHint": "New accounts are confirmed immediately and no confirmation email is sent. Use this only on your own machine, never on an installation others can reach.",
       "publicBaseUrl": "Web app address",
-      "publicBaseUrlHint": "Where people open Audorix.ChatX. Used for links in emails.",
+      "publicBaseUrlHint": "Where people open Knock Twice. Used for links in emails.",
       "defaultLanguage": "Default language",
       "captcha": "Human verification",
       "captchaProviders": {
@@ -1048,7 +1048,7 @@
       },
       "done": {
         "title": "Setup complete",
-        "body": "Audorix.ChatX is ready. Sign in as {{email}}.",
+        "body": "Knock Twice is ready. Sign in as {{email}}.",
         "signIn": "Go to sign in"
       },
       "slow": {
@@ -1218,11 +1218,11 @@
       "dark": "Dark"
     },
     "notifications": "Notifications",
-    "desktop": "Desktop notifications while ChatX is in the background",
+    "desktop": "Desktop notifications while Knock Twice is in the background",
     "previews": "Show message text in notifications",
     "notificationsHint": "Saved to your account. Each browser asks once for permission. Muted conversations never notify, and private chat text is never shown.",
     "desktopUnsupported": "This browser does not support desktop notifications.",
-    "desktopBlocked": "The browser blocked notifications for ChatX. Allow them in the site settings and try again.",
+    "desktopBlocked": "The browser blocked notifications for Knock Twice. Allow them in the site settings and try again.",
     "away": "When you are away",
     "email": "Email about unread messages",
     "emailModes": {
@@ -1230,9 +1230,9 @@
       "daily": "Once a day",
       "off": "Off"
     },
-    "push": "Notifications in this browser when ChatX is closed",
+    "push": "Notifications in this browser when Knock Twice is closed",
     "pushHint": "Uses your browser's push service; the content is encrypted for this browser. Signing out here turns it off.",
-    "pushUnavailable": "Notifications while ChatX is closed are not available in this browser or on this installation."
+    "pushUnavailable": "Notifications while Knock Twice is closed are not available in this browser or on this installation."
   },
   "admin": {
     "title": "Administration",
@@ -1485,7 +1485,7 @@
       "lockedNote": "Locked values must be changed at their configuration source.",
       "groupText": {
         "access": "Who can join and how people find each other.",
-        "features": "Switch parts of ChatX on or off for everyone.",
+        "features": "Switch parts of Knock Twice on or off for everyone.",
         "limits": "Set message, attachment and private chat limits for this installation.",
         "localization": "Languages people can choose and the default one.",
         "audit": "How long administrative and security events are kept.",
@@ -2216,7 +2216,7 @@
     "crumbAccount": "Account",
     "crumb": "Profile",
     "title": "My profile",
-    "subtitle": "Make ChatX feel like you.",
+    "subtitle": "Make Knock Twice feel like you.",
     "tabsLabel": "Profile sections",
     "tabs": {
       "profile": "Profile",
@@ -2278,7 +2278,7 @@
     "sessionsSummary_other": "You're signed in on {{count}} devices.",
     "viewSessions_one": "View {{count}} session",
     "viewSessions_other": "View {{count}} sessions",
-    "awayHint": "When ChatX is closed or you are away.",
+    "awayHint": "When Knock Twice is closed or you are away.",
     "passwordHint": "Changing it signs you out on your other devices.",
     "sessionsHint": "Devices and browsers where you are signed in. Sign out of any you do not recognise.",
     "links": {
@@ -2333,7 +2333,7 @@
     "featuresLink": "Features",
     "backHome": "Back to home",
     "theme": "Colour theme",
-    "footerBrand": "Audorix",
+    "footerBrand": "Knock Twice",
     "footerTagline": "Open source. Made for connection.",
     "license": "Open source under the MIT license.",
     "licenseShort": "MIT license.",
@@ -2357,7 +2357,7 @@
       },
       "host": {
         "title": "Host it your way",
-        "text": "Run ChatX on your own infrastructure."
+        "text": "Run Knock Twice on your own infrastructure."
       }
     },
     "included": "What's included in {{stage}}",

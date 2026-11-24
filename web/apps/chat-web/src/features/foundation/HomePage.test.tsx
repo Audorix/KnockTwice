@@ -104,7 +104,7 @@ describe('Home page (redesign 2026-11)', () => {
     const features = screen.getByRole('list', { name: 'Features' });
     expect(within(features).getAllByRole('listitem')).toHaveLength(4);
     expect(await screen.findByText('API ready')).toBeInTheDocument();
-    await user.click(screen.getByText("What's included in Preview 0.1"));
+    await user.click(screen.getByText("What's included in 1.0"));
     expect(screen.getByText('Liveness and readiness checks', { exact: false })).toBeVisible();
   });
 

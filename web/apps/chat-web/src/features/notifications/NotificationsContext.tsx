@@ -209,7 +209,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   // A language change resets the document title (i18n), so the count is put back after it too.
   useEffect(() => {
-    const base = t('app.documentTitle') || baseTitle.current || 'Audorix.ChatX';
+    const base = t('app.documentTitle') || baseTitle.current || 'Knock Twice';
     document.title = unread > 0 ? `(${unread > 99 ? '99+' : unread}) ${base}` : base;
   }, [unread, i18n.language, t]);
 

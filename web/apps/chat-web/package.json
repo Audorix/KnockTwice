@@ -1,8 +1,8 @@
 {
   "name": "@audorix/chatx-web",
   "private": true,
-  "version": "0.1.0",
-  "description": "Audorix.ChatX first-party web application.",
+  "version": "1.0.0",
+  "description": "Knock Twice (Audorix.ChatX) first-party web application.",
   "license": "MIT",
   "type": "module",
   "scripts": {

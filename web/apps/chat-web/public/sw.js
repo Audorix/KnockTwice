@@ -1,5 +1,5 @@
 /*
- * Audorix.ChatX service worker (Phase 15): shows Web Push notifications while ChatX is closed and
+ * Audorix.ChatX service worker (Phase 15): shows Web Push notifications while Knock Twice is closed and
  * opens the conversation when one is clicked. It caches nothing and handles no requests.
  * The payload is { title, body, url, tag }, encrypted by the server for this browser only.
  */
@@ -14,7 +14,7 @@ self.addEventListener('push', (event) => {
     data = {};
   }
 
-  const title = typeof data.title === 'string' && data.title ? data.title : 'Audorix.ChatX';
+  const title = typeof data.title === 'string' && data.title ? data.title : 'Knock Twice';
   event.waitUntil(
     self.registration.showNotification(title, {
       body: typeof data.body === 'string' ? data.body : '',

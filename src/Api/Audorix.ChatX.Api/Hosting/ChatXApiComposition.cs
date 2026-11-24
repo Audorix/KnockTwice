@@ -44,7 +44,7 @@ public static class ChatXApiComposition
         Search.SearchSetup.AddChatXSearchIndexing(services);
         Notifications.NotificationSetup.AddChatXNotificationDispatch(services);
         Planning.PlanningSetup.AddChatXPlanningDispatch(services);
-        services.AddChatXOpenApi("REST API of Audorix.ChatX. Application endpoints live under /api/v1/.");
+        services.AddChatXOpenApi("REST API of Knock Twice (Audorix.ChatX). Application endpoints live under /api/v1/.");
 
         return builder;
     }
@@ -55,7 +55,7 @@ public static class ChatXApiComposition
         services.AddOptions<OpenApiSettings>().BindConfiguration(OpenApiSettings.SectionName);
         services.AddOpenApi(OpenApiSettings.DocumentName, options => options.AddDocumentTransformer((document, _, _) =>
         {
-            document.Info.Title = "Audorix.ChatX API";
+            document.Info.Title = "Knock Twice API";
             document.Info.Version = OpenApiSettings.DocumentName;
             document.Info.Description = description;
             return Task.CompletedTask;
@@ -74,8 +74,8 @@ public static class ChatXApiComposition
             app.UseSwaggerUI(ui =>
             {
                 ui.RoutePrefix = OpenApiSettings.SwaggerUiPath;
-                ui.SwaggerEndpoint($"/openapi/{OpenApiSettings.DocumentName}.json", "Audorix.ChatX API v1");
-                ui.DocumentTitle = "Audorix.ChatX API";
+                ui.SwaggerEndpoint($"/openapi/{OpenApiSettings.DocumentName}.json", "Knock Twice API v1");
+                ui.DocumentTitle = "Knock Twice API";
             });
         }
 

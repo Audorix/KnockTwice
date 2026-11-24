@@ -12,8 +12,8 @@ namespace Audorix.ChatX.Api.Endpoints;
 /// </summary>
 internal static class V1Endpoints
 {
-    public const string Product = "Audorix.ChatX";
-    public const string Stage = "preview";
+    public const string Product = "Knock Twice";
+    public const string Stage = "stable";
 
     public static RouteGroupBuilder MapChatXV1Endpoints(this RouteGroupBuilder group)
     {

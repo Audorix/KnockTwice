@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "Audorix.ChatX",
-    "documentTitle": "Audorix.ChatX",
+    "name": "Knock Twice",
+    "documentTitle": "Knock Twice",
     "skipToContent": "Saltar al contenido principal",
-    "stage": "Versión preliminar 0.1",
+    "stage": "1.0",
     "tagline": "Comunicación de código abierto, construida de forma abierta.",
     "intro": "Chatea con contactos y colegas, organiza equipos en espacios de trabajo y canales, comparte archivos, mantén chats privados que nunca se guardan y añade un chat a tu sitio web. Autoalojado, con SQLite o PostgreSQL.",
     "footer": "Código abierto con licencia MIT."
@@ -19,7 +19,7 @@
     "private": "Privado",
     "home": "Inicio",
     "profile": "Perfil",
-    "brandName": "ChatX",
+    "brandName": "Knock Twice",
     "brandBy": "por Audorix",
     "workspace": "Espacio de trabajo",
     "chats": "Chats",
@@ -267,11 +267,11 @@
       "submit": "Iniciar sesión",
       "rememberMe": "Mantener la sesión iniciada en este dispositivo",
       "forgot": "¿Olvidó su contraseña?",
-      "noAccount": "¿Es nuevo en ChatX?",
+      "noAccount": "¿Es nuevo en Knock Twice?",
       "resend": "Enviar un nuevo enlace de confirmación",
       "or": "o",
       "welcome": "Hola de nuevo",
-      "subtitle": "Inicie sesión para continuar en ChatX.",
+      "subtitle": "Inicie sesión para continuar en Knock Twice.",
       "createAccount": "Crear una cuenta",
       "emailPlaceholder": "usted@ejemplo.com",
       "passwordPlaceholder": "Escriba su contraseña"
@@ -932,7 +932,7 @@
       "review": "Revisión"
     },
     "code": {
-      "title": "Bienvenido a Audorix.ChatX",
+      "title": "Bienvenido a Knock Twice",
       "intro": "Esta instalación aún no está configurada. El asistente elige la base de datos, configura el correo y crea el primer administrador. No se guarda nada hasta el último paso.",
       "label": "Código de instalación",
       "hint": "Aparece en un recuadro en la consola de la API cuando se inicia sin una instalación completada y se guarda en App_Data/setup-code.txt, en la carpeta del proyecto de la API.",
@@ -1006,7 +1006,7 @@
       "developmentMode": "Modo de desarrollo",
       "developmentModeHint": "Las cuentas nuevas se confirman de inmediato y no se envía correo de confirmación. Úselo solo en su propio equipo, nunca en una instalación a la que otras personas puedan acceder.",
       "publicBaseUrl": "Dirección de la aplicación web",
-      "publicBaseUrlHint": "Donde las personas abren Audorix.ChatX. Se usa en los enlaces de los correos.",
+      "publicBaseUrlHint": "Donde las personas abren Knock Twice. Se usa en los enlaces de los correos.",
       "defaultLanguage": "Idioma predeterminado",
       "captcha": "Verificación humana",
       "captchaProviders": {
@@ -1048,7 +1048,7 @@
       },
       "done": {
         "title": "Instalación completada",
-        "body": "Audorix.ChatX está listo. Inicie sesión como {{email}}.",
+        "body": "Knock Twice está listo. Inicie sesión como {{email}}.",
         "signIn": "Ir a iniciar sesión"
       },
       "slow": {
@@ -1218,11 +1218,11 @@
       "dark": "Oscuro"
     },
     "notifications": "Notificaciones",
-    "desktop": "Notificaciones de escritorio mientras ChatX está en segundo plano",
+    "desktop": "Notificaciones de escritorio mientras Knock Twice está en segundo plano",
     "previews": "Mostrar el texto de los mensajes en las notificaciones",
     "notificationsHint": "Se guarda en su cuenta. Cada navegador pide permiso una vez. Las conversaciones silenciadas nunca avisan y el texto de los chats privados nunca se muestra.",
     "desktopUnsupported": "Este navegador no admite notificaciones de escritorio.",
-    "desktopBlocked": "El navegador bloqueó las notificaciones de ChatX. Permítalas en la configuración del sitio e inténtelo de nuevo.",
+    "desktopBlocked": "El navegador bloqueó las notificaciones de Knock Twice. Permítalas en la configuración del sitio e inténtelo de nuevo.",
     "away": "Cuando no esté",
     "email": "Correo sobre mensajes sin leer",
     "emailModes": {
@@ -1230,9 +1230,9 @@
       "daily": "Una vez al día",
       "off": "Desactivado"
     },
-    "push": "Notificaciones en este navegador cuando ChatX está cerrado",
+    "push": "Notificaciones en este navegador cuando Knock Twice está cerrado",
     "pushHint": "Usa el servicio push de su navegador; el contenido va cifrado para este navegador. Al cerrar sesión aquí se desactiva.",
-    "pushUnavailable": "Las notificaciones con ChatX cerrado no están disponibles en este navegador o en esta instalación."
+    "pushUnavailable": "Las notificaciones con Knock Twice cerrado no están disponibles en este navegador o en esta instalación."
   },
   "admin": {
     "title": "Administración",
@@ -1485,7 +1485,7 @@
       "lockedNote": "Los valores bloqueados se cambian en su origen de configuración.",
       "groupText": {
         "access": "Quién puede unirse y cómo se encuentran las personas.",
-        "features": "Active o desactive partes de ChatX para todos.",
+        "features": "Active o desactive partes de Knock Twice para todos.",
         "limits": "Límites de mensajes, archivos y chats privados de esta instalación.",
         "localization": "Los idiomas disponibles y el predeterminado.",
         "audit": "Cuánto tiempo se guardan los eventos de administración y seguridad.",
@@ -2216,7 +2216,7 @@
     "crumbAccount": "Cuenta",
     "crumb": "Perfil",
     "title": "Mi perfil",
-    "subtitle": "Haga que ChatX se parezca a usted.",
+    "subtitle": "Haga que Knock Twice se parezca a usted.",
     "tabsLabel": "Secciones del perfil",
     "tabs": {
       "profile": "Perfil",
@@ -2278,7 +2278,7 @@
     "sessionsSummary_other": "Tiene la sesión iniciada en {{count}} dispositivos.",
     "viewSessions_one": "Ver {{count}} sesión",
     "viewSessions_other": "Ver {{count}} sesiones",
-    "awayHint": "Cuando ChatX está cerrado o usted no está.",
+    "awayHint": "Cuando Knock Twice está cerrado o usted no está.",
     "passwordHint": "Al cambiarla se cierra la sesión en sus otros dispositivos.",
     "sessionsHint": "Dispositivos y navegadores con la sesión iniciada. Cierre la de cualquiera que no reconozca.",
     "links": {
@@ -2333,7 +2333,7 @@
     "featuresLink": "Funciones",
     "backHome": "Volver al inicio",
     "theme": "Tema de color",
-    "footerBrand": "Audorix",
+    "footerBrand": "Knock Twice",
     "footerTagline": "Código abierto. Hecho para conectar.",
     "license": "Código abierto con licencia MIT.",
     "licenseShort": "Licencia MIT.",
@@ -2357,7 +2357,7 @@
       },
       "host": {
         "title": "Alójelo a su manera",
-        "text": "Ejecute ChatX en su propia infraestructura."
+        "text": "Ejecute Knock Twice en su propia infraestructura."
       }
     },
     "included": "Qué incluye {{stage}}",

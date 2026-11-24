@@ -1,12 +1,13 @@
-/** Audorix.ChatX mark: two interlocking message bubbles. Decorative; the name is rendered as text. */
+/**
+ * Knock Twice mark (owner logo of 2026-11-24): a dark teal bubble behind a light teal one with two
+ * white strokes, the "knock knock". Brand colours in both themes. Decorative; the name is text.
+ */
 export function BrandMark({ size = 40 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" focusable="false" className="cx-mark">
-      <rect x="2" y="6" width="30" height="24" rx="8" fill="currentColor" opacity="0.35" />
-      <path d="M9 30 l-3 8 l10 -8 z" fill="currentColor" opacity="0.35" />
-      <rect x="16" y="16" width="30" height="24" rx="8" fill="currentColor" />
-      <path d="M39 40 l3 7 l-10 -7 z" fill="currentColor" />
-      <path d="M25 23 l12 10 M37 23 l-12 10" stroke="var(--cx-mark-ink)" strokeWidth="3.2" strokeLinecap="round" />
+      <path d="M13 7h14a10 10 0 0 1 10 10v5H23a9 9 0 0 0-9 9v-1H11l-6 4 1.4-6A9.6 9.6 0 0 1 3 21v-4A10 10 0 0 1 13 7z" fill="#127677" />
+      <path d="M23 17h14a9 9 0 0 1 9 9v8a9 9 0 0 1-5.2 8.2L42 47l-7-4H23a9 9 0 0 1-9-9v-8a9 9 0 0 1 9-9z" fill="#2aaeb0" />
+      <path d="M26.5 35.5l4.5-7M32.5 35.5l4.5-7" stroke="#ffffff" strokeWidth="3.4" strokeLinecap="round" />
     </svg>
   );
 }

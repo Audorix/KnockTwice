@@ -173,9 +173,12 @@ configured the same way.
 
 ## Limits of this setup
 
-- One API instance. Realtime connections, rate limits, private chats and widget sessions'
-  connection list live in the process (ADR-016). Scaling out needs a SignalR backplane and shared
-  rate limiting, which are not included.
+- One API instance by default. To run several, set `ScaleOut__Redis` (a Redis connection string; see
+  the [configuration reference](development/configuration.md)): it adds the SignalR backplane,
+  shared presence and shared rate limits (ADR-035). Private chats still live in one instance's
+  memory, so with several instances keep everyone on one instance or switch private chats off (a
+  startup warning says so). The bundled Compose files start one instance and no Redis; this setup
+  has not been tested against a real Redis.
 - SQLite is supported for small single-server installs (use
   `docker/compose.sqlite.yaml` as a starting point and set `CHATX_ENVIRONMENT=Production`), but
   PostgreSQL is the recommended production database.

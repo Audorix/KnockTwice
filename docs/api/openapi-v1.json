@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.1",
   "info": {
-    "title": "Audorix.ChatX API",
-    "description": "REST API of Audorix.ChatX. Application endpoints live under /api/v1/.",
+    "title": "Knock Twice API",
+    "description": "REST API of Knock Twice (Audorix.ChatX). Application endpoints live under /api/v1/.",
     "version": "v1"
   },
   "paths": {

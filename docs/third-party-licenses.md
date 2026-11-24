@@ -13,18 +13,21 @@ build only), nginx (BSD-2-Clause), PostgreSQL (PostgreSQL License), Docker image
 `mcr.microsoft.com`, `node`, `nginxinc/nginx-unprivileged`, `postgres` and `axllent/mailpit`
 (development only) under their own licenses.
 
-## .NET packages in the API (23)
+## .NET packages in the API (29)
 
-Licenses: MIT (17), Apache-2.0 (4), PostgreSQL (2).
+Licenses: MIT (23), Apache-2.0 (4), PostgreSQL (2).
 
 | Package | Version | License |
 | --- | --- | --- |
 | MailKit | 5.0.0 | MIT |
+| MessagePack | 2.5.303 | MIT |
+| MessagePack.Annotations | 2.5.303 | MIT |
 | Microsoft.AspNetCore.Authentication.Google | 10.0.15 | MIT |
 | Microsoft.AspNetCore.Authentication.MicrosoftAccount | 10.0.15 | MIT |
 | Microsoft.AspNetCore.DataProtection.EntityFrameworkCore | 10.0.15 | MIT |
 | Microsoft.AspNetCore.Identity.EntityFrameworkCore | 10.0.15 | MIT |
 | Microsoft.AspNetCore.OpenApi | 10.0.15 | MIT |
+| Microsoft.AspNetCore.SignalR.StackExchangeRedis | 10.0.15 | MIT |
 | Microsoft.Data.Sqlite.Core | 10.0.15 | MIT |
 | Microsoft.EntityFrameworkCore | 10.0.15 | MIT |
 | Microsoft.EntityFrameworkCore.Abstractions | 10.0.15 | MIT |
@@ -33,14 +36,17 @@ Licenses: MIT (17), Apache-2.0 (4), PostgreSQL (2).
 | Microsoft.EntityFrameworkCore.Sqlite | 10.0.15 | MIT |
 | Microsoft.EntityFrameworkCore.Sqlite.Core | 10.0.15 | MIT |
 | Microsoft.Extensions.DependencyModel | 10.0.15 | MIT |
+| Microsoft.NET.StringTools | 17.6.3 | MIT |
 | Microsoft.OpenApi | 2.13.0 | MIT |
 | MimeKit.Core | 5.0.0 | MIT |
 | Npgsql | 10.0.4 | PostgreSQL |
 | Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.4 | PostgreSQL |
+| Pipelines.Sockets.Unofficial | 2.2.8 | MIT |
 | SQLitePCLRaw.bundle_e_sqlite3 | 2.1.13 | Apache-2.0 |
 | SQLitePCLRaw.core | 2.1.13 | Apache-2.0 |
 | SQLitePCLRaw.lib.e_sqlite3 | 2.1.13 | Apache-2.0 |
 | SQLitePCLRaw.provider.e_sqlite3 | 2.1.13 | Apache-2.0 |
+| StackExchange.Redis | 2.7.27 | MIT |
 | Swashbuckle.AspNetCore.SwaggerUI | 11.0.1 | MIT |
 
 ## npm packages in the web app and website chat (27)

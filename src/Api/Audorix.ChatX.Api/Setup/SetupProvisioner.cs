@@ -128,7 +128,7 @@ internal sealed class SetupProvisioner(
         ValidateOptions(candidate, typeof(EmailOptions));
         await using var scope = candidate.CreateAsyncScope();
         var spanish = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es";
-        var subject = spanish ? "Correo de prueba de Audorix.ChatX" : "Audorix.ChatX test email";
+        var subject = spanish ? "Correo de prueba de Knock Twice" : "Knock Twice test email";
         var body = spanish
             ? "La configuración de correo del asistente de instalación funciona."
             : "The email settings from the setup wizard work.";
@@ -377,7 +377,7 @@ internal sealed class SetupProvisioner(
         {
             new("Email:Provider", provider),
             new("Email:FromAddress", from),
-            new("Email:FromName", string.IsNullOrWhiteSpace(input.FromName) ? "Audorix.ChatX" : input.FromName.Trim()),
+            new("Email:FromName", string.IsNullOrWhiteSpace(input.FromName) ? "Knock Twice" : input.FromName.Trim()),
         };
 
         if (provider == EmailProviders.Smtp)
