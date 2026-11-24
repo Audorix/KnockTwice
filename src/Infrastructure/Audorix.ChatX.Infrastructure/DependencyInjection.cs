@@ -45,6 +45,7 @@ public static class DependencyInjection
 
         services.AddScoped<IInstallationStore, EfInstallationStore>();
         services.AddScoped<IUserProfileStore, EfUserProfileStore>();
+        services.AddScoped<IProfileLinkStore, EfProfileLinkStore>();
         services.AddScoped<ISessionStore, EfSessionStore>();
         services.AddScoped<IUserAccountManager, IdentityUserAccountManager>();
         services.AddScoped<Application.Organizations.IOrganizationStore, EfOrganizationStore>();

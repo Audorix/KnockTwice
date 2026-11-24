@@ -128,6 +128,51 @@ public sealed partial class UserProfile
 
     public void NotificationEmailSent(DateTimeOffset nowUtc) => LastNotificationEmailAtUtc = EnsureUtc(nowUtc);
 
+    // ---- Profile photo (redesign 2026-11) ----------------------------------------------------------
+
+    /// <summary>Storage key of the photo (cropped and resized by the client, checked by the server); null for initials.</summary>
+    public string? PhotoKey { get; private set; }
+
+    /// <summary><c>image/png</c>, <c>image/jpeg</c> or <c>image/webp</c>.</summary>
+    public string? PhotoContentType { get; private set; }
+
+    /// <summary>Increases with every change, so photo addresses can be cached for good.</summary>
+    public int PhotoVersion { get; private set; }
+
+    public bool HasPhoto => PhotoKey is not null;
+
+    /// <summary>Uses a new photo; returns the key of the one it replaces (to delete), if any.</summary>
+    public string? SetPhoto(string key, string contentType, DateTimeOffset nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(contentType))
+        {
+            throw new DomainRuleException("photo_invalid", "A stored photo is required.");
+        }
+
+        var previous = PhotoKey;
+        PhotoKey = key;
+        PhotoContentType = contentType;
+        PhotoVersion++;
+        Touch(nowUtc);
+        return previous;
+    }
+
+    /// <summary>Back to initials; returns the key of the removed photo, if any.</summary>
+    public string? RemovePhoto(DateTimeOffset nowUtc)
+    {
+        var previous = PhotoKey;
+        if (previous is null)
+        {
+            return null;
+        }
+
+        PhotoKey = null;
+        PhotoContentType = null;
+        PhotoVersion++;
+        Touch(nowUtc);
+        return previous;
+    }
+
     /// <summary>Erases the person: a neutral name, default preferences, and the deletion time. Idempotent.</summary>
     public void Erase(DateTimeOffset nowUtc)
     {
@@ -142,6 +187,8 @@ public sealed partial class UserProfile
         EmailNotifications = EmailOff;
         DesktopNotifications = false;
         NotificationPreviews = true;
+        PhotoKey = null;
+        PhotoContentType = null;
         DeletedAtUtc = utc;
         Touch(utc);
     }

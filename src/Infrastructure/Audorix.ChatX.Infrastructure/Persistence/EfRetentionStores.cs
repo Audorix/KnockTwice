@@ -13,10 +13,11 @@ namespace Audorix.ChatX.Infrastructure.Persistence;
 /// through the application services; this removes what is left in one transaction. Dates are
 /// compared in memory where SQLite cannot compare <see cref="DateTimeOffset"/> values.
 /// </summary>
-internal sealed class EfAccountErasure(ChatXDbContext db) : IAccountErasure
+internal sealed class EfAccountErasure(ChatXDbContext db, Application.Attachments.IAttachmentStorage storage) : IAccountErasure
 {
     public async Task EraseAsync(Guid userId, DateTimeOffset nowUtc, CancellationToken cancellationToken)
     {
+        string? photoKey = null;
         var strategy = db.Database.CreateExecutionStrategy();
         await strategy.ExecuteAsync(async () =>
         {
@@ -40,6 +41,7 @@ internal sealed class EfAccountErasure(ChatXDbContext db) : IAccountErasure
             user.DeletedAtUtc ??= nowUtc;
 
             var profile = await db.UserProfiles.SingleOrDefaultAsync(p => p.UserId == userId, cancellationToken).ConfigureAwait(false);
+            photoKey = profile?.PhotoKey ?? photoKey;
             profile?.Erase(nowUtc);
 
             // Attachments not sent with a message are deleted; the cleanup job removes their content.
@@ -71,6 +73,7 @@ internal sealed class EfAccountErasure(ChatXDbContext db) : IAccountErasure
             await db.MessageDrafts.Where(d => d.UserId == userId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.ScheduledMessages.Where(s => s.UserId == userId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.Reminders.Where(r => r.UserId == userId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            await db.ProfileLinks.Where(l => l.UserId == userId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.Conversations.Where(c => c.AssignedToUserId == userId)
                 .ExecuteUpdateAsync(s => s.SetProperty(c => c.AssignedToUserId, (Guid?)null), cancellationToken).ConfigureAwait(false);
 
@@ -83,6 +86,19 @@ internal sealed class EfAccountErasure(ChatXDbContext db) : IAccountErasure
         }).ConfigureAwait(false);
 
         db.ChangeTracker.Clear();
+
+        // The photo file goes after the commit; nothing points at it any more.
+        if (photoKey is not null)
+        {
+            try
+            {
+                await storage.DeleteAsync(photoKey, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // A leftover file without a reference is harmless.
+            }
+        }
     }
 
     public async Task<bool> TryRemoveUnusedAsync(Guid userId, CancellationToken cancellationToken)

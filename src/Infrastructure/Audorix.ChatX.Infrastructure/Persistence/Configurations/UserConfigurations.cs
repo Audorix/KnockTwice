@@ -24,8 +24,28 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
         builder.Ignore(p => p.Initials);
         builder.Ignore(p => p.IsDeleted);
 
+        // Profile photo (redesign 2026-11): a storage key, its type and a version for cache busting.
+        builder.Property(p => p.PhotoKey).HasMaxLength(200);
+        builder.Property(p => p.PhotoContentType).HasMaxLength(32);
+        builder.Ignore(p => p.HasPhoto);
+
         // A profile cannot outlive its account.
         builder.HasOne<ChatXUser>().WithOne().HasForeignKey<UserProfile>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+/// <summary>Profile links (redesign 2026-11), removed with the account or when the person erases it.</summary>
+internal sealed class ProfileLinkConfiguration : IEntityTypeConfiguration<ProfileLink>
+{
+    public void Configure(EntityTypeBuilder<ProfileLink> builder)
+    {
+        builder.ToTable("profile_links");
+        builder.Property(l => l.Id).ValueGeneratedNever();
+        builder.Property(l => l.Platform).HasConversion<string>().HasMaxLength(16);
+        builder.Property(l => l.Visibility).HasConversion<string>().HasMaxLength(16);
+        builder.Property(l => l.Url).HasMaxLength(ProfileLink.UrlMaxLength).IsRequired();
+        builder.HasIndex(l => new { l.UserId, l.Position });
+        builder.HasOne<ChatXUser>().WithMany().HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 

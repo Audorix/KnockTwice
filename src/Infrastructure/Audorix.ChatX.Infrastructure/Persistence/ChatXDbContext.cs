@@ -22,6 +22,8 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
 
+    public DbSet<Domain.Users.ProfileLink> ProfileLinks => Set<Domain.Users.ProfileLink>();
+
     public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     public DbSet<Domain.Organizations.Organization> Organizations => Set<Domain.Organizations.Organization>();

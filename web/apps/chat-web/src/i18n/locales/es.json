@@ -190,7 +190,7 @@
     }
   },
   "account": {
-    "verified": "Verificado",
+    "verified": "Correo verificado",
     "save": "Guardar",
     "saved": "Cambios guardados.",
     "profile": {
@@ -350,7 +350,9 @@
     "too_many_reminders": "Ya tiene el máximo de recordatorios (100).",
     "remind_at_invalid": "Elija un momento dentro del próximo año.",
     "reminder_not_found": "Este recordatorio ya no existe.",
-    "channel_archived": "Este canal está archivado y es de solo lectura."
+    "channel_archived": "Este canal está archivado y es de solo lectura.",
+    "photo_too_large": "La foto es demasiado grande.",
+    "photo_type_invalid": "Use una imagen JPG, PNG o WebP."
   },
   "fieldErrors": {
     "invalid": "Este valor no es válido.",
@@ -463,7 +465,8 @@
     "profileSince": "Contacto desde el {{date}}",
     "profileOrganizations": "Organizaciones en común",
     "profileNoOrganizations": "Ninguna organización en común",
-    "closeProfile": "Cerrar perfil"
+    "closeProfile": "Cerrar perfil",
+    "profileLinks": "Enlaces"
   },
   "organizations": {
     "title": "Organizaciones",
@@ -2033,5 +2036,122 @@
     "viewMessage": "Ver mensaje",
     "tipTitle": "Tus menciones, en un solo lugar",
     "tipText": "Abre una mención para ir directamente a su conversación."
+  },
+  "profile": {
+    "crumbAccount": "Cuenta",
+    "crumb": "Perfil",
+    "title": "Mi perfil",
+    "subtitle": "Haga que ChatX se parezca a usted.",
+    "tabsLabel": "Secciones del perfil",
+    "tabs": {
+      "profile": "Perfil",
+      "links": "Medios y enlaces",
+      "notifications": "Notificaciones",
+      "security": "Seguridad",
+      "sessions": "Sesiones"
+    },
+    "heroLabel": "Su perfil",
+    "visible": "Visible para las personas con las que chatea.",
+    "appear": "Cómo le ven",
+    "appearHint": "Así le ven los demás en una conversación.",
+    "photo": {
+      "change": "Cambiar la foto",
+      "changeShort": "Cambiar",
+      "useInitials": "Usar iniciales",
+      "title": "Foto de perfil",
+      "hint": "Una imagen cuadrada queda mejor. Se ve donde aparece su nombre.",
+      "dialogTitle": "Cambiar la foto de perfil",
+      "dialogSubtitle": "Elija cómo aparece en las conversaciones.",
+      "close": "Cerrar",
+      "stageLabel": "Recorte de la foto. Arrastre o use las flechas para colocarla.",
+      "dropHere": "Suelte una imagen aquí",
+      "choose": "Elegir una imagen",
+      "chooseAnother": "Elegir otra imagen",
+      "drag": "Arrastre para colocarla",
+      "zoom": "Zoom",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "rotateLeft": "Girar a la izquierda",
+      "rotateRight": "Girar a la derecha",
+      "reset": "Restablecer",
+      "preview": "Vista previa",
+      "previewHint": "Se ve bien en cualquier tamaño.",
+      "px": "{{size}} px",
+      "current": "Foto actual",
+      "none": "Ninguna imagen elegida",
+      "limits": "JPG, PNG o WebP · Hasta 5 MB",
+      "remove": "Quitar la foto",
+      "removeHint": "Usar sus iniciales",
+      "cancel": "Cancelar",
+      "save": "Guardar la foto",
+      "unreadable": "No se pudo leer esta imagen. Pruebe con otra.",
+      "typeNotAllowed": "Elija una imagen JPG, PNG o WebP.",
+      "tooLarge": "La imagen pesa más de 5 MB."
+    },
+    "details": {
+      "title": "Datos del perfil",
+      "subtitle": "Elija el nombre que ven los demás.",
+      "nameHint": "Se usa en conversaciones, menciones y búsquedas.",
+      "emailHint": "Su dirección de acceso. Solo la ven usted y los administradores.",
+      "save": "Guardar el perfil"
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "subtitle": "El tema y el idioma le acompañan en todos sus dispositivos."
+    },
+    "sessionsSummary_one": "Tiene la sesión iniciada en {{count}} dispositivo.",
+    "sessionsSummary_other": "Tiene la sesión iniciada en {{count}} dispositivos.",
+    "viewSessions_one": "Ver {{count}} sesión",
+    "viewSessions_other": "Ver {{count}} sesiones",
+    "awayHint": "Cuando ChatX está cerrado o usted no está.",
+    "passwordHint": "Al cambiarla se cierra la sesión en sus otros dispositivos.",
+    "sessionsHint": "Dispositivos y navegadores con la sesión iniciada. Cierre la de cualquiera que no reconozca.",
+    "links": {
+      "title": "Medios y enlaces",
+      "subtitle": "Comparta sus perfiles, canales y sitio web con sus contactos.",
+      "add": "Añadir enlace",
+      "saved": "Sus enlaces se han guardado.",
+      "empty": "Todavía no hay enlaces. Añada su GitHub, LinkedIn, YouTube, Instagram, X o sitio web.",
+      "order": "Orden",
+      "platform": "Plataforma",
+      "url": "URL del perfil o canal",
+      "urlFor": "Dirección de {{platform}}",
+      "visibleTo": "Visible para",
+      "remove": "Quitar",
+      "removeNamed": "Quitar el enlace de {{platform}}",
+      "moveLabel": "Enlace {{position}} de {{count}}. Use las flechas arriba y abajo para moverlo.",
+      "moveHint": "Arrastre para reordenar",
+      "platforms": {
+        "github": "GitHub",
+        "linkedin": "LinkedIn",
+        "youtube": "YouTube",
+        "instagram": "Instagram",
+        "x": "X",
+        "website": "Sitio web"
+      },
+      "visibility": {
+        "contacts": "Contactos",
+        "only_me": "Solo yo"
+      },
+      "note": "Añada las URL de sus perfiles. No hace falta conectar ninguna cuenta.",
+      "platformsNote": "Plataformas disponibles: GitHub, LinkedIn, YouTube, Instagram, X y enlaces propios.",
+      "pending": "Cambios sin guardar",
+      "discard": "Descartar los cambios",
+      "save": "Guardar los enlaces",
+      "previewTitle": "Vista previa del perfil",
+      "previewSubtitle": "Lo que verán sus contactos.",
+      "previewEmpty": "Todavía no hay enlaces para contactos.",
+      "previewHint": "Aquí solo aparecen los enlaces visibles para contactos.",
+      "controlTitle": "Usted decide quién los ve",
+      "controlText": "Elija Contactos o Solo yo para cada enlace.",
+      "opensNew": "(se abre en una pestaña nueva)",
+      "errors": {
+        "link_url_required": "Escriba la dirección.",
+        "link_url_invalid": "Escriba una dirección completa que empiece por https://.",
+        "link_url_platform": "Esta dirección no pertenece a la plataforma elegida.",
+        "link_platform_invalid": "Elija una plataforma.",
+        "link_visibility_invalid": "Elija quién lo ve."
+      }
+    }
   }
 }

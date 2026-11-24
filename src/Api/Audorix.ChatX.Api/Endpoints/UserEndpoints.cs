@@ -22,6 +22,49 @@ internal static class UserEndpoints
         me.MapPut(string.Empty, UpdateProfileAsync).WithSummary("Updates the display name.");
         me.MapPut("/preferences", UpdatePreferencesAsync).WithSummary("Updates user preferences (language, theme, desktop notifications); omitted fields stay unchanged.");
         me.MapPost("/password", ChangePasswordAsync).WithSummary("Changes the password and signs out other sessions.");
+        // Profile photo and links (redesign 2026-11).
+        me.MapPost("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, CancellationToken ct) =>
+        {
+            var userId = http.User.RequireUserId();
+            await MultipartUpload.ReadFileAsync(http, ProfileMediaService.MaxPhotoBytes, (_, _, stream) => media.SetPhotoAsync(userId, stream, null, ct), ct);
+            return TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(userId, ct)));
+        }).WithSummary("Sets the profile photo (multipart/form-data, field 'file'): PNG, JPEG or WebP, up to 1 MB, already cropped (the app sends a square image).");
+        me.MapDelete("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, CancellationToken ct) =>
+        {
+            var userId = http.User.RequireUserId();
+            await media.RemovePhotoAsync(userId, ct);
+            return TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(userId, ct)));
+        }).WithSummary("Removes the profile photo; initials show again.");
+        me.MapGet("/links", async (HttpContext http, ProfileMediaService media, CancellationToken ct) =>
+            TypedResults.Ok((await media.ListOwnLinksAsync(http.User.RequireUserId(), ct)).Select(ToLink).ToList()))
+            .WithSummary("Your profile links in order, with who sees each.");
+        me.MapPut("/links", async (ReplaceProfileLinksRequest request, HttpContext http, ProfileMediaService media, CancellationToken ct) =>
+            TypedResults.Ok((await media.ReplaceLinksAsync(http.User.RequireUserId(),
+                (request.Links ?? []).Select(l => new ProfileLinkInput(l.Platform, l.Url, l.Visibility)).ToList(), ct)).Select(ToLink).ToList()))
+            .WithSummary("Replaces your profile links (at most 10), in order. Platform links must point to that platform; only http(s) addresses.");
+
+        var users = v1.MapGroup("/users/{userId:guid}").RequireAuthorization().WithTags("Users");
+        users.MapGet("/photo", async (Guid userId, int? v, HttpContext http, ProfileMediaService media, CancellationToken ct) =>
+        {
+            var photo = await media.OpenPhotoAsync(userId, ct);
+            if (photo is null)
+            {
+                return Results.NotFound();
+            }
+
+            AttachmentEndpoints.SetDownloadHeaders(http.Response, "photo", photo.ContentType, forceDownload: false, cacheable: true);
+            // A versioned address never changes content: cache it in this browser for good.
+            if (v == photo.Version)
+            {
+                http.Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+            }
+
+            return Results.Stream(photo.Content, photo.ContentType);
+        }).WithSummary("A person's profile photo (any signed-in person). 404 when they show initials.");
+        users.MapGet("/links", async (Guid userId, HttpContext http, ProfileMediaService media, CancellationToken ct) =>
+            TypedResults.Ok((await media.ListVisibleLinksAsync(http.User.RequireUserId(), userId, ct)).Select(ToLink).ToList()))
+            .WithSummary("The person's links you may see: those for contacts when you are their contact; none otherwise.");
+
         me.MapGet("/deletion", CheckDeletionAsync).WithSummary("Whether the account can be deleted now, and what stands in the way (organizations you are the only owner of).");
         me.MapPost("/deletion", DeleteAccountAsync)
             .WithSummary("Deletes the signed-in account after confirming the password (or, without one, the email address). Personal data is erased; messages stay as \"Deleted user\". Signs out everywhere.");
@@ -62,6 +105,12 @@ internal static class UserEndpoints
         return v1;
     }
 
+    /// <summary>The address of a profile photo; it changes with every new photo, so it can be cached for good.</summary>
+    internal static string? PhotoUrl(Guid userId, int version) => version > 0 ? $"/api/v1/users/{userId}/photo?v={version}" : null;
+
+    private static ProfileLinkResponse ToLink(Domain.Users.ProfileLink link) =>
+        new(ProfileMediaService.PlatformName(link.Platform), link.Url, ProfileMediaService.VisibilityName(link.Visibility));
+
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
         new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support);
 
@@ -70,7 +119,7 @@ internal static class UserEndpoints
         user.Account.Email,
         user.Account.EmailConfirmed,
         user.Profile.DisplayName,
-        new AvatarResponse(user.Profile.Initials),
+        new AvatarResponse(user.Profile.Initials, user.Profile.HasPhoto ? PhotoUrl(user.Profile.UserId, user.Profile.PhotoVersion) : null),
         new UserPreferencesResponse(user.Profile.UiLanguage, user.Profile.Theme, user.Profile.DesktopNotifications, user.Profile.NotificationPreviews,
             user.Profile.EmailNotifications),
         user.Account.HasPassword,

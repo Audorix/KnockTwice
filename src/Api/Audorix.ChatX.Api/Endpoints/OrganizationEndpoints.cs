@@ -144,7 +144,8 @@ internal static class OrganizationEndpoints
         return v1;
     }
 
-    internal static UserSummaryResponse ToUser(UserSummary user) => new(user.Id, user.DisplayName, new AvatarResponse(user.Initials), user.Deleted);
+    internal static UserSummaryResponse ToUser(UserSummary user) =>
+        new(user.Id, user.DisplayName, new AvatarResponse(user.Initials, UserEndpoints.PhotoUrl(user.Id, user.PhotoVersion)), user.Deleted);
 
     private static OrganizationResponse ToResponse(OrganizationView view) => new(
         view.Organization.Id,

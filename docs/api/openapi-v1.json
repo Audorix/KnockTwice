@@ -795,6 +795,98 @@
         }
       }
     },
+    "/api/v1/users/me/photo": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Sets the profile photo (multipart/form-data, field 'file'): PNG, JPEG or WebP, up to 1 MB, already cropped (the app sends a square image).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Removes the profile photo; initials show again.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/me/links": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Your profile links in order, with who sees each.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileLinkResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Replaces your profile links (at most 10), in order. Platform links must point to that platform; only http(s) addresses.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplaceProfileLinksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileLinkResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/deletion": {
       "get": {
         "tags": [
@@ -832,6 +924,76 @@
         "responses": {
           "204": {
             "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/photo": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "A person's profile photo (any signed-in person). 404 when they show initials.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "v",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/users/{userId}/links": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "The person's links you may see: those for contacts when you are their contact; none otherwise.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileLinkResponse"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -7627,6 +7789,12 @@
         "properties": {
           "initials": {
             "type": "string"
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -9797,6 +9965,53 @@
           }
         }
       },
+      "ProfileLinkRequest": {
+        "required": [
+          "platform",
+          "url",
+          "visibility"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "url": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "visibility": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProfileLinkResponse": {
+        "required": [
+          "platform",
+          "url",
+          "visibility"
+        ],
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          }
+        }
+      },
       "ProviderFieldResponse": {
         "required": [
           "key",
@@ -10069,6 +10284,23 @@
               "null",
               "string"
             ]
+          }
+        }
+      },
+      "ReplaceProfileLinksRequest": {
+        "required": [
+          "links"
+        ],
+        "type": "object",
+        "properties": {
+          "links": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ProfileLinkRequest"
+            }
           }
         }
       },

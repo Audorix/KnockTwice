@@ -14,6 +14,26 @@ internal sealed class EfUserProfileStore(ChatXDbContext db) : IUserProfileStore
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
 }
 
+internal sealed class EfProfileLinkStore(ChatXDbContext db) : IProfileLinkStore
+{
+    public async Task<IReadOnlyList<ProfileLink>> ListAsync(Guid userId, CancellationToken cancellationToken) =>
+        await db.ProfileLinks.AsNoTracking().Where(l => l.UserId == userId).OrderBy(l => l.Position).ThenBy(l => l.Id)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task ReplaceAsync(Guid userId, IReadOnlyList<ProfileLink> links, CancellationToken cancellationToken)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+            await db.ProfileLinks.Where(l => l.UserId == userId).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            db.ProfileLinks.AddRange(links);
+            await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }).ConfigureAwait(false);
+    }
+}
+
 internal sealed class EfSessionStore(ChatXDbContext db) : ISessionStore
 {
     public Task<UserSession?> FindAsync(Guid sessionId, CancellationToken cancellationToken) =>

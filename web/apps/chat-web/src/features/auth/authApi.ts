@@ -5,7 +5,7 @@ import type {
   SessionResponse,
   UserPreferences,
 } from '../../shared/api/contracts';
-import { ApiError, getJson, resetCsrfToken, sendJson } from '../../shared/api/httpClient';
+import { ApiError, getJson, resetCsrfToken, sendJson, uploadFile } from '../../shared/api/httpClient';
 
 /** Typed calls to /api/v1/auth and /api/v1/users/me. */
 
@@ -76,6 +76,36 @@ export async function updatePreferences(uiLanguage: string): Promise<CurrentUser
 /** Changes some preferences; omitted ones stay as they are. */
 export async function savePreferences(changes: Partial<Omit<UserPreferences, 'uiLanguage'>>): Promise<CurrentUserResponse> {
   return (await sendJson<CurrentUserResponse>('PUT', '/api/v1/users/me/preferences', changes))!;
+}
+
+/** Profile photo (redesign 2026-11): a square image the page cropped. */
+export async function uploadPhoto(image: Blob, fileName: string): Promise<CurrentUserResponse> {
+  return uploadFile<CurrentUserResponse>('/api/v1/users/me/photo', image, fileName);
+}
+
+export async function removePhoto(): Promise<CurrentUserResponse> {
+  return (await sendJson<CurrentUserResponse>('DELETE', '/api/v1/users/me/photo'))!;
+}
+
+export type LinkPlatform = 'website' | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x';
+export type LinkVisibility = 'contacts' | 'only_me';
+export interface ProfileLink {
+  platform: LinkPlatform;
+  url: string;
+  visibility: LinkVisibility;
+}
+
+export async function getMyLinks(): Promise<ProfileLink[]> {
+  return (await getJson<ProfileLink[]>('/api/v1/users/me/links')).body ?? [];
+}
+
+export async function saveMyLinks(links: ProfileLink[]): Promise<ProfileLink[]> {
+  return (await sendJson<ProfileLink[]>('PUT', '/api/v1/users/me/links', { links }))!;
+}
+
+/** Someone's links that you may see (theirs for contacts when you are a contact). */
+export async function getUserLinks(userId: string): Promise<ProfileLink[]> {
+  return (await getJson<ProfileLink[]>(`/api/v1/users/${encodeURIComponent(userId)}/links`)).body ?? [];
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

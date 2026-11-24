@@ -29,7 +29,7 @@ describe('Account deletion (Phase 13)', () => {
   beforeEach(async () => {
     resetCsrfToken();
     await i18n.changeLanguage('en');
-    window.history.replaceState(null, '', '/account');
+    window.history.replaceState(null, '', '/account?tab=security');
   });
 
   afterEach(() => {

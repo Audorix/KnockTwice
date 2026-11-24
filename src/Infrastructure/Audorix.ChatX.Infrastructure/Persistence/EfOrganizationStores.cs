@@ -1,4 +1,4 @@
-using Audorix.ChatX.Application.Contacts;
+﻿using Audorix.ChatX.Application.Contacts;
 using Audorix.ChatX.Application.Identity;
 using Audorix.ChatX.Application.Organizations;
 using Audorix.ChatX.Application.Users;
@@ -258,7 +258,7 @@ internal sealed class EfUserDirectory(ChatXDbContext db, IOptions<AccountSetting
 
         var ids = userIds.Distinct().ToList();
         var profiles = await db.UserProfiles.AsNoTracking().Where(p => ids.Contains(p.UserId)).ToListAsync(cancellationToken).ConfigureAwait(false);
-        return profiles.ToDictionary(p => p.UserId, p => new UserSummary(p.UserId, p.DisplayName, p.Initials, p.IsDeleted));
+        return profiles.ToDictionary(p => p.UserId, p => new UserSummary(p.UserId, p.DisplayName, p.Initials, p.IsDeleted, p.HasPhoto && !p.IsDeleted ? p.PhotoVersion : 0));
     }
 
     public async Task<Guid?> FindConfirmedUserIdByEmailAsync(string email, CancellationToken cancellationToken)
@@ -299,7 +299,7 @@ internal sealed class EfUserDirectory(ChatXDbContext db, IOptions<AccountSetting
             .OrderBy(p => p.DisplayName)
             .Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        return profiles.Select(p => new UserSummary(p.UserId, p.DisplayName, p.Initials)).ToList();
+        return profiles.Select(p => new UserSummary(p.UserId, p.DisplayName, p.Initials, PhotoVersion: p.HasPhoto ? p.PhotoVersion : 0)).ToList();
     }
 
     public Task<bool> SharesActiveOrganizationAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken) =>

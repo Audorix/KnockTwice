@@ -254,6 +254,26 @@ they take part in, from their join, never deleted messages), newest first.
   `PUT …/thread/follow { following }`. Thread replies arrive as ordinary `MessageCreated` events with
   `threadRootId` set.
 
+## Profile photos and links
+
+- Every user summary's `avatar` is `{ initials, photoUrl }`. `photoUrl` is null for initials; otherwise
+  `/api/v1/users/{id}/photo?v={version}`, readable by any signed-in person. The address changes with
+  every new photo, so the response for the current version is cached privately for good
+  (`immutable`); old addresses keep working but revalidate.
+- `POST /api/v1/users/me/photo` (multipart, field `file`) sets the photo: PNG, JPEG or WebP by
+  signature (`400` with field error `photo_type_invalid` otherwise), at most 1 MB
+  (`413 photo_too_large`). Clients crop and resize first; the web app sends a 512 px square.
+  `DELETE /api/v1/users/me/photo` goes back to initials. Both return the current user.
+- `GET /api/v1/users/me/links` and `PUT /api/v1/users/me/links { links: [{ platform, url, visibility }] }`
+  (at most 10, in order; the list replaces them all). `platform`: `website`, `github`, `linkedin`,
+  `youtube`, `instagram` or `x`; `visibility`: `contacts` or `only_me`. Only http(s) addresses, and
+  platform links must be on that platform's site; problems come back per row as field errors
+  (`links[0].url`: `link_url_required`, `link_url_invalid`, `link_url_platform`;
+  `links[0].platform`: `link_platform_invalid`; `links[0].visibility`: `link_visibility_invalid`).
+- `GET /api/v1/users/{id}/links` gives the links for contacts when the caller is a contact, all of
+  them for the person themself, and an empty list for anyone else.
+- Deleting an account removes the photo and the links.
+
 ## Deleted accounts and deletion
 
 - A user summary (`{ id, displayName, avatar, deleted }`) has `deleted: true` when the account was

@@ -5,7 +5,9 @@ export type NavIconName =
   | 'chevron-down' | 'download' | 'pin' | 'check' | 'check-double' | 'bookmark' | 'clock' | 'bell' | 'calendar' | 'external'
   | 'file' | 'info' | 'archive' | 'leave' | 'browser' | 'history'
   | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
-  | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid';
+  | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid'
+  | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
+  | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -30,7 +32,47 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
           <path {...common} d="M4.5 5.5v13c0 1.5 3.4 2.75 7.5 2.75s7.5-1.25 7.5-2.75v-13M4.5 12c0 1.5 3.4 2.75 7.5 2.75s7.5-1.25 7.5-2.75" />
         </>
       )}
-      {name === 'folder' && <path {...common} d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />}
+      {name === 'camera' && (
+        <>
+          <path {...common} d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+          <circle {...common} cx="12" cy="12.5" r="3.5" />
+        </>
+      )}
+      {name === 'grip' && (
+        <g fill="currentColor">
+          <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" /><circle cx="9" cy="12" r="1.5" />
+          <circle cx="15" cy="12" r="1.5" /><circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+        </g>
+      )}
+      {name === 'move' && <path {...common} d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" />}
+      {name === 'upload' &&<path {...common} d="M12 16V4M7 9l5-5 5 5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />}
+      {name === 'rotate-left' && <path {...common} d="M4 4v5h5M4.5 13a8 8 0 1 0 2-6.5L4 9" />}
+      {name === 'rotate-right' && <path {...common} d="M20 4v5h-5M19.5 13a8 8 0 1 1-2-6.5L20 9" />}
+      {name === 'link' && <path {...common} d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />}
+      {name === 'github' && (
+        <path fill="currentColor" d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.7c-2.7.6-3.3-1.2-3.3-1.2-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.1-.2-4.4-1.1-4.4-4.7 0-1 .4-1.9 1-2.6-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a9 9 0 0 1 4.8 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.7 1 1.6 1 2.6 0 3.7-2.3 4.5-4.4 4.7.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.5z" />
+      )}
+      {name === 'linkedin' && (
+        <>
+          <rect {...common} x="3" y="3" width="18" height="18" rx="3" />
+          <path {...common} d="M8 10.5V17M8 7.5v.01M11.5 17v-6.5M11.5 13a2.5 2.5 0 0 1 5 0v4" />
+        </>
+      )}
+      {name === 'youtube' && (
+        <>
+          <rect {...common} x="2.5" y="5.5" width="19" height="13" rx="4" />
+          <path fill="currentColor" d="M10 9.2v5.6l4.8-2.8z" />
+        </>
+      )}
+      {name === 'instagram' && (
+        <>
+          <rect {...common} x="3.5" y="3.5" width="17" height="17" rx="5" />
+          <circle {...common} cx="12" cy="12" r="4" />
+          <circle fill="currentColor" cx="17" cy="7" r="1.1" />
+        </>
+      )}
+      {name === 'x-logo' && <path {...common} d="M4 4l16 16M20 4 4 20" />}
+      {name === 'folder' &&<path {...common} d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />}
       {name === 'door' && (
         <>
           <path {...common} d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5V21M3 21h18" />

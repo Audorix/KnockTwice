@@ -56,7 +56,8 @@ describe('Account preferences', () => {
     expect(await screen.findByRole('button', { name: 'Dark', pressed: true })).toBeInTheDocument();
     expect(document.documentElement.getAttribute('data-bs-theme')).toBe('dark');
 
-    await actor.click(screen.getByRole('switch', { name: /Desktop notifications/ }));
+    await actor.click(screen.getByRole('tab', { name: 'Notifications' }));
+    await actor.click(await screen.findByRole('switch', { name: /Desktop notifications/ }));
     expect(requestPermission).toHaveBeenCalledOnce();
     expect(await screen.findByRole('switch', { name: /Desktop notifications/ })).toBeChecked();
     expect(screen.getByRole('switch', { name: /Show message text/ })).toBeEnabled();
@@ -85,6 +86,7 @@ describe('Account preferences', () => {
       </AuthProvider>,
     );
 
+    await actor.click(await screen.findByRole('tab', { name: 'Notifications' }));
     await actor.selectOptions(await screen.findByLabelText('Email about unread messages'), 'daily');
     await vi.waitFor(() => expect(saved).toEqual([{ emailNotifications: 'daily' }]));
     expect(screen.getByLabelText('Email about unread messages')).toHaveValue('daily');

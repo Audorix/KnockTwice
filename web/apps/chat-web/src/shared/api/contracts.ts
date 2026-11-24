@@ -131,7 +131,7 @@ export interface CurrentUserResponse {
   email: string;
   emailConfirmed: boolean;
   displayName: string;
-  avatar: { initials: string };
+  avatar: AvatarResponse;
   preferences: UserPreferences;
   hasPassword: boolean;
   externalProviders: string[];
@@ -139,10 +139,16 @@ export interface CurrentUserResponse {
   permissions: string[];
 }
 
+/** Initials, and the profile photo's address when the person has one (redesign 2026-11). */
+export interface AvatarResponse {
+  initials: string;
+  photoUrl?: string | null;
+}
+
 export interface UserSummary {
   id: string;
   displayName: string;
-  avatar: { initials: string };
+  avatar: AvatarResponse;
   /** The account was deleted (Phase 13); the client shows a localized "Deleted user". */
   deleted?: boolean;
 }

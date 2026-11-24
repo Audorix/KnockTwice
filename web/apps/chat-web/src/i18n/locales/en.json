@@ -190,7 +190,7 @@
     }
   },
   "account": {
-    "verified": "Verified",
+    "verified": "Email verified",
     "save": "Save",
     "saved": "Changes saved.",
     "profile": {
@@ -350,7 +350,9 @@
     "too_many_reminders": "You already have the most reminders allowed (100).",
     "remind_at_invalid": "Choose a time in the next year.",
     "reminder_not_found": "This reminder no longer exists.",
-    "channel_archived": "This channel is archived and read-only."
+    "channel_archived": "This channel is archived and read-only.",
+    "photo_too_large": "The photo is too large.",
+    "photo_type_invalid": "Use a JPG, PNG or WebP image."
   },
   "fieldErrors": {
     "invalid": "This value is not valid.",
@@ -463,7 +465,8 @@
     "profileSince": "Contact since {{date}}",
     "profileOrganizations": "Shared organizations",
     "profileNoOrganizations": "No shared organizations",
-    "closeProfile": "Close profile"
+    "closeProfile": "Close profile",
+    "profileLinks": "Links"
   },
   "organizations": {
     "title": "Organizations",
@@ -2033,5 +2036,122 @@
     "viewMessage": "View message",
     "tipTitle": "Your mentions, in one place",
     "tipText": "Open a mention to jump directly to its conversation."
+  },
+  "profile": {
+    "crumbAccount": "Account",
+    "crumb": "Profile",
+    "title": "My profile",
+    "subtitle": "Make ChatX feel like you.",
+    "tabsLabel": "Profile sections",
+    "tabs": {
+      "profile": "Profile",
+      "links": "Media & links",
+      "notifications": "Notifications",
+      "security": "Security",
+      "sessions": "Sessions"
+    },
+    "heroLabel": "Your profile",
+    "visible": "Visible to people you chat with.",
+    "appear": "How you appear",
+    "appearHint": "This is how others see you in a conversation.",
+    "photo": {
+      "change": "Change photo",
+      "changeShort": "Change",
+      "useInitials": "Use initials",
+      "title": "Profile photo",
+      "hint": "A square image works best. Others see it wherever your name shows.",
+      "dialogTitle": "Change profile photo",
+      "dialogSubtitle": "Choose how you appear in conversations.",
+      "close": "Close",
+      "stageLabel": "Photo crop. Drag or use the arrow keys to reposition.",
+      "dropHere": "Drop an image here",
+      "choose": "Choose an image",
+      "chooseAnother": "Choose another image",
+      "drag": "Drag to reposition",
+      "zoom": "Zoom",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "rotateLeft": "Rotate left",
+      "rotateRight": "Rotate right",
+      "reset": "Reset",
+      "preview": "Preview",
+      "previewHint": "Looks good at every size.",
+      "px": "{{size}} px",
+      "current": "Current photo",
+      "none": "No image chosen",
+      "limits": "JPG, PNG or WebP · Up to 5 MB",
+      "remove": "Remove photo",
+      "removeHint": "Use your initials instead",
+      "cancel": "Cancel",
+      "save": "Save photo",
+      "unreadable": "This image could not be read. Try another one.",
+      "typeNotAllowed": "Choose a JPG, PNG or WebP image.",
+      "tooLarge": "The image is larger than 5 MB."
+    },
+    "details": {
+      "title": "Profile details",
+      "subtitle": "Choose the name people see.",
+      "nameHint": "Used in conversations, mentions and search.",
+      "emailHint": "Your sign-in address. Only you and administrators see it.",
+      "save": "Save profile"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "subtitle": "Theme and language follow you to every device."
+    },
+    "sessionsSummary_one": "You're signed in on {{count}} device.",
+    "sessionsSummary_other": "You're signed in on {{count}} devices.",
+    "viewSessions_one": "View {{count}} session",
+    "viewSessions_other": "View {{count}} sessions",
+    "awayHint": "When ChatX is closed or you are away.",
+    "passwordHint": "Changing it signs you out on your other devices.",
+    "sessionsHint": "Devices and browsers where you are signed in. Sign out of any you do not recognise.",
+    "links": {
+      "title": "Media & links",
+      "subtitle": "Share your profiles, channels and website with your contacts.",
+      "add": "Add link",
+      "saved": "Your links are saved.",
+      "empty": "No links yet. Add your GitHub, LinkedIn, YouTube, Instagram, X or website.",
+      "order": "Order",
+      "platform": "Platform",
+      "url": "Profile or channel URL",
+      "urlFor": "{{platform}} address",
+      "visibleTo": "Visible to",
+      "remove": "Remove",
+      "removeNamed": "Remove the {{platform}} link",
+      "moveLabel": "Link {{position}} of {{count}}. Use the up and down arrow keys to move it.",
+      "moveHint": "Drag to reorder",
+      "platforms": {
+        "github": "GitHub",
+        "linkedin": "LinkedIn",
+        "youtube": "YouTube",
+        "instagram": "Instagram",
+        "x": "X",
+        "website": "Website"
+      },
+      "visibility": {
+        "contacts": "Contacts",
+        "only_me": "Only me"
+      },
+      "note": "Add profile URLs. No account connection is required.",
+      "platformsNote": "Available platforms: GitHub, LinkedIn, YouTube, Instagram, X and custom links.",
+      "pending": "Pending edits",
+      "discard": "Discard changes",
+      "save": "Save links",
+      "previewTitle": "Profile preview",
+      "previewSubtitle": "What your contacts will see.",
+      "previewEmpty": "No links for contacts yet.",
+      "previewHint": "Only links visible to contacts appear here.",
+      "controlTitle": "You control visibility",
+      "controlText": "Choose Contacts or Only me for each link.",
+      "opensNew": "(opens in a new tab)",
+      "errors": {
+        "link_url_required": "Enter the address.",
+        "link_url_invalid": "Enter a full address that starts with https://.",
+        "link_url_platform": "This address does not belong to the chosen platform.",
+        "link_platform_invalid": "Choose a platform.",
+        "link_visibility_invalid": "Choose who sees it."
+      }
+    }
   }
 }

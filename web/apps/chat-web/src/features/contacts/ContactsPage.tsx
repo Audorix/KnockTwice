@@ -7,6 +7,8 @@ import { NavIcon } from '../../shared/components/NavIcon';
 import { Pagination } from '../../shared/components/Pagination';
 import { RowMenu } from '../../shared/components/RowMenu';
 import { errorMessage, fieldErrors } from '../auth/errors';
+import { getUserLinks, type ProfileLink } from '../auth/authApi';
+import { LinkItem } from '../account/ProfileLinks';
 import { RequireUser, useAction } from '../auth/RequireUser';
 import { useRealtime } from '../realtime/RealtimeContext';
 import type { PresenceValue } from '../realtime/realtimeClient';
@@ -354,6 +356,12 @@ function ProfilePanel({ contact, status, language, onClose, onMessage, onRemove,
     return () => (opener.current as HTMLElement | null)?.focus?.();
   }, []);
 
+  // The contact's links meant for their contacts (redesign 2026-11).
+  const [links, setLinks] = useState<ProfileLink[]>([]);
+  useEffect(() => {
+    getUserLinks(contact.user.id).then(setLinks, () => setLinks([]));
+  }, [contact.user.id]);
+
   const organizations = contact.sharedOrganizations ?? [];
   return (
     <div className="cx-drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -375,6 +383,16 @@ function ProfilePanel({ contact, status, language, onClose, onMessage, onRemove,
           <dd>{organizations.length > 0 ? <OrganizationTags organizations={organizations} /> : <span className="cx-muted">{t('contacts.profileNoOrganizations')}</span>}</dd>
           <dt className="visually-hidden">{t('contacts.columns.status')}</dt>
           <dd className="cx-muted">{t('contacts.profileSince', { date: formatDay(contact.sinceUtc, language) })}</dd>
+          {links.length > 0 && (
+            <>
+              <dt>{t('contacts.profileLinks')}</dt>
+              <dd>
+                <ul className="list-unstyled cx-link-list mb-0">
+                  {links.map((link) => <LinkItem key={`${link.platform}-${link.url}`} link={link} />)}
+                </ul>
+              </dd>
+            </>
+          )}
         </dl>
         <div className="cx-drawer-actions">
           <button type="button" className="btn btn-primary cx-icon-button" onClick={onMessage}>

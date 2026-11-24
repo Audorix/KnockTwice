@@ -19,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<SessionService>();
         services.AddSingleton<SessionCheckCache>();
         services.AddScoped<UserProfileService>();
+        services.AddScoped<ProfileMediaService>();
         services.AddSingleton<AccountEmailComposer>();
         services.AddScoped<Organizations.OrganizationService>();
         services.AddScoped<Organizations.WorkspaceService>();

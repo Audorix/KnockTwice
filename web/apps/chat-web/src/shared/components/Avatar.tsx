@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { apiUrl } from '../api/httpClient';
 import type { UserSummary } from '../api/contracts';
 
 const palette = 6;
@@ -11,8 +13,9 @@ function colourSlot(id: string): number {
 }
 
 /**
- * Generated initials avatar. Uploaded images arrive with the storage module (Phase 7).
- * With `presence`, a status dot is shown and announced to assistive technology.
+ * The person's profile photo when they have one (redesign 2026-11), otherwise generated initials.
+ * A photo that fails to load falls back to the initials. With `presence`, a status dot is shown and
+ * announced to assistive technology.
  */
 export function Avatar({
   user,
@@ -20,13 +23,19 @@ export function Avatar({
   presence,
 }: {
   user: Pick<UserSummary, 'id' | 'avatar'>;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   presence?: 'online' | 'offline' | undefined;
 }) {
   const { t } = useTranslation();
+  const [failed, setFailed] = useState<string | null>(null);
+  const photo = user.avatar.photoUrl && failed !== user.avatar.photoUrl ? user.avatar.photoUrl : null;
   const avatar = (
-    <span className={`cx-avatar cx-avatar-${size} cx-avatar-c${colourSlot(user.id)}`} aria-hidden="true">
-      {user.avatar.initials || '?'}
+    <span className={`cx-avatar cx-avatar-${size} cx-avatar-c${colourSlot(user.id)}${photo ? ' has-photo' : ''}`} aria-hidden="true">
+      {photo ? (
+        <img src={apiUrl(photo)} alt="" loading="lazy" decoding="async" onError={() => setFailed(photo)} />
+      ) : (
+        user.avatar.initials || '?'
+      )}
     </span>
   );
   if (!presence) return avatar;

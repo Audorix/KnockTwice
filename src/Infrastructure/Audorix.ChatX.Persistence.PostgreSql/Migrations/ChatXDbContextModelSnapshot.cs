@@ -1773,6 +1773,47 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                     b.ToTable("user_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("Audorix.ChatX.Domain.Users.ProfileLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("platform");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("url");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Visibility")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("visibility");
+
+                    b.HasKey("Id")
+                        .HasName("pk_profile_links");
+
+                    b.HasIndex("UserId", "Position")
+                        .HasDatabaseName("ix_profile_links_user_id_position");
+
+                    b.ToTable("profile_links", (string)null);
+                });
+
             modelBuilder.Entity("Audorix.ChatX.Domain.Users.UserProfile", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1809,6 +1850,20 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                     b.Property<bool>("NotificationPreviews")
                         .HasColumnType("boolean")
                         .HasColumnName("notification_previews");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("photo_content_type");
+
+                    b.Property<string>("PhotoKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("photo_key");
+
+                    b.Property<int>("PhotoVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("photo_version");
 
                     b.Property<string>("Theme")
                         .IsRequired()
@@ -3017,6 +3072,16 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_sessions_users_user_id");
+                });
+
+            modelBuilder.Entity("Audorix.ChatX.Domain.Users.ProfileLink", b =>
+                {
+                    b.HasOne("Audorix.ChatX.Infrastructure.Identity.ChatXUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_profile_links_users_user_id");
                 });
 
             modelBuilder.Entity("Audorix.ChatX.Domain.Users.UserProfile", b =>

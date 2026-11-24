@@ -215,9 +215,31 @@ PostgreSQL; web tests 95/95 (the support test now covers tabs, search, notes, re
 type check and build clean; bundle 161.9 kB of 180 kB. Checked in the browser with the demo data at
 1600 px in dark and light (a note added live) and on a phone (375 px, no sideways scrolling).
 
+## My profile, photos and links (from the owner's mockups, 2026-11-24)
+
+| Area | What |
+| --- | --- |
+| Page | Breadcrumb Account / Profile, "My profile", Sign out. A header card: the photo (or initials) with a camera button, name, email with "Email verified", "Visible to people you chat with.", Change photo / Use initials, and "How you appear" (the conversation look). Tabs **Profile · Media & links · Notifications · Security · Sessions** (with the count), kept in `?tab=`. Profile: details (display name, the locked email, the photo row, Save profile), Appearance (System/Light/Dark cards with a check, language), a sessions summary with "View N sessions". Notifications: this device (desktop, previews) and when away (email, push). Security: password (or external sign-in) and account deletion. Sessions: the session list. |
+| Photo | "Change profile photo" dialog: a square stage with the circle, thirds grid and move handle; drag (or arrow keys) to reposition, zoom slider with −/+, rotate left/right, Reset; previews at 120, 40 and 24 px; the file's name, type and size; Choose another image (or drop one); JPG, PNG or WebP up to 5 MB; Remove photo; Save photo. The browser crops to a 512 px square (WebP, PNG or JPEG under 1 MB) and uploads only that. The editor is a separate chunk loaded when opened. |
+| Everywhere | The shared avatar shows the photo wherever a person appears (lists, conversations, panels, the sidebar), falling back to initials if it cannot load. |
+| Media & links | A table: drag handle (also arrow keys), platform with its mark, the address, Contacts / Only me, remove; Add link (up to 10, the next unused platform); "Pending edits", Discard changes, Save links; errors from the server at their row. Profile preview of what contacts see, with "You control visibility". Contacts see the links in the contact profile panel. |
+| API | `avatar.photoUrl`; `POST`/`DELETE /api/v1/users/me/photo`; `GET /api/v1/users/{id}/photo` (signed-in people; versioned, cached for good); `GET`/`PUT /api/v1/users/me/links`; `GET /api/v1/users/{id}/links` (contacts only). Photos are checked by signature and stored under random keys; account deletion removes the photo and links. Migration `AddProfilePhotosAndLinks` on SQLite and PostgreSQL. OpenAPI re-exported. |
+
+Validation: `ProfileMediaTests` on SQLite and PostgreSQL (photo types and size, any signed-in
+person can read it, cache header, photo address in contacts, versions, removal, erased with the
+account; link checks per row, platform hosts, more than ten refused, order, visibility for contacts
+and strangers, clearing), plus account deletion, contact, administration, sign-in and persistence
+tests; web tests 97/97 (new: header, photo, session count, Use initials; links add, wrong address,
+fix, visibility, keyboard reorder, save, preview); account tests follow the new tabs; type check and
+build clean; bundle 164.3 kB of 180 kB. Checked in the browser with the review account at 1600 px in
+dark and light: a photo uploaded, edited in the dialog (zoom, drag) and saved; links added, a wrong
+LinkedIn address reported and fixed, saved; on a phone (375 px, no sideways scrolling).
+
 ## Open items
 
 - Administration, channels and search were restyled only through the shared tokens; a dedicated
   pass can follow if they need it.
 - Internal notes are not yet removed by message retention; they go with their conversation.
+- Profile photos are checked by signature but not sent to the malware scanner, and the website
+  chat widget still shows initials for the team (visitors cannot read photos).
 - The template folder (`Demo/`) stays out of the repository (it is in `.gitignore`).

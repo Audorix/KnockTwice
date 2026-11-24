@@ -67,6 +67,17 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   date filters, newest or oldest first, event titles with icons, expandable details with a copy
   button, 8/25/50 per page and the retention period. API: `from`, `to`, `q`, `skip` and
   `order=oldest` on `GET /api/v1/admin/audit`, and `total` when paging with `skip`.
+- **My profile:** a header with your photo, name, verified email and how others see you;
+  **Profile · Media & links · Notifications · Security · Sessions** tabs. Profile has the details
+  (name, email, photo), theme cards and language, and a sessions summary.
+- **Profile photos:** an editor to drag, zoom and rotate the image, with previews at 120, 40 and
+  24 px; the browser crops it to a 512 px square before uploading. The photo replaces the initials
+  everywhere people appear; "Use initials" removes it. API: `avatar.photoUrl`,
+  `POST`/`DELETE /api/v1/users/me/photo`, `GET /api/v1/users/{id}/photo`.
+- **Media & links:** up to 10 links (GitHub, LinkedIn, YouTube, Instagram, X, website) with
+  Contacts or Only me visibility, reordering by drag or keyboard, a preview of what contacts see;
+  contacts see them in the contact profile panel. API: `GET`/`PUT /api/v1/users/me/links`,
+  `GET /api/v1/users/{id}/links`. Database migration `AddProfilePhotosAndLinks`.
 - **Support inbox:** Open, Pending and Resolved tabs with counts; search, assignment and "assigned
   to me" filters, oldest waiting or newest first; the list beside the selected conversation
   (subject, preview, channel, assignment, unread); the conversation with its status, assignee and
