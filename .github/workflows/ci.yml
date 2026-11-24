@@ -57,7 +57,8 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          grep -E -A 6 '^failed ' test-output.log | grep -v -E '^\s+at |^--$' | head -n 120 \
+          # Colour codes stripped first: the runner's output can carry them before "failed".
+          sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' test-output.log | grep -E -A 6 '^\s*failed ' | grep -v -E '^\s+at |^--$' | head -n 120 \
             | sed -E 's/%/%25/g' | while IFS= read -r line; do echo "::error title=Failing .NET test::${line}"; done || true
 
   web:

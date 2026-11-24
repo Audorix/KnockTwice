@@ -59,6 +59,12 @@ public sealed class HubDevice : IAsyncDisposable
         if (start)
         {
             await hub.StartAsync(Ct);
+
+            // StartAsync returns after the handshake, possibly before the hub's OnConnectedAsync has
+            // registered the connection; events sent in between (private chats address registered
+            // connections) would be missed. The server answers invocations only after
+            // OnConnectedAsync, so one harmless call waits for the registration.
+            await hub.InvokeAsync<IReadOnlyList<UserPresenceResponse>>(RealtimeContract.Methods.GetPresence, Ct);
         }
 
         return device;
