@@ -43,8 +43,22 @@ export function AccountPage() {
   const loadSessions = useCallback(() => {
     api.listSessions().then(setSessions, setSessionsError);
   }, []);
+  // Reloaded when the Sessions tab opens and when you come back to this window, so a sign-in in
+  // another browser shows up without reloading the page.
   useEffect(() => {
     if (user) loadSessions();
+  }, [user?.id, tab === 'sessions', loadSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') loadSessions();
+    };
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [user?.id, loadSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user) {

@@ -46,6 +46,7 @@ import { describeEntry, GroupDetails } from './conversationParts';
 import { ReactionBar, ReactionPicker, ThreadPanel, ThreadSummary, upsertEntry, withReactions } from './reactionsAndThreads';
 import * as business from '../business/businessApi';
 import { ChannelMark } from '../business/ChannelMark';
+import { startPrivateChat } from '../private/privateChatsApi';
 
 /** Matches the server default (Messaging:EditWindow); the server enforces the real value. */
 const editWindowMs = 15 * 60 * 1000;
@@ -700,6 +701,20 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
           )}
           <ConversationMenu
             pinned={!!c.pinned}
+            privateWith={
+              isWebsite
+                ? []
+                : !isGroup && !isChannel
+                  ? c.counterpart && !c.counterpart.deleted ? [c.counterpart] : []
+                  : detail.participants.map((p) => p.user).filter((u) => u.id !== me && !u.deleted)
+            }
+            onStartPrivate={(person) =>
+              void act(async () => {
+                // Sends the invitation and opens the chat, which waits for the person to accept.
+                const chat = await startPrivateChat(person.id);
+                navigate(`/private?id=${encodeURIComponent(chat.id)}`);
+              })
+            }
             onTogglePin={() =>
               void act(async () => {
                 const summary = await api.setConversationPinned(c.id, !c.pinned);
@@ -1034,11 +1049,27 @@ function ParticipantStack({ participants }: { participants: UserSummary[] }) {
   );
 }
 
-/** The conversation's "…" menu: pin or unpin it in your list. */
-function ConversationMenu({ pinned, onTogglePin }: { pinned: boolean; onTogglePin: () => void }) {
+/**
+ * The conversation's "…" menu: pin or unpin it in your list, and start a private chat. A private
+ * chat is always between two people, so in a group or channel it first asks with whom.
+ */
+function ConversationMenu({ pinned, onTogglePin, privateWith, onStartPrivate }: {
+  pinned: boolean;
+  onTogglePin: () => void;
+  privateWith: UserSummary[];
+  onStartPrivate: (person: UserSummary) => void;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) setChoosing(false);
+  }, [open]);
+  const startPrivate = (person: UserSummary) => {
+    setOpen(false);
+    onStartPrivate(person);
+  };
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
@@ -1056,6 +1087,29 @@ function ConversationMenu({ pinned, onTogglePin }: { pinned: boolean; onTogglePi
             <NavIcon name="pin" size={18} />
             {t(pinned ? 'conversations.unpin' : 'conversations.pin')}
           </button>
+          {privateWith.length > 0 && (
+            <button
+              type="button"
+              role="menuitem"
+              className="cx-menu-item"
+              aria-expanded={privateWith.length > 1 ? choosing : undefined}
+              onClick={() => (privateWith.length === 1 ? startPrivate(privateWith[0]!) : setChoosing((c) => !c))}
+            >
+              <LockGlyph />
+              {t('private.menuItem')}
+            </button>
+          )}
+          {choosing && (
+            <div role="group" aria-label={t('private.chooseWith')} className="cx-menu-group">
+              <p className="cx-menu-heading">{t('private.chooseWith')}</p>
+              {privateWith.map((person) => (
+                <button key={person.id} type="button" role="menuitem" className="cx-menu-item" onClick={() => startPrivate(person)}>
+                  <Avatar user={person} size="sm" />
+                  <span className="text-truncate">{person.displayName}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

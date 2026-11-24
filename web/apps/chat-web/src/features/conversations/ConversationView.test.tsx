@@ -466,4 +466,58 @@ describe('ConversationView', () => {
     await user.click(screen.getByRole('button', { name: 'Close thread' }));
     expect(screen.queryByRole('complementary', { name: 'Thread' })).not.toBeInTheDocument();
   });
+
+  it('starts a private chat from the conversation menu, asking with whom in a group', async () => {
+    const cara = { id: 'u-cara', displayName: 'Cara', avatar: { initials: 'C' } };
+    const group = {
+      conversation: { ...conversation, id: 'c2', type: 'group', title: 'Trip planning', counterpart: null },
+      description: null,
+      participants: [ana, ben, cara].map((user) => ({ user, role: 'member', joinedAtUtc: '2026-11-22T09:00:00Z', lastDeliveredSequence: 2, lastReadSequence: 2 })),
+    };
+    const invited: unknown[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/conversations/c1': () => json(200, detail(2, 2)),
+      'GET /api/v1/conversations/c1/history': () => json(200, history),
+      'GET /api/v1/conversations/c2': () => json(200, group),
+      'GET /api/v1/conversations/c2/history': () => json(200, history),
+      'POST /api/v1/private-chats': (init) => {
+        invited.push(JSON.parse(String(init?.body)));
+        return json(201, { id: `p${invited.length}` });
+      },
+    });
+    const user = userEvent.setup();
+
+    // Direct: the one other person is invited straight away.
+    const { unmount } = render(
+      <AuthProvider>
+        <ConversationView conversationId="c1" onChanged={() => undefined} />
+      </AuthProvider>,
+    );
+    expect(await screen.findByText(/How are you\?/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Private chat' }));
+    await waitFor(() => expect(window.location.search).toBe('?id=p1'));
+    expect(window.location.pathname).toBe('/private');
+    expect(invited).toEqual([{ userId: 'u-ben' }]);
+    unmount();
+
+    // Group: the menu lists the other members (not me), and the chosen one is invited.
+    render(
+      <AuthProvider>
+        <ConversationView conversationId="c2" onChanged={() => undefined} />
+      </AuthProvider>,
+    );
+    expect(await screen.findByRole('heading', { name: /Trip planning/ })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'More actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Private chat' }));
+    const people = screen.getByRole('group', { name: 'Private chat with' });
+    expect(within(people).getAllByRole('menuitem').map((b) => b.textContent)).toEqual(['BBen', 'CCara']);
+    await user.click(within(people).getByRole('menuitem', { name: /Cara/ }));
+    await waitFor(() => expect(window.location.search).toBe('?id=p2'));
+    expect(invited).toEqual([{ userId: 'u-ben' }, { userId: 'u-cara' }]);
+    window.history.replaceState(null, '', '/');
+  });
 });

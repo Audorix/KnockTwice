@@ -72,6 +72,11 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
   cards. Cancelling asks in a dialog ("Cancel this invitation?", Keep waiting / Cancel invitation)
   instead of the browser's confirm box, then shows "This invitation is closed" with the way back to
   conversations or private chats.
+- **Conversations:** "Private chat" in a conversation's "…" menu invites the other person to a
+  private chat. In a group or channel it lists the other members to choose one, since a private chat
+  is always between two people. Not offered in website chats.
+- **Profile sessions:** the list now reloads when the Sessions tab opens and when you return to the
+  window, so a sign-in from another browser appears without reloading the page.
 - **Contacts:** "Start private chat" in a contact's "…" menu sends the private chat invitation
   and opens the chat, which waits for the contact to accept.
 - **Landing page and sign-in:** signed-out visitors see "Your conversations. Your team. Your

@@ -56,6 +56,31 @@ describe('My profile (redesign 2026-11)', () => {
     expect(hero.querySelector('img')).toBeNull();
   });
 
+  it('picks up a sign-in from another browser when you come back or open Sessions', async () => {
+    window.history.replaceState(null, '', '/account');
+    let sessions = [session('s1', true)];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, ana(false)),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/auth/sessions': () => json(200, sessions),
+    });
+    const actor = userEvent.setup();
+    render(<AuthProvider><AccountPage /></AuthProvider>);
+    expect(await screen.findByRole('tab', { name: 'Sessions 1' })).toBeInTheDocument();
+
+    // Signed in with Firefox meanwhile; coming back to this window shows it.
+    sessions = [session('s1', true), { ...session('s3', false), description: 'Firefox on Windows' }];
+    window.dispatchEvent(new Event('focus'));
+    expect(await screen.findByRole('tab', { name: 'Sessions 2' })).toBeInTheDocument();
+
+    // Opening the tab reloads too.
+    sessions = [...sessions, { ...session('s4', false), description: 'Edge on Windows' }];
+    await actor.click(screen.getByRole('tab', { name: 'Sessions 2' }));
+    expect(await screen.findByText('Edge on Windows')).toBeInTheDocument();
+    expect(screen.getByText('Firefox on Windows')).toBeInTheDocument();
+  });
+
   it('edits links: add, reorder, choose who sees them, report a wrong address, then save', async () => {
     window.history.replaceState(null, '', '/account?tab=links');
     const saves: unknown[] = [];

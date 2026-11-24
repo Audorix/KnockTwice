@@ -1076,6 +1076,8 @@
     "title": "Chat privado",
     "start": "Chat privado",
     "startHint": "Iniciar un chat que nunca se guarda",
+    "menuItem": "Chat privado",
+    "chooseWith": "Chat privado con",
     "tagline": "No se guarda · solo dura una sesión",
     "sendInvitation": "Enviar invitación",
     "listTitle": "Chats privados",

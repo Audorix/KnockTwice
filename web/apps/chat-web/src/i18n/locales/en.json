@@ -1076,6 +1076,8 @@
     "title": "Private chat",
     "start": "Private chat",
     "startHint": "Start a chat that is never saved",
+    "menuItem": "Private chat",
+    "chooseWith": "Private chat with",
     "tagline": "Not saved · lives only for one sign-in session",
     "sendInvitation": "Send invitation",
     "listTitle": "Private chats",
