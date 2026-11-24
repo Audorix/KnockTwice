@@ -24,6 +24,9 @@ dist/
 *.tsbuildinfo
 .vite/
 
+# Local AI-assistant and editor session settings (launch entries, worktrees)
+.claude/
+
 # Environment and secrets
 .env
 .env.*
