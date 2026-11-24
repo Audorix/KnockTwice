@@ -85,7 +85,7 @@ export function ReactionBar({
 }
 
 /** The "React" button: six quick emoji, a larger grid and a field for any other emoji. */
-export function ReactionPicker({ onPick, compact = false }: { onPick: (emoji: string) => void; compact?: boolean }) {
+export function ReactionPicker({ onPick, compact = false, label }: { onPick: (emoji: string) => void; compact?: boolean; label?: string }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [more, setMore] = useState(false);
@@ -115,7 +115,7 @@ export function ReactionPicker({ onPick, compact = false }: { onPick: (emoji: st
   return (
     <span className="cx-reaction-picker" ref={box}>
       {compact ? (
-        <ToolButton icon="smile" label={t('messages.react')} aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)} />
+        <ToolButton icon="smile" label={label ?? t('messages.react')} aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)} />
       ) : (
         <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
           {t('messages.react')}

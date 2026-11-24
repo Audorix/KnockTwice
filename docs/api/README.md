@@ -71,6 +71,19 @@ pass `after=<nextCursor>` while `hasMore` is true. A conversation that becomes a
 moves to the top and is not repeated further down; realtime `ConversationUpdated` and message events
 tell you to refresh it.
 
+Each summary also carries `pinned` (the caller's own pin; nobody else sees it) and `lastMessage`
+(`{ id, author, excerpt, deleted, createdAtUtc }`, the newest main-timeline message the caller can
+see, or `null`). `PUT /api/v1/conversations/{id}/pinned { pinned }` pins or unpins a conversation and
+returns its summary; ordering is left to the client.
+
+`GET /api/v1/conversations/{id}/files?limit=30` lists the files shared in a conversation, newest
+first (`limit` 1–100): `{ items: [{ file, messageId, sequence, author, sharedAtUtc }], nextCursor,
+hasMore }`, then `before=<nextCursor>`. Files of deleted messages and files from before the caller
+joined are left out; all files of one message stay on the same page.
+
+Contacts in `GET /api/v1/contacts` include `sharedOrganizations` (`[{ id, name }]`), the
+organizations both people are active members of.
+
 Other lists that are naturally small (contacts, organizations, channels) are returned whole.
 Administration searches take `skip` and `take`.
 

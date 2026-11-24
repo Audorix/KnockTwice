@@ -76,7 +76,8 @@ internal static class ContactEndpoints
         return v1;
     }
 
-    private static ContactResponse ToResponse(ContactView view) => new(ToUser(view.User), view.SinceUtc);
+    private static ContactResponse ToResponse(ContactView view) =>
+        new(ToUser(view.User), view.SinceUtc, view.SharedOrganizations?.Select(o => new SharedOrganizationResponse(o.Id, o.Name)).ToList());
 
     private static ContactRequestResponse ToResponse(ContactRequestView view) =>
         new(view.Id, view.Direction == RequestDirection.Incoming ? "incoming" : "outgoing", ToUser(view.User), view.CreatedAtUtc);

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { navigate, useLocation } from '../../app/router';
 import type {
@@ -8,6 +9,8 @@ import type {
   MessageAttachmentResponse,
   NotificationLevel,
   PinnedMessageResponse,
+  SharedFileResponse,
+  UserSummary,
 } from '../../shared/api/contracts';
 import { mentionCandidates, useMentionAutocomplete } from './mentions';
 import { ForwardDialog, MessageMenu, PinsPanel, type MessageTools } from './messageTools';
@@ -92,6 +95,12 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
   const [threadRoot, setThreadRoot] = useState<string | null>(null);
   const [pins, setPins] = useState<PinnedMessageResponse[]>([]);
   const [showPins, setShowPins] = useState(false);
+  // Redesign 2026-11: Messages / Shared files, and where "new messages" began when this was opened.
+  const [view, setView] = useState<'messages' | 'files'>('messages');
+  const firstUnread = useRef<number | null>(null);
+  if (detail && firstUnread.current === null) {
+    firstUnread.current = detail.conversation.lastSequence > detail.conversation.lastReadSequence ? detail.conversation.lastReadSequence + 1 : Number.POSITIVE_INFINITY;
+  }
   const [forwarding, setForwarding] = useState<ConversationEntryResponse | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
@@ -525,6 +534,18 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     }
   };
 
+  /** Emoji from the composer's picker go where the cursor is. */
+  const insertAtCursor = (text: string) => {
+    const box = composer.current;
+    const start = box?.selectionStart ?? draft.length;
+    const end = box?.selectionEnd ?? draft.length;
+    onDraftChange(draft.slice(0, start) + text + draft.slice(end));
+    requestAnimationFrame(() => {
+      box?.focus();
+      box?.setSelectionRange(start + text.length, start + text.length);
+    });
+  };
+
   const onDraftChange = (value: string) => {
     setDraft(value);
     if (!client || editing) return;
@@ -589,6 +610,11 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
   const others = detail.participants.filter((p) => p.user.id !== me);
   const typingNames = Object.keys(typing).map((id) => names.get(id)).filter(Boolean) as string[];
 
+  // The "N new messages" divider sits before the first unread message from someone else.
+  const isNew = (e: ConversationEntryResponse) => e.kind === 'message' && e.sequence >= (firstUnread.current ?? Number.POSITIVE_INFINITY) && e.actor?.id !== me;
+  const firstNew = entries.find(isNew);
+  const newCount = entries.filter(isNew).length;
+
   const receipt = (entry: ConversationEntryResponse): string => {
     if (others.length === 0) return t('messages.sent');
     if (!isGroup && others.length === 1) {
@@ -605,11 +631,18 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
 
   return (
     <section className="cx-card cx-conversation-view" aria-labelledby="conversation-title">
-      <div className="cx-card-header">
+      <div className="cx-card-header cx-chat-header">
         <button type="button" className="btn btn-sm cx-back" onClick={() => navigate('/conversations')}>
           <NavIcon name="back" size={18} />
           <span className="visually-hidden">{t('conversations.backToList')}</span>
         </button>
+        {isChannel ? (
+          <span className="cx-chat-mark" aria-hidden="true">#</span>
+        ) : c.counterpart ? (
+          <Avatar user={c.counterpart} size="sm" />
+        ) : (
+          <Avatar user={{ id: c.id, avatar: { initials: initialsOf(c.title) } }} size="sm" />
+        )}
         <div className="min-w-0 flex-grow-1">
           <h2 id="conversation-title" className="cx-card-title text-truncate">
             {isChannel && <ChannelMark visibility={c.visibility} />} {c.title || t('conversations.unknownPerson')}
@@ -626,7 +659,9 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
           {isWebsite && <p className="cx-meta mb-0">{t('conversations.websiteHint')}</p>}
           {isChannel && c.myRole === 'guest' && <p className="cx-meta mb-0">{t('channels.guestNotice')}</p>}
         </div>
-        <div className="d-flex gap-2 flex-wrap justify-content-end">
+        <div className="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+          {(isGroup || isChannel || isWebsite) && <ParticipantStack participants={detail.participants.map((p) => p.user)} />}
+          <ToolButton icon="search" label={t('conversations.searchIn')} onClick={() => navigate(`/search?conversation=${encodeURIComponent(c.id)}`)} />
           {isChannel && (
             <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => navigate(`/channel?id=${encodeURIComponent(c.id)}`)}>
               {t('conversations.details')}
@@ -653,22 +688,6 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
               <LockGlyph /> {t('private.start')}
             </button>
           )}
-          <label className="visually-hidden" htmlFor={`level-${c.id}`}>
-            {t('conversations.levels.label')}
-          </label>
-          <select
-            id={`level-${c.id}`}
-            className="form-select form-select-sm cx-level-select"
-            title={t('conversations.levels.label')}
-            value={c.notificationLevel ?? (c.muted ? 'mentions' : 'all')}
-            onChange={(e) => void act(() => api.setNotificationLevel(c.id, e.target.value as NotificationLevel))}
-          >
-            {(['all', 'mentions', 'nothing'] as const).map((level) => (
-              <option key={level} value={level}>
-                {t(`conversations.levels.${level}`)}
-              </option>
-            ))}
-          </select>
           {isGroup && (
             <button type="button" className="btn btn-sm btn-outline-primary" aria-expanded={showManage} onClick={() => setShowManage((s) => !s)}>
               {t('conversations.details')}
@@ -679,7 +698,42 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
               {t('tools.pinnedButton', { count: pins.length })}
             </button>
           )}
+          <ConversationMenu
+            pinned={!!c.pinned}
+            onTogglePin={() =>
+              void act(async () => {
+                const summary = await api.setConversationPinned(c.id, !c.pinned);
+                setDetail((d) => (d ? { ...d, conversation: { ...d.conversation, pinned: summary.pinned ?? false } } : d));
+                onChanged();
+              })
+            }
+          />
         </div>
+      </div>
+      <div className="cx-chat-tabs">
+        <div role="tablist" aria-label={t('conversations.viewTabs')} className="cx-chat-tablist">
+          {(['messages', 'files'] as const).map((key) => (
+            <button key={key} type="button" role="tab" aria-selected={view === key} className={`cx-tab${view === key ? ' is-active' : ''}`} onClick={() => setView(key)}>
+              {t(`conversations.views.${key}`)}
+            </button>
+          ))}
+        </div>
+        <label className="visually-hidden" htmlFor={`level-${c.id}`}>
+          {t('conversations.levels.label')}
+        </label>
+        <select
+          id={`level-${c.id}`}
+          className="form-select form-select-sm cx-level-select"
+          title={t('conversations.levels.label')}
+          value={c.notificationLevel ?? (c.muted ? 'mentions' : 'all')}
+          onChange={(e) => void act(() => api.setNotificationLevel(c.id, e.target.value as NotificationLevel))}
+        >
+          {(['all', 'mentions', 'nothing'] as const).map((level) => (
+            <option key={level} value={level}>
+              {t(`conversations.levels.${level}`)}
+            </option>
+          ))}
+        </select>
       </div>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {fileNotice && <FormAlert tone="info">{fileNotice}</FormAlert>}
@@ -702,6 +756,10 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
       {detail.description && <p className="cx-muted">{detail.description}</p>}
       {showManage && isGroup && <GroupDetails detail={detail} canManage={canModerate} currentUserId={me} act={act} />}
 
+      {view === 'files' ? (
+        <SharedFiles conversationId={c.id} language={i18n.language} />
+      ) : (
+      <>
       <div className="cx-timeline" ref={timeline} onScroll={onTimelineScroll} role="log" aria-label={t('conversations.history')} aria-live="polite">
         {olderCursor && (
           <div ref={topSentinel} className="text-center">
@@ -711,10 +769,20 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
           </div>
         )}
         <ol className="list-unstyled mb-0">
-          {entries.map((entry) =>
-            entry.kind === 'message' ? (
+          {entries.map((entry, index) => (
+            <Fragment key={entry.id}>
+              {(index === 0 || dayKey(entries[index - 1]!.createdAtUtc) !== dayKey(entry.createdAtUtc)) && (
+                <li className="cx-day-separator" role="separator">
+                  <span>{dayLabel(entry.createdAtUtc, i18n.language, t)}</span>
+                </li>
+              )}
+              {entry === firstNew && (
+                <li className="cx-new-divider" role="separator">
+                  <span>{t('messages.newCount', { count: newCount })}</span>
+                </li>
+              )}
+            {entry.kind === 'message' ? (
               <MessageItem
-                key={entry.id}
                 entry={entry}
                 mine={entry.actor?.id === me}
                 showAuthor={isGroup || isWebsite || isChannel}
@@ -755,8 +823,9 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
                   {formatDateTime(entry.createdAtUtc, i18n.language)}
                 </time>
               </li>
-            ),
-          )}
+            )}
+            </Fragment>
+          ))}
           {pending.map((p) => (
             <li key={p.clientMessageId} className="cx-message is-mine is-pending">
               <div className="cx-bubble">
@@ -794,6 +863,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
       </div>
 
       <p className="cx-typing" aria-live="polite">
+        {typingNames.length > 0 && <span className="cx-typing-dots" aria-hidden="true"><span /><span /><span /></span>}
         {typingNames.length === 1
           ? t('messages.typingOne', { name: typingNames[0] })
           : typingNames.length > 1
@@ -829,34 +899,19 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
           </div>
         )}
         <DraftFileList files={drafts.files} onRemove={drafts.remove} />
-        {formatting.toolbar}
         <label htmlFor="composer" className="visually-hidden">
           {t('messages.compose')}
         </label>
-        <div className="cx-composer-row">
-          {!editing && (
-            <AttachButton
-              id={`attach-${conversationId}`}
-              accept={acceptFor(limits?.allowedExtensions)}
-              onFiles={(chosen) => {
-                setFileNotice(null);
-                drafts.add(chosen, limits, setFileNotice, {
-                  tooLarge: t('attachments.tooLarge', { size: limits ? formatLimit(limits.maxFileSize, i18n.language) : '' }),
-                  type: t('attachments.typeNotAllowed'),
-                  tooMany: t('attachments.tooMany', { count: limits?.maxPerMessage ?? 0 }),
-                });
-              }}
-            />
-          )}
+        <div className="cx-composer-box">
           <div className="cx-mention-anchor">
             {mention.menu}
             <textarea
               id="composer"
               ref={composer}
               className="form-control"
-              rows={2}
+              rows={1}
               maxLength={maxLength}
-              placeholder={t('messages.placeholder')}
+              placeholder={isChannel ? t('messages.placeholderIn', { name: `#${c.title}` }) : c.title ? t('messages.placeholderIn', { name: c.title }) : t('messages.placeholder')}
               value={draft}
               {...(editing ? {} : mention.inputProps)}
               onChange={(e) => {
@@ -866,34 +921,50 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
               onKeyDown={onKeyDown}
             />
           </div>
-          <button
-            type="submit"
-            className={`btn btn-primary${editing ? '' : ' cx-send'}`}
-            title={editing ? undefined : t('messages.send')}
-            disabled={editing ? !draft.trim() : drafts.busy || (!draft.trim() && drafts.readyIds.length === 0)}
-          >
-            {editing ? (
-              t('messages.save')
-            ) : (
-              <>
-                <NavIcon name="send" size={18} />
-                <span className="visually-hidden">{t('messages.send')}</span>
-              </>
+          <div className="cx-composer-bar">
+            {!editing && (
+              <AttachButton
+                id={`attach-${conversationId}`}
+                accept={acceptFor(limits?.allowedExtensions)}
+                onFiles={(chosen) => {
+                  setFileNotice(null);
+                  drafts.add(chosen, limits, setFileNotice, {
+                    tooLarge: t('attachments.tooLarge', { size: limits ? formatLimit(limits.maxFileSize, i18n.language) : '' }),
+                    type: t('attachments.typeNotAllowed'),
+                    tooMany: t('attachments.tooMany', { count: limits?.maxPerMessage ?? 0 }),
+                  });
+                }}
+              />
             )}
-          </button>
+            <ReactionPicker compact label={t('messages.insertEmoji')} onPick={insertAtCursor} />
+            <span className="cx-composer-divider" aria-hidden="true" />
+            {formatting.toolbar}
+            <span className="cx-composer-spacer" />
+            <div className="cx-send-group">
+              <button
+                type="submit"
+                className="btn btn-primary cx-icon-button"
+                disabled={editing ? !draft.trim() : drafts.busy || (!draft.trim() && drafts.readyIds.length === 0)}
+              >
+                {!editing && <NavIcon name="send" size={17} />}
+                {t(editing ? 'messages.save' : 'messages.send')}
+              </button>
+              {!editing && (
+                <TimeMenu
+                  label={t('planning.sendLater')}
+                  buttonClassName="btn btn-primary cx-send-more"
+                  buttonContent={<NavIcon name="chevron-down" size={16} />}
+                  disabled={drafts.busy || (!draft.trim() && drafts.readyIds.length === 0)}
+                  onPick={(at) => void sendLater(at)}
+                />
+              )}
+            </div>
+          </div>
         </div>
-        <div className="d-flex justify-content-between align-items-start gap-2">
-          <div className="form-text">{t('messages.hint')}</div>
-          {!editing && (
-            <TimeMenu
-              label={t('planning.sendLater')}
-              buttonClassName="btn btn-sm btn-link p-0 mt-1 text-nowrap"
-              disabled={drafts.busy || (!draft.trim() && drafts.readyIds.length === 0)}
-              onPick={(at) => void sendLater(at)}
-            />
-          )}
-        </div>
+        <div className="form-text cx-composer-hint">{t('messages.hintShort')}</div>
       </form>
+      )}
+      </>
       )}
       {threadRoot && (
         <ThreadPanel
@@ -927,6 +998,126 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
     </section>
   );
 }
+
+// ---- Redesign 2026-11 helpers ---------------------------------------------------------------
+
+const dayKey = (value: string) => new Date(value).toDateString();
+
+/** "Today, November 24", "Yesterday, November 23" or "Friday, November 20". */
+function dayLabel(value: string, language: string, t: TFunction): string {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const monthDay = date.toLocaleDateString(language, { month: 'long', day: 'numeric', ...(date.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) });
+  if (date.toDateString() === today.toDateString()) return t('messages.todayOn', { date: monthDay });
+  if (date.toDateString() === yesterday.toDateString()) return t('messages.yesterdayOn', { date: monthDay });
+  return `${date.toLocaleDateString(language, { weekday: 'long' })}, ${monthDay}`;
+}
+
+const initialsOf = (title: string) => title.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '#';
+
+/** Up to three participants' avatars and "+N". */
+function ParticipantStack({ participants }: { participants: UserSummary[] }) {
+  const { t } = useTranslation();
+  const shown = participants.slice(0, 3);
+  const more = participants.length - shown.length;
+  return (
+    <span className="cx-avatar-stack" title={participants.map((p) => p.displayName).join(', ')} aria-label={t('conversations.participants', { count: participants.length })} role="img">
+      {shown.map((p) => <Avatar key={p.id} user={p} size="sm" />)}
+      {more > 0 && <span className="cx-avatar cx-avatar-sm cx-avatar-more">+{more}</span>}
+    </span>
+  );
+}
+
+/** The conversation's "…" menu: pin or unpin it in your list. */
+function ConversationMenu({ pinned, onTogglePin }: { pinned: boolean; onTogglePin: () => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  return (
+    <div className="cx-row-menu" ref={box} onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+      <ToolButton icon="dots" label={t('conversations.moreActions')} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} />
+      {open && (
+        <div className="cx-menu" role="menu">
+          <button type="button" role="menuitem" className="cx-menu-item" onClick={() => { setOpen(false); onTogglePin(); }}>
+            <NavIcon name="pin" size={18} />
+            {t(pinned ? 'conversations.unpin' : 'conversations.pin')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The Shared files tab: newest first, with who shared each file and when. */
+function SharedFiles({ conversationId, language }: { conversationId: string; language: string }) {
+  const { t } = useTranslation();
+  const [items, setItems] = useState<SharedFileResponse[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+
+  useEffect(() => {
+    api.listSharedFiles(conversationId).then((page) => {
+      setItems(page.items);
+      setCursor(page.hasMore ? page.nextCursor : null);
+    }, setError);
+  }, [conversationId]);
+
+  const more = () =>
+    void api.listSharedFiles(conversationId, cursor).then((page) => {
+      setItems((current) => [...(current ?? []), ...page.items]);
+      setCursor(page.hasMore ? page.nextCursor : null);
+    }, setError);
+
+  return (
+    <div className="cx-shared-files" role="tabpanel">
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      {items === null ? (
+        <p className="cx-muted">{t('auth.working')}</p>
+      ) : items.length === 0 ? (
+        <p className="cx-muted">{t('conversations.noFiles')}</p>
+      ) : (
+        <ul className="list-unstyled mb-0">
+          {items.map((f) => (
+            <li key={f.file.id} className="cx-attachment is-file">
+              <svg className="cx-attachment-glyph" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+                <path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M14 2v5h5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+              <span className="cx-attachment-text">
+                <span className="cx-attachment-name">{f.file.fileName}</span>
+                <span className="cx-meta">
+                  {fileTypeLabel(f.file.fileName)} · {formatLimit(f.file.size, language)} · {f.author?.displayName ?? t('conversations.someone')} · {formatDateTime(f.sharedAtUtc, language)}
+                </span>
+              </span>
+              <a className="cx-tool" href={attachmentLink(f.file, true)} download={f.file.fileName} title={t('attachments.download')}>
+                <NavIcon name="download" size={18} />
+                <span className="visually-hidden">{`${t('attachments.download')} ${f.file.fileName}`}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cursor && (
+        <button type="button" className="btn btn-sm btn-outline-secondary mt-2" onClick={more}>
+          {t('conversations.olderFiles')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** "PDF", "PNG"… from the file name. */
+const fileTypeLabel = (name: string) => (name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toUpperCase() : '');
 
 function MessageItem({
   entry,
@@ -972,7 +1163,15 @@ function MessageItem({
     <li id={`msg-${entry.id}`} className={`cx-message${mine ? ' is-mine' : ''}${deleted ? ' is-deleted' : ''}${highlighted ? ' is-highlighted' : ''}`}>
       {!mine && entry.actor && <Avatar user={entry.actor} size="sm" />}
       <div className="cx-message-stack">
-        {showAuthor && !mine && <div className="cx-message-author">{entry.actor?.displayName ?? t('conversations.someone')}</div>}
+        <div className="cx-message-head">
+          {(showAuthor || !mine) && !mine && <span className="cx-message-author">{entry.actor?.displayName ?? t('conversations.someone')}</span>}
+          <time dateTime={entry.createdAtUtc} title={formatDateTime(entry.createdAtUtc, language)}>
+            {new Date(entry.createdAtUtc).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })}
+          </time>
+          {entry.editedAtUtc && !deleted && <span>· {t('messages.edited')}</span>}
+          {entry.pinned && !deleted && <span>· {t('tools.pinnedLabel')}</span>}
+          {entry.saved && !deleted && <span>· {t('tools.savedLabel')}</span>}
+        </div>
         <div className="cx-bubble">
           {entry.forwardedFrom && !deleted && (
             <div className="cx-meta cx-forwarded">{t('tools.forwardedFrom', { name: entry.forwardedFrom.displayName })}</div>
@@ -998,14 +1197,13 @@ function MessageItem({
               <AttachmentList items={entry.attachments ?? []} urlFor={attachmentLink} />
             </>
           )}
-          <div className="cx-message-meta">
-            <time dateTime={entry.createdAtUtc}>{formatDateTime(entry.createdAtUtc, language)}</time>
-            {entry.editedAtUtc && !deleted && <span>· {t('messages.edited')}</span>}
-            {entry.pinned && !deleted && <span>· {t('tools.pinnedLabel')}</span>}
-            {entry.saved && !deleted && <span>· {t('tools.savedLabel')}</span>}
-            {receipt && <span>· {receipt}</span>}
-          </div>
         </div>
+        {receipt && (
+          <div className="cx-message-receipt">
+            <NavIcon name="check-double" size={15} />
+            {receipt}
+          </div>
+        )}
         {!deleted && <ReactionBar entry={entry} me={me} names={names} canReact={canReact} onToggle={onReact} />}
         {!entry.threadRootId && onOpenThread && <ThreadSummary entry={entry} onOpen={onOpenThread} />}
       </div>

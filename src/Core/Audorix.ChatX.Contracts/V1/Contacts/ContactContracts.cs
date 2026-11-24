@@ -2,7 +2,13 @@ using Audorix.ChatX.Contracts.V1.Users;
 
 namespace Audorix.ChatX.Contracts.V1.Contacts;
 
-public sealed record ContactResponse(UserSummaryResponse User, DateTimeOffset SinceUtc);
+/// <param name="SharedOrganizations">
+/// Organizations both you and the contact are active members of, by name (contacts list; null in
+/// the blocked list).
+/// </param>
+public sealed record ContactResponse(UserSummaryResponse User, DateTimeOffset SinceUtc, IReadOnlyList<SharedOrganizationResponse>? SharedOrganizations = null);
+
+public sealed record SharedOrganizationResponse(Guid Id, string Name);
 
 /// <param name="Direction"><c>incoming</c> or <c>outgoing</c>.</param>
 public sealed record ContactRequestResponse(Guid Id, string Direction, UserSummaryResponse User, DateTimeOffset CreatedAtUtc);

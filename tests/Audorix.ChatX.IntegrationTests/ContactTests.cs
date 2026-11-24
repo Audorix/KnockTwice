@@ -17,6 +17,32 @@ public sealed class ContactTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>Contacts page redesign (2026-11): each contact lists the organizations you share.</summary>
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task Contacts_list_the_organizations_both_people_belong_to(string provider)
+    {
+        await using var db = await TestDatabase.CreateAsync(provider);
+        await using var api = await StartAsync(db);
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        var (carl, carlId) = await SignedInAsync(api, "carl@example.org", "Carl");
+        using var _1 = ana;
+        using var _2 = ben;
+        using var _3 = carl;
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+        await BecomeContactsAsync(ana, anaId, carl, carlId);
+        var acme = await CreateOrganizationAsync(ana, (ben, "ben@example.org"));
+        // Carl has his own organization without Ana: not shared, so not shown.
+        await CreateOrganizationAsync(carl);
+
+        var contacts = (await JsonAsync(await ana.GetAsync("/api/v1/contacts"))).EnumerateArray()
+            .ToDictionary(c => c.GetProperty("user").GetProperty("id").GetGuid());
+        var benOrganizations = contacts[benId].GetProperty("sharedOrganizations").EnumerateArray().ToList();
+        Assert.Equal((acme, "Acme"), (Assert.Single(benOrganizations).GetProperty("id").GetGuid(), benOrganizations[0].GetProperty("name").GetString()));
+        Assert.Empty(contacts[carlId].GetProperty("sharedOrganizations").EnumerateArray());
+    }
+
     [Theory]
     [MemberData(nameof(Providers))]
     public async Task Contacts_are_requested_accepted_and_independent_of_organizations(string provider)

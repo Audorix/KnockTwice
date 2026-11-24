@@ -39,9 +39,14 @@ describe('MentionsPage', () => {
     render(<MentionsPage />);
 
     expect(await screen.findByText('Ana, can you check?')).toBeInTheDocument();
-    expect(screen.getByText('# general')).toBeInTheDocument();
-    expect(screen.getByText('Direct message · in a thread')).toBeInTheDocument();
+    expect(screen.getByText('# general', { selector: '.cx-mention-place' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '# general' })).toBeInTheDocument(); // the conversation filter
+    expect(screen.getByText('mentioned you in a direct message')).toBeInTheDocument();
+    expect(screen.getByText('· in a thread')).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: 'Unread' })).toHaveLength(1);
+    // Redesign: one "Mark as read" per unread mention, and "Mark all as read" while any is unread.
+    expect(screen.getAllByRole('button', { name: 'Mark as read' })).toHaveLength(1);
+    expect(await screen.findByRole('button', { name: 'Mark all as read' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Load older mentions' }));
     expect(await screen.findByText('Old one')).toBeInTheDocument();
@@ -69,7 +74,7 @@ describe('MentionsPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Saved messages' })).toBeInTheDocument();
     expect(await screen.findByText('Remember the deadline')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Saved messages' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: /^Saved messages/ })).toHaveAttribute('aria-current', 'page');
     await user.click(screen.getByRole('button', { name: 'Remove from saved' }));
     expect(calls).toEqual(['{"saved":false}']);
     expect(await screen.findByText(/not saved any messages/)).toBeInTheDocument();

@@ -26,6 +26,13 @@ public interface IContactStore
 
     Task<bool> AreContactsOrPendingAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// For each of <paramref name="otherUserIds"/>, the organizations both they and
+    /// <paramref name="userId"/> are active members of (people without one are absent).
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<SharedOrganization>>> ListSharedOrganizationsAsync(
+        Guid userId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken);
+
     void Add(Contact contact);
 
     void Add(ContactRequest request);
@@ -40,7 +47,10 @@ public interface IContactStore
     Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
 }
 
-public sealed record ContactView(UserSummary User, DateTimeOffset SinceUtc);
+/// <param name="SharedOrganizations">Organizations both people are active members of (contacts list only).</param>
+public sealed record ContactView(UserSummary User, DateTimeOffset SinceUtc, IReadOnlyList<SharedOrganization>? SharedOrganizations = null);
+
+public sealed record SharedOrganization(Guid Id, string Name);
 
 public enum RequestDirection
 {
@@ -62,10 +72,12 @@ public sealed class ContactService(IContactStore store, IUserDirectory directory
     public async Task<IReadOnlyList<ContactView>> ListContactsAsync(Guid userId, CancellationToken cancellationToken)
     {
         var contacts = await store.ListContactsAsync(userId, cancellationToken).ConfigureAwait(false);
-        var users = await directory.GetSummariesAsync(contacts.Select(c => c.Pair.Other(userId)).ToList(), cancellationToken).ConfigureAwait(false);
+        var others = contacts.Select(c => c.Pair.Other(userId)).ToList();
+        var users = await directory.GetSummariesAsync(others, cancellationToken).ConfigureAwait(false);
+        var shared = await store.ListSharedOrganizationsAsync(userId, others, cancellationToken).ConfigureAwait(false);
         return contacts
             .Where(c => users.ContainsKey(c.Pair.Other(userId)))
-            .Select(c => new ContactView(users[c.Pair.Other(userId)], c.CreatedAtUtc))
+            .Select(c => new ContactView(users[c.Pair.Other(userId)], c.CreatedAtUtc, shared.GetValueOrDefault(c.Pair.Other(userId)) ?? []))
             .OrderBy(c => c.User.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }

@@ -10,6 +10,7 @@ import type {
   ParticipantRole,
   PinnedMessageResponse,
   SavedPageResponse,
+  SharedFilesResponse,
   ReactionResponse,
   ThreadResponse,
 } from '../../shared/api/contracts';
@@ -28,6 +29,17 @@ export async function listConversationPage(after?: string | null, limit = 50): P
   const query = new URLSearchParams({ limit: String(limit) });
   if (after) query.set('after', after);
   return (await getJson<ConversationListPageResponse>(`/api/v1/conversations/page?${query.toString()}`)).body ?? { items: [], nextCursor: null, hasMore: false };
+}
+
+/** Redesign 2026-11: pins or unpins a conversation at the top of your own list. */
+export async function setConversationPinned(conversationId: string, pinned: boolean): Promise<ConversationSummaryResponse> {
+  return (await sendJson<ConversationSummaryResponse>('PUT', `${base(conversationId)}/pinned`, { pinned }))!;
+}
+
+/** Redesign 2026-11: files shared in a conversation, newest first. */
+export async function listSharedFiles(conversationId: string, before?: string | null): Promise<SharedFilesResponse> {
+  const query = before ? `?before=${encodeURIComponent(before)}` : '';
+  return (await getJson<SharedFilesResponse>(`${base(conversationId)}/files${query}`)).body ?? { items: [], nextCursor: null, hasMore: false };
 }
 
 /** Opens (or creates) the direct conversation; pass organizationId for an organization conversation. */

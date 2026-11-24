@@ -221,6 +221,39 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
                 broadcasts.Any(b => b.EntryId == id && b.Kind == MentionKind.Here)));
     }
 
+    public async Task<IReadOnlyList<(Domain.Attachments.Attachment Attachment, ConversationEvent Entry)>> ListSharedFilesAsync(
+        Guid conversationId, long visibleFromSequence, long? beforeSequence, int limit, CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from a in db.Attachments.AsNoTracking()
+            where a.ConversationId == conversationId && a.MessageEntryId != null && a.Status == Domain.Attachments.AttachmentStatus.Ready
+            join e in db.ConversationEvents.AsNoTracking() on a.MessageEntryId equals e.Id
+            where e.DeletedAtUtc == null && e.Sequence >= visibleFromSequence && (beforeSequence == null || e.Sequence < beforeSequence)
+            orderby e.Sequence descending, a.CreatedAtUtc descending, a.Id
+            select new { Attachment = a, Entry = e })
+            .Take(limit)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.Select(r => (r.Attachment, r.Entry)).ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ConversationEvent>> FindLastMessagesAsync(IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken)
+    {
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, ConversationEvent>();
+        }
+
+        var ids = conversationIds.ToList();
+        var messages = db.ConversationEvents.AsNoTracking()
+            .Where(e => ids.Contains(e.ConversationId) && e.Kind == ConversationEventKind.Message && (e.ThreadRootId == null || e.ShownInConversation));
+        var newest = messages.GroupBy(e => e.ConversationId).Select(g => new { ConversationId = g.Key, Sequence = g.Max(e => e.Sequence) });
+        var rows = await (
+            from e in messages
+            join n in newest on new { e.ConversationId, e.Sequence } equals new { n.ConversationId, n.Sequence }
+            select e).ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.ToDictionary(e => e.ConversationId);
+    }
+
     public async Task<IReadOnlyList<Guid>> ListMentionedUserIdsAsync(Guid entryId, CancellationToken cancellationToken) =>
         await db.MessageMentions.AsNoTracking().Where(m => m.EntryId == entryId).Select(m => m.UserId).ToListAsync(cancellationToken).ConfigureAwait(false);
 

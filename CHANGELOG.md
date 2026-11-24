@@ -29,6 +29,22 @@ message search ([delivery record](docs/releases/phase-14-search.md)), and Phase 
 - **Message actions** appear as small icons beside a message on hover, tap or keyboard focus instead
   of a row of links under every message.
 - **Signed-out pages** have a slim top bar and centred content; the home page introduces the product.
+- **Sidebar:** on wide screens a labelled sidebar with a Workspace section and your name and status
+  at the bottom (icon rail on medium windows, tab bar on phones).
+- **Contacts page:** tabs for contacts, requests and blocked people; filter, status and sort; a table
+  with shared organizations, a Message button and a "…" menu; paging; a profile side panel.
+  `GET /api/v1/contacts` now includes `sharedOrganizations`.
+- **Messages page:** a conversation list with search, All/Unread/Groups chips, your own **pinned**
+  conversations on top and last-message previews; a chat header with participants, search and a
+  menu; **Messages / Shared files** tabs; day separators and a "new messages" divider; names and
+  times above bubbles, read receipts below; a composer box with attach, emoji, formatting and a
+  send button with "send later". API: `pinned` and `lastMessage` on conversation summaries,
+  `PUT /api/v1/conversations/{id}/pinned` and `GET /api/v1/conversations/{id}/files`
+  (database migration `AddConversationPins`).
+- **Activity page:** tabs with icons and counts (Mentions, Saved messages, Scheduled, Reminders);
+  mentions grouped by day with search, All/Unread, a conversation filter and order, "Mark as read"
+  per mention and "Mark all as read"; a "Coming up" column with the next reminders and scheduled
+  messages.
 
 ### Changed (Phase 24)
 

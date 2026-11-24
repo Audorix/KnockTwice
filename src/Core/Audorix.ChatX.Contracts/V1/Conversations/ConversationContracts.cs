@@ -27,7 +27,24 @@ public sealed record ConversationSummaryResponse(
     string? Visibility = null,
     string? SupportStatus = null,
     UserSummaryResponse? AssignedTo = null,
-    string NotificationLevel = "all");
+    string NotificationLevel = "all",
+    bool Pinned = false,
+    ConversationLastMessageResponse? LastMessage = null);
+
+/// <summary>
+/// The newest message of the conversation's main timeline the caller may see (list endpoints only;
+/// redesign 2026-11). <paramref name="Excerpt"/> is plain text (formatting removed), empty for a
+/// message with only files, null when deleted.
+/// </summary>
+public sealed record ConversationLastMessageResponse(Guid Id, UserSummaryResponse? Author, string? Excerpt, bool Deleted, DateTimeOffset CreatedAtUtc);
+
+public sealed record SetConversationPinnedRequest(bool Pinned);
+
+/// <summary>A file shared in a conversation (redesign 2026-11) and the message it came with.</summary>
+public sealed record SharedFileResponse(Attachments.MessageAttachmentResponse File, Guid MessageId, long Sequence, UserSummaryResponse? Author, DateTimeOffset SharedAtUtc);
+
+/// <summary>Newest first; pass <paramref name="NextCursor"/> as <c>before</c> for older files.</summary>
+public sealed record SharedFilesResponse(IReadOnlyList<SharedFileResponse> Items, string? NextCursor, bool HasMore);
 
 /// <param name="LastDeliveredSequence">Delivery watermark (ADR-023): one of the person's devices received everything up to here.</param>
 /// <param name="LastReadSequence">Read watermark (ADR-023).</param>

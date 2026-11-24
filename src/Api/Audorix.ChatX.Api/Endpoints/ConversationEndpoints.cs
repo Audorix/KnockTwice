@@ -131,6 +131,22 @@ internal static class ConversationEndpoints
             TypedResults.Ok(ToSummary(await service.SetNotificationLevelAsync(http.User.RequireUserId(), conversationId, ParseLevel(request), ct))))
             .WithSummary("The caller's own settings for the conversation: notification level all, mentions or nothing (muted: true is mentions).");
 
+        conversations.MapGet("/{conversationId:guid}/files", async (
+            Guid conversationId, string? before, int? limit, HttpContext http, ConversationService service, CancellationToken ct) =>
+        {
+            var page = await service.ListSharedFilesAsync(http.User.RequireUserId(), conversationId, DecodeCursor(before), limit, ct);
+            return TypedResults.Ok(new SharedFilesResponse(
+                page.Items.Select(f => new SharedFileResponse(
+                    AttachmentEndpoints.ToMessageAttachment(f.File), f.Entry.Id, f.Entry.Sequence, f.Author is null ? null : ToUser(f.Author), f.Entry.CreatedAtUtc)).ToList(),
+                page.NextBefore is { } next ? EncodeCursor(next) : null,
+                page.NextBefore is not null));
+        }).WithSummary("Files shared in the conversation that the caller may see (not deleted, from their join), newest first; default 30, at most 100. Pass nextCursor as 'before' for older files.");
+
+        conversations.MapPut("/{conversationId:guid}/pinned", async (
+            Guid conversationId, SetConversationPinnedRequest request, HttpContext http, ConversationService service, CancellationToken ct) =>
+            TypedResults.Ok(ToSummary(await service.SetPinnedAsync(http.User.RequireUserId(), conversationId, request.Pinned, ct))))
+            .WithSummary("Pins or unpins the conversation at the top of the caller's own list (personal; nobody else sees it).");
+
         v1.MapGet("/mentions", async (string? before, int? limit, HttpContext http, Application.Conversations.MentionService mentions, CancellationToken ct) =>
         {
             var page = await mentions.ListAsync(http.User.RequireUserId(), DecodeCursor(before), limit, ct);
@@ -230,7 +246,16 @@ internal static class ConversationEndpoints
             c.WorkspaceId,
             c.Visibility switch { ChannelVisibility.Public => "public", ChannelVisibility.Private => "private", _ => null },
             c.SupportStatus switch { SupportStatus.Open => "open", SupportStatus.Closed => "closed", _ => null },
-            NotificationLevel: LevelName(view.Me.NotificationLevel));
+            NotificationLevel: LevelName(view.Me.NotificationLevel),
+            Pinned: view.Me.PinnedAtUtc is not null,
+            LastMessage: view.LastMessage is { } last
+                ? new ConversationLastMessageResponse(
+                    last.Entry.Id,
+                    last.Author is null ? null : ToUser(last.Author),
+                    last.Entry.IsDeleted ? null : MessageText.Excerpt(last.Entry.Body ?? string.Empty) ?? string.Empty,
+                    last.Entry.IsDeleted,
+                    last.Entry.CreatedAtUtc)
+                : null);
     }
 
     internal static string LevelName(NotificationLevel level) => level switch

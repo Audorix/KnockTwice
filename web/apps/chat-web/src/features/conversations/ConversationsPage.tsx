@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { navigate, useLocation } from '../../app/router';
+import { NavIcon } from '../../shared/components/NavIcon';
+import { useAuth } from '../auth/AuthContext';
 import type { ConversationSummaryResponse, OrganizationResponse } from '../../shared/api/contracts';
 import { Avatar } from '../../shared/components/Avatar';
 import { Field, FormAlert } from '../../shared/components/Field';
@@ -29,11 +32,33 @@ export function ConversationsPage() {
   );
 }
 
+/** Time in the list: the clock time today, "Yesterday", otherwise the date. */
+function listTime(value: string, language: string, t: TFunction): string {
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return date.toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' });
+  if (date.toDateString() === yesterday.toDateString()) return t('conversations.yesterday');
+  return date.toLocaleDateString(language, { month: 'short', day: 'numeric' });
+}
+
+/** The last message line: "You: …" for your own, "Name: …" in groups, deleted or file-only stand-ins. */
+function preview(item: ConversationSummaryResponse, me: string | undefined, t: TFunction): string {
+  const last = item.lastMessage!;
+  const text = last.deleted ? t('conversations.previewDeleted') : last.excerpt ? last.excerpt : t('conversations.previewFile');
+  if (last.author?.id === me) return `${t('conversations.previewYou')}: ${text}`;
+  return item.type === 'direct' || !last.author ? text : `${last.author.displayName.split(' ')[0]}: ${text}`;
+}
+
 function Conversations() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { query } = useLocation();
   const { client } = useRealtime();
+  const { user } = useAuth();
   const selectedId = query.get('id');
+  const [search, setSearch] = useState('');
+  const [chip, setChip] = useState<'all' | 'unread' | 'groups'>('all');
   const [items, setItems] = useState<ConversationSummaryResponse[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -120,6 +145,49 @@ function Conversations() {
     navigate(`/conversations?id=${encodeURIComponent(id)}`);
   };
 
+  // Redesign 2026-11: search, All / Unread / Groups chips, and PINNED above RECENT.
+  const needle = search.trim().toLocaleLowerCase(i18n.language);
+  const visible = (items ?? [])
+    .filter((item) => chip === 'all' || (chip === 'unread' ? item.unreadCount > 0 : item.type === 'group' || item.type === 'channel'))
+    .filter((item) => !needle || [item.title, item.organizationName, item.lastMessage?.excerpt]
+      .some((text) => text?.toLocaleLowerCase(i18n.language).includes(needle)));
+  const pinned = visible.filter((item) => item.pinned);
+  const recent = visible.filter((item) => !item.pinned);
+  const unreadConversations = (items ?? []).filter((item) => item.unreadCount > 0).length;
+
+  const row = (item: ConversationSummaryResponse) => (
+    <li key={item.id}>
+      <button
+        type="button"
+        className={`cx-conversation-item${item.id === selectedId ? ' is-active' : ''}${item.unreadCount > 0 ? ' has-unread' : ''}`}
+        aria-current={item.id === selectedId ? 'true' : undefined}
+        onClick={() => open(item.id)}
+      >
+        <ConversationAvatar item={item} />
+        <span className="cx-conversation-text">
+          <span className="cx-conversation-top">
+            <span className="cx-conversation-name">{item.title || t('conversations.unknownPerson')}</span>
+            <time className="cx-conversation-time" dateTime={item.lastMessage?.createdAtUtc ?? item.lastActivityAtUtc}>
+              {listTime(item.lastMessage?.createdAtUtc ?? item.lastActivityAtUtc, i18n.language, t)}
+            </time>
+          </span>
+          <span className="cx-conversation-meta">
+            {drafts.has(item.id) && item.id !== selectedId && <span className="cx-draft-mark">{t('planning.draft')} · </span>}
+            {item.type === 'website' && <span className="badge cx-website-badge me-1">{t('conversations.types.website')}</span>}
+            {item.scope === 'organization' ? item.organizationName : t(`conversations.types.${item.type}`)}
+            {item.muted && ` · ${t(item.notificationLevel === 'nothing' ? 'conversations.muted' : 'conversations.mentionsOnly')}`}
+          </span>
+          {item.lastMessage && <span className="cx-conversation-preview">{preview(item, user?.id, t)}</span>}
+        </span>
+        {item.unreadCount > 0 && (
+          <span className="badge rounded-pill text-bg-primary" aria-label={t('conversations.unread', { count: item.unreadCount })}>
+            {item.unreadCount}
+          </span>
+        )}
+      </button>
+    </li>
+  );
+
   return (
     <div className={`cx-conversations${selectedId || creating ? ' has-selection' : ''}`}>
       <section className="cx-card cx-conversation-list" aria-labelledby="conversations-title">
@@ -127,51 +195,51 @@ function Conversations() {
           <h1 id="conversations-title" className="cx-card-title">
             {t('conversations.title')}
           </h1>
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => setCreating((c) => !c)} aria-expanded={creating}>
-            {t('conversations.new')}
+          <button type="button" className="btn btn-primary cx-compose" onClick={() => setCreating((c) => !c)} aria-expanded={creating} title={t('conversations.new')}>
+            <NavIcon name="edit" size={18} />
+            <span className="visually-hidden">{t('conversations.new')}</span>
           </button>
         </div>
+        <label className="cx-search-field mb-2">
+          <NavIcon name="search" size={18} />
+          <span className="visually-hidden">{t('conversations.searchLabel')}</span>
+          <input type="search" className="form-control" placeholder={t('conversations.searchPlaceholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <div className="cx-chips" role="group" aria-label={t('conversations.chips.label')}>
+          {(['all', 'unread', 'groups'] as const).map((key) => (
+            <button key={key} type="button" className={`cx-chip${chip === key ? ' is-active' : ''}`} aria-pressed={chip === key} onClick={() => setChip(key)}>
+              {t(`conversations.chips.${key}`)}
+              {key === 'unread' && unreadConversations > 0 && <> <span className="cx-chip-count">{unreadConversations}</span></>}
+            </button>
+          ))}
+        </div>
+        <div className="cx-conversation-scroll">
         {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
         {notice && <FormAlert tone="info">{notice}</FormAlert>}
         {items === null ? (
           <p className="cx-muted">{t('auth.working')}</p>
         ) : items.length === 0 ? (
           <p className="cx-muted mb-0">{t('conversations.empty')}</p>
+        ) : visible.length === 0 ? (
+          <p className="cx-muted mb-0">{t('conversations.noMatches')}</p>
         ) : (
-          <ul className="list-unstyled mb-0">
-            {items.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  className={`cx-conversation-item${item.id === selectedId ? ' is-active' : ''}`}
-                  aria-current={item.id === selectedId ? 'true' : undefined}
-                  onClick={() => open(item.id)}
-                >
-                  <ConversationAvatar item={item} />
-                  <span className="cx-conversation-text">
-                    <span className="cx-conversation-name">{item.title || t('conversations.unknownPerson')}</span>
-                    <span className="cx-conversation-meta">
-                      {drafts.has(item.id) && item.id !== selectedId && <span className="cx-draft-mark">{t('planning.draft')} · </span>}
-                      {item.type === 'website' && <span className="badge cx-website-badge me-1">{t('conversations.types.website')}</span>}
-                      {item.scope === 'organization' ? item.organizationName : t(`conversations.types.${item.type}`)}
-                      {item.muted && ` · ${t(item.notificationLevel === 'nothing' ? 'conversations.muted' : 'conversations.mentionsOnly')}`}
-                    </span>
-                  </span>
-                  {item.unreadCount > 0 && (
-                    <span className="badge rounded-pill text-bg-primary" aria-label={t('conversations.unread', { count: item.unreadCount })}>
-                      {item.unreadCount}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <>
+            {pinned.length > 0 && (
+              <>
+                <h2 className="cx-list-section" id="pinned-title">{t('conversations.sections.pinned')}</h2>
+                <ul className="list-unstyled mb-0" aria-labelledby="pinned-title">{pinned.map(row)}</ul>
+              </>
+            )}
+            {pinned.length > 0 && recent.length > 0 && <h2 className="cx-list-section" id="recent-title">{t('conversations.sections.recent')}</h2>}
+            {recent.length > 0 && <ul className="list-unstyled mb-0" aria-labelledby={pinned.length > 0 ? 'recent-title' : undefined}>{recent.map(row)}</ul>}
+          </>
         )}
         {nextCursor && (
           <button type="button" className="btn btn-sm btn-outline-secondary w-100 mt-2" onClick={() => void loadMore()} disabled={loadingMore}>
             {loadingMore ? t('auth.working') : t('conversations.loadMoreConversations')}
           </button>
         )}
+        </div>
       </section>
 
       <div className="cx-conversation-main">

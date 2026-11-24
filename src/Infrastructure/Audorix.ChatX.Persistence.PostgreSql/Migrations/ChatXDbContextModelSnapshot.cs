@@ -685,6 +685,10 @@ namespace Audorix.ChatX.Persistence.PostgreSql.Migrations
                         .HasDefaultValue("All")
                         .HasColumnName("notification_level");
 
+                    b.Property<DateTimeOffset?>("PinnedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("pinned_at_utc");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(16)

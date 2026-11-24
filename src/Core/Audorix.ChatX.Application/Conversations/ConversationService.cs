@@ -114,6 +114,17 @@ public interface IConversationStore
     /// <summary>Everyone the entry mentions (named or through @everyone / @here).</summary>
     Task<IReadOnlyList<Guid>> ListMentionedUserIdsAsync(Guid entryId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Files shared in the conversation (redesign 2026-11): ready attachments of messages that are not
+    /// deleted, at or after <paramref name="visibleFromSequence"/> and before
+    /// <paramref name="beforeSequence"/>, newest message first; at most <paramref name="limit"/>.
+    /// </summary>
+    Task<IReadOnlyList<(Domain.Attachments.Attachment Attachment, ConversationEvent Entry)>> ListSharedFilesAsync(
+        Guid conversationId, long visibleFromSequence, long? beforeSequence, int limit, CancellationToken cancellationToken);
+
+    /// <summary>The newest main-timeline message (thread replies only when shown in the conversation) of each conversation.</summary>
+    Task<IReadOnlyDictionary<Guid, ConversationEvent>> FindLastMessagesAsync(IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken);
+
     /// <summary>Phase 24: the people mentioned in each of several messages, in one query (messages without mentions are absent).</summary>
     Task<IReadOnlyDictionary<Guid, IReadOnlyList<Guid>>> ListMentionedUserIdsAsync(IReadOnlyCollection<Guid> entryIds, CancellationToken cancellationToken);
 
@@ -189,7 +200,17 @@ public sealed class ConversationSettings
 }
 
 public sealed record ConversationSummaryView(
-    Conversation Conversation, ConversationParticipant Me, int UnreadCount, UserSummary? Counterpart, string? OrganizationName);
+    Conversation Conversation, ConversationParticipant Me, int UnreadCount, UserSummary? Counterpart, string? OrganizationName,
+    LastMessageView? LastMessage = null);
+
+/// <summary>A file shared in a conversation, with the message that carried it (redesign 2026-11).</summary>
+public sealed record SharedFileView(Attachments.AttachmentView File, ConversationEvent Entry, UserSummary? Author);
+
+/// <param name="NextBefore">Pass as the next page's "before" position; null on the last page.</param>
+public sealed record SharedFilesPage(IReadOnlyList<SharedFileView> Items, long? NextBefore);
+
+/// <summary>The newest visible main-timeline message of a conversation, for the list (redesign 2026-11).</summary>
+public sealed record LastMessageView(ConversationEvent Entry, UserSummary? Author);
 
 /// <summary>Where a page of the conversation list ends: the last item's activity time and id (Phase 22).</summary>
 public readonly record struct ConversationListPosition(long ActivityTicks, Guid Id)
@@ -464,9 +485,16 @@ public sealed partial class ConversationService(
         var page = limit < ordered.Count ? ordered.Take(limit).ToList() : ordered;
         var hasMore = page.Count < ordered.Count;
 
+        // Redesign 2026-11: the newest message each person may see (not before their visible history).
+        var newest = await store.FindLastMessagesAsync(page.Select(x => x.Item.Conversation.Id).ToList(), cancellationToken).ConfigureAwait(false);
+        ConversationEvent? LastFor(Participation p) =>
+            newest.TryGetValue(p.Conversation.Id, out var e) && e.Sequence >= p.Participant.VisibleFromSequence ? e : null;
+
         // Profiles are looked up for this page only: that is most of the cost of a long list.
-        var counterparts = await directory.GetSummariesAsync(
-            page.Where(x => x.Item.CounterpartUserId is not null).Select(x => x.Item.CounterpartUserId!.Value).Distinct().ToList(),
+        var profiles = await directory.GetSummariesAsync(
+            page.Where(x => x.Item.CounterpartUserId is not null).Select(x => x.Item.CounterpartUserId!.Value)
+                .Concat(page.Select(x => LastFor(x.Item)?.ActorUserId).OfType<Guid>())
+                .Distinct().ToList(),
             cancellationToken).ConfigureAwait(false);
 
         var items = page
@@ -474,8 +502,9 @@ public sealed partial class ConversationService(
                 x.Item.Conversation,
                 x.Item.Participant,
                 x.Item.UnreadCount,
-                x.Item.CounterpartUserId is { } other ? counterparts.GetValueOrDefault(other) : null,
-                x.Item.Conversation.OrganizationId is { } org ? memberships[org] : null))
+                x.Item.CounterpartUserId is { } other ? profiles.GetValueOrDefault(other) : null,
+                x.Item.Conversation.OrganizationId is { } org ? memberships[org] : null,
+                LastFor(x.Item) is { } last ? new LastMessageView(last, profiles.GetValueOrDefault(last.ActorUserId)) : null))
             .ToList();
         return new ConversationListPage(items, hasMore ? page[^1].Position : null);
     }
@@ -631,6 +660,43 @@ public sealed partial class ConversationService(
     {
         var (conversation, me) = await RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
         me.SetNotificationLevel(level);
+        await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
+        return await SummaryAsync(userId, conversation, me, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Files shared in the conversation that the caller may see (redesign 2026-11), newest first, a
+    /// page at a time by message position. A page boundary inside one message's files never splits it:
+    /// the next page starts before that message.
+    /// </summary>
+    public async Task<SharedFilesPage> ListSharedFilesAsync(Guid userId, Guid conversationId, long? beforeSequence, int? limit, CancellationToken cancellationToken)
+    {
+        var (_, me) = await RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var size = Math.Clamp(limit ?? 30, 1, 100);
+        var rows = await store.ListSharedFilesAsync(conversationId, me.VisibleFromSequence, beforeSequence, size + 1, cancellationToken).ConfigureAwait(false);
+        var hasMore = rows.Count > size;
+        var page = hasMore ? rows.Take(size).ToList() : rows.ToList();
+        if (hasMore)
+        {
+            // Keep every file of the last message together on the next page.
+            var cut = page[^1].Entry.Sequence;
+            if (rows[size].Entry.Sequence == cut && page.Any(r => r.Entry.Sequence != cut))
+            {
+                page = page.Where(r => r.Entry.Sequence != cut).ToList();
+            }
+        }
+
+        var authors = await directory.GetSummariesAsync(page.Select(r => r.Entry.ActorUserId).Distinct().ToList(), cancellationToken).ConfigureAwait(false);
+        var items = page.Select(r => new SharedFileView(Attachments.AttachmentService.ToView(r.Attachment), r.Entry, authors.GetValueOrDefault(r.Entry.ActorUserId))).ToList();
+        var next = hasMore && items.Count > 0 ? items.Min(i => i.Entry.Sequence) : (long?)null;
+        return new SharedFilesPage(items, next);
+    }
+
+    /// <summary>Pins or unpins the conversation in the caller's own list (redesign 2026-11).</summary>
+    public async Task<ConversationSummaryView> SetPinnedAsync(Guid userId, Guid conversationId, bool pinned, CancellationToken cancellationToken)
+    {
+        var (conversation, me) = await RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        me.SetPinned(pinned, time.GetUtcNow());
         await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
         return await SummaryAsync(userId, conversation, me, cancellationToken).ConfigureAwait(false);
     }

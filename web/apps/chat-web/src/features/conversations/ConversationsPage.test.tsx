@@ -91,6 +91,47 @@ describe('ConversationsPage', () => {
     expect(reads).toEqual([{ sequence: 3 }]);
   });
 
+  it('shows pinned conversations first, last-message previews, and filters by chip and search', async () => {
+    window.history.replaceState(null, '', '/conversations');
+    const ben = { id: 'u-ben', displayName: 'Ben Brown', avatar: { initials: 'BB' } };
+    const last = (author: unknown, excerpt: string | null, deleted = false) => ({ id: `m-${excerpt}`, author, excerpt, deleted, createdAtUtc: '2026-11-22T09:00:00Z' });
+    const list = [
+      { ...group, id: 'c-1', title: 'Team', pinned: true, unreadCount: 0, lastMessage: last(ben, 'Ready for the review.') },
+      { ...group, id: 'c-2', title: 'Ben Brown', type: 'direct', counterpart: ben, unreadCount: 3, lastMessage: last(me, 'See you') },
+      { ...group, id: 'c-3', title: 'Old news', unreadCount: 0, lastMessage: last(ben, null, true) },
+      { ...group, id: 'c-4', title: 'Files only', unreadCount: 0, lastMessage: last(ben, '') },
+    ];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': csrf,
+      'GET /api/v1/drafts': () => json(200, []),
+      'GET /api/v1/conversations/page?limit=50': () => json(200, page(list)),
+    });
+    const u = userEvent.setup();
+    render(
+      <AuthProvider>
+        <ConversationsPage />
+      </AuthProvider>,
+    );
+
+    const pinned = await screen.findByRole('list', { name: 'Pinned' });
+    expect(within(pinned).getByRole('button', { name: /Team/ })).toHaveTextContent('Ben: Ready for the review.');
+    const recent = screen.getByRole('list', { name: 'Recent' });
+    expect(within(recent).getByRole('button', { name: /Ben Brown/ })).toHaveTextContent('You: See you');
+    expect(within(recent).getByRole('button', { name: /Old news/ })).toHaveTextContent('Ben: Message deleted');
+    expect(within(recent).getByRole('button', { name: /Files only/ })).toHaveTextContent('Ben: Sent a file');
+
+    await u.click(screen.getByRole('button', { name: /Unread/ }));
+    expect(screen.getAllByRole('button', { name: /Ben Brown|Team|Old news|Files only/ }).map((b) => b.textContent)).toEqual([expect.stringContaining('Ben Brown')]);
+    await u.click(screen.getByRole('button', { name: 'Groups' }));
+    expect(screen.queryByRole('button', { name: /Ben Brown/ })).not.toBeInTheDocument();
+    await u.click(screen.getByRole('button', { name: 'All' }));
+    await u.type(screen.getByRole('searchbox', { name: 'Search conversations' }), 'files');
+    expect(screen.getByRole('button', { name: /Files only/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Team/ })).not.toBeInTheDocument();
+  });
+
   it('loads the list a page at a time', async () => {
     window.history.replaceState(null, '', '/conversations');
     const older = { ...group, id: 'c-old', title: 'Old friends', unreadCount: 0 };

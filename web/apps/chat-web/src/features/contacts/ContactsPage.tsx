@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ContactRequestResponse, ContactResponse, UserSummary } from '../../shared/api/contracts';
 import { Avatar } from '../../shared/components/Avatar';
-import { Field, FormAlert } from '../../shared/components/Field';
+import { FormAlert } from '../../shared/components/Field';
+import { NavIcon } from '../../shared/components/NavIcon';
 import { errorMessage, fieldErrors } from '../auth/errors';
 import { RequireUser, useAction } from '../auth/RequireUser';
 import { useRealtime } from '../realtime/RealtimeContext';
+import type { PresenceValue } from '../realtime/realtimeClient';
 import { openDirect } from '../conversations/conversationsApi';
 import { navigate } from '../../app/router';
 import * as api from './contactsApi';
 
-/** Contacts, contact requests, user search and blocking. */
+/**
+ * Contacts (redesign 2026-11): find people, then the contacts table with tabs for requests and
+ * blocked people, filtering, sorting, paging, a "…" menu per contact and a profile side panel.
+ */
 export function ContactsPage() {
   return (
     <RequireUser>
@@ -19,13 +24,27 @@ export function ContactsPage() {
   );
 }
 
+type Tab = 'all' | 'requests' | 'blocked';
+type StatusFilter = 'all' | 'online' | 'offline';
+type Sort = 'nameAsc' | 'nameDesc' | 'recent';
+const pageSizes = [8, 16, 32] as const;
+
 function Contacts() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { presence } = useRealtime();
   const [contacts, setContacts] = useState<ContactResponse[]>([]);
   const [requests, setRequests] = useState<ContactRequestResponse[]>([]);
   const [blocked, setBlocked] = useState<ContactResponse[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('all');
+  const [filter, setFilter] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('all');
+  const [sort, setSort] = useState<Sort>('nameAsc');
+  const [pageSize, setPageSize] = useState<number>(pageSizes[0]);
+  const [page, setPage] = useState(1);
+  const [profile, setProfile] = useState<ContactResponse | null>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
 
   const reload = useCallback(() => {
     Promise.all([api.listContacts(), api.listRequests(), api.listBlocked()]).then(([c, r, b]) => {
@@ -37,127 +56,428 @@ function Contacts() {
   useEffect(reload, [reload]);
   const act = useAction(setError, reload);
 
+  const statusOf = useCallback((id: string): PresenceValue => presence.get(id) ?? 'offline', [presence]);
+
+  const visible = useMemo(() => {
+    const needle = filter.trim().toLocaleLowerCase(i18n.language);
+    const collator = new Intl.Collator(i18n.language, { sensitivity: 'base' });
+    return contacts
+      .filter((c) => !needle || c.user.displayName.toLocaleLowerCase(i18n.language).includes(needle)
+        || (c.sharedOrganizations ?? []).some((o) => o.name.toLocaleLowerCase(i18n.language).includes(needle)))
+      .filter((c) => status === 'all' || statusOf(c.user.id) === status)
+      .sort((a, b) =>
+        sort === 'recent' ? Date.parse(b.sinceUtc) - Date.parse(a.sinceUtc)
+          : sort === 'nameDesc' ? collator.compare(b.user.displayName, a.user.displayName)
+            : collator.compare(a.user.displayName, b.user.displayName));
+  }, [contacts, filter, status, sort, statusOf, i18n.language]);
+
+  // Back to the first page whenever what is shown changes.
+  useEffect(() => setPage(1), [filter, status, sort, pageSize]);
+  const pages = Math.max(1, Math.ceil(visible.length / pageSize));
+  const current = Math.min(page, pages);
+  const shown = visible.slice((current - 1) * pageSize, current * pageSize);
+
+  const message = (userId: string) =>
+    void openDirect(userId).then((conversation) => navigate(`/conversations?id=${encodeURIComponent(conversation.id)}`), setError);
+  const remove = (user: UserSummary) => void act(async () => {
+    await api.removeContact(user.id);
+    setProfile(null);
+  });
+  const block = (user: UserSummary) => {
+    if (!window.confirm(t('contacts.blockConfirm', { name: user.displayName }))) return;
+    void act(async () => {
+      await api.blockUser(user.id);
+      setProfile(null);
+    });
+  };
+
   const incoming = requests.filter((r) => r.direction === 'incoming');
   const outgoing = requests.filter((r) => r.direction === 'outgoing');
 
   return (
-    <>
-      <h1 className="cx-page-title">{t('contacts.title')}</h1>
+    <div className="cx-contacts">
+      <header className="cx-page-header">
+        <div>
+          <nav aria-label={t('nav.label')} className="cx-breadcrumb">
+            <span>{t('nav.workspace')}</span>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">{t('contacts.title')}</span>
+          </nav>
+          <h1 className="cx-page-title mb-1">{t('contacts.title')}</h1>
+          <p className="cx-muted mb-0">{t('contacts.subtitle')}</p>
+        </div>
+        <button type="button" className="btn btn-primary cx-icon-button" onClick={() => searchInput.current?.focus()}>
+          <NavIcon name="plus" size={18} />
+          {t('contacts.findPeople')}
+        </button>
+      </header>
+
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {notice && <FormAlert tone="success">{notice}</FormAlert>}
 
       <UserSearch
+        inputRef={searchInput}
         onRequest={(user) =>
           void act(async () => {
-            const status = await api.sendRequest(user.id);
-            setNotice(t(status === 'accepted' ? 'contacts.nowContacts' : 'contacts.requestSent', { name: user.displayName }));
+            const result = await api.sendRequest(user.id);
+            setNotice(t(result === 'accepted' ? 'contacts.nowContacts' : 'contacts.requestSent', { name: user.displayName }));
           })
         }
       />
 
-      {incoming.length > 0 && (
-        <section className="cx-card mt-3" aria-labelledby="incoming-title">
-          <h2 id="incoming-title" className="cx-card-title">
-            {t('contacts.incoming')}
-          </h2>
-          <PeopleList
-            items={incoming.map((r) => ({ key: r.id, user: r.user }))}
-            actions={(item) => (
-              <>
-                <button type="button" className="btn btn-sm btn-primary" onClick={() => void act(() => api.acceptRequest(item.key))}>
-                  {t('contacts.accept')}
-                </button>
-                <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.rejectRequest(item.key))}>
-                  {t('contacts.decline')}
-                </button>
-              </>
-            )}
-          />
-        </section>
-      )}
+      <section className="cx-card cx-contacts-card" aria-label={t('contacts.list', { count: contacts.length })}>
+        <div className="cx-tabs" role="tablist" aria-label={t('contacts.tabs.label')}>
+          {(['all', 'requests', 'blocked'] as const).map((key) => {
+            const count = key === 'all' ? contacts.length : key === 'requests' ? requests.length : blocked.length;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                id={`contacts-tab-${key}`}
+                aria-controls={`contacts-panel-${key}`}
+                aria-selected={tab === key}
+                tabIndex={tab === key ? 0 : -1}
+                className={`cx-tab${tab === key ? ' is-active' : ''}`}
+                onClick={() => setTab(key)}
+                onKeyDown={(e) => moveTab(e, key, setTab)}
+              >
+                {t(`contacts.tabs.${key}`)}
+                {count > 0 && <> <span className="cx-tab-count">{count}</span></>}
+              </button>
+            );
+          })}
+        </div>
 
-      <section className="cx-card mt-3" aria-labelledby="contacts-title">
-        <h2 id="contacts-title" className="cx-card-title">
-          {t('contacts.list', { count: contacts.length })}
-        </h2>
-        {contacts.length === 0 ? (
-          <p className="cx-muted mb-0">{t('contacts.empty')}</p>
-        ) : (
-          <PeopleList
-            items={contacts.map((c) => ({ key: c.user.id, user: c.user }))}
-            actions={(item) => (
-              <>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  aria-label={t('contacts.messageNamed', { name: item.user.displayName })}
-                  onClick={() =>
-                    void openDirect(item.key).then(
-                      (conversation) => navigate(`/conversations?id=${encodeURIComponent(conversation.id)}`),
-                      setError,
-                    )
-                  }
-                >
-                  {t('contacts.message')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  aria-label={t('contacts.removeNamed', { name: item.user.displayName })}
-                  onClick={() => void act(() => api.removeContact(item.key))}
-                >
-                  {t('contacts.remove')}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-danger"
-                  aria-label={t('contacts.blockNamed', { name: item.user.displayName })}
-                  onClick={() => window.confirm(t('contacts.blockConfirm', { name: item.user.displayName })) && void act(() => api.blockUser(item.key))}
-                >
-                  {t('contacts.block')}
-                </button>
-              </>
+        {tab === 'all' && (
+          <div role="tabpanel" id="contacts-panel-all" aria-labelledby="contacts-tab-all">
+            <div className="cx-table-tools">
+              <label className="cx-search-field">
+                <NavIcon name="search" size={18} />
+                <span className="visually-hidden">{t('contacts.filterLabel')}</span>
+                <input type="search" className="form-control" placeholder={t('contacts.filterPlaceholder')} value={filter} onChange={(e) => setFilter(e.target.value)} />
+              </label>
+              <div className="cx-table-selects">
+                <label className="visually-hidden" htmlFor="contacts-status">{t('contacts.statusFilter.label')}</label>
+                <select id="contacts-status" className="form-select" value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)}>
+                  {(['all', 'online', 'offline'] as const).map((s) => <option key={s} value={s}>{t(`contacts.statusFilter.${s}`)}</option>)}
+                </select>
+                <label className="visually-hidden" htmlFor="contacts-sort">{t('contacts.sort.label')}</label>
+                <select id="contacts-sort" className="form-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+                  {(['nameAsc', 'nameDesc', 'recent'] as const).map((s) => <option key={s} value={s}>{t(`contacts.sort.${s}`)}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {contacts.length === 0 ? (
+              <p className="cx-muted cx-table-empty">{t('contacts.empty')}</p>
+            ) : visible.length === 0 ? (
+              <p className="cx-muted cx-table-empty">{t('contacts.noMatches')}</p>
+            ) : (
+              <table className="cx-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{t('contacts.columns.name')}</th>
+                    <th scope="col">{t('contacts.columns.status')}</th>
+                    <th scope="col">{t('contacts.columns.organization')}</th>
+                    <th scope="col"><span className="visually-hidden">{t('contacts.columns.actions')}</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map((c) => (
+                    <tr key={c.user.id}>
+                      <td data-label={t('contacts.columns.name')}>
+                        <button type="button" className="cx-person" onClick={() => setProfile(c)}>
+                          <Avatar user={c.user} size="sm" presence={presence.get(c.user.id)} />
+                          <span className="cx-person-name">{c.user.displayName}</span>
+                        </button>
+                      </td>
+                      <td data-label={t('contacts.columns.status')}>
+                        <PresenceLabel value={statusOf(c.user.id)} />
+                      </td>
+                      <td data-label={t('contacts.columns.organization')}>
+                        <OrganizationTags organizations={c.sharedOrganizations} />
+                      </td>
+                      <td className="cx-table-actions">
+                        <button type="button" className="btn btn-sm btn-outline-primary cx-icon-button" aria-label={t('contacts.messageNamed', { name: c.user.displayName })}
+                          onClick={() => message(c.user.id)}>
+                          <NavIcon name="message" size={16} />
+                          {t('contacts.message')}
+                        </button>
+                        <RowMenu
+                          label={t('contacts.moreFor', { name: c.user.displayName })}
+                          items={[
+                            { icon: 'user', label: t('contacts.viewProfile'), onSelect: () => setProfile(c) },
+                            { icon: 'trash', label: t('contacts.removeContact'), onSelect: () => remove(c.user), separated: true },
+                            { icon: 'block', label: t('contacts.blockContact'), onSelect: () => block(c.user), danger: true },
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
-          />
+
+            {visible.length > 0 && (
+              <div className="cx-table-footer">
+                <span className="cx-muted">
+                  {t('contacts.showing', { from: (current - 1) * pageSize + 1, to: Math.min(current * pageSize, visible.length), total: visible.length })}
+                </span>
+                <div className="cx-table-paging">
+                  <label className="visually-hidden" htmlFor="contacts-page-size">{t('contacts.perPageLabel')}</label>
+                  <select id="contacts-page-size" className="form-select form-select-sm" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                    {pageSizes.map((size) => <option key={size} value={size}>{t('contacts.perPage', { count: size })}</option>)}
+                  </select>
+                  <Pagination page={current} pages={pages} onPage={setPage} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'requests' && (
+          <div role="tabpanel" id="contacts-panel-requests" aria-labelledby="contacts-tab-requests">
+            {requests.length === 0 && <p className="cx-muted cx-table-empty">{t('contacts.noRequests')}</p>}
+            {incoming.length > 0 && (
+              <section aria-labelledby="incoming-title" className="cx-table-section">
+                <h2 id="incoming-title" className="cx-section-title">{t('contacts.incoming')}</h2>
+                <PeopleRows
+                  items={incoming.map((r) => ({ key: r.id, user: r.user, meta: t('contacts.requestedOn', { date: formatDay(r.createdAtUtc, i18n.language) }) }))}
+                  actions={(item) => (
+                    <>
+                      <button type="button" className="btn btn-sm btn-primary" onClick={() => void act(() => api.acceptRequest(item.key))}>{t('contacts.accept')}</button>
+                      <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.rejectRequest(item.key))}>{t('contacts.decline')}</button>
+                    </>
+                  )}
+                />
+              </section>
+            )}
+            {outgoing.length > 0 && (
+              <section aria-labelledby="outgoing-title" className="cx-table-section">
+                <h2 id="outgoing-title" className="cx-section-title">{t('contacts.outgoing')}</h2>
+                <PeopleRows
+                  items={outgoing.map((r) => ({ key: r.id, user: r.user, meta: t('contacts.requestedOn', { date: formatDay(r.createdAtUtc, i18n.language) }) }))}
+                  actions={(item) => (
+                    <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.cancelRequest(item.key))}>{t('contacts.cancel')}</button>
+                  )}
+                />
+              </section>
+            )}
+          </div>
+        )}
+
+        {tab === 'blocked' && (
+          <div role="tabpanel" id="contacts-panel-blocked" aria-labelledby="contacts-tab-blocked">
+            {blocked.length === 0 ? (
+              <p className="cx-muted cx-table-empty">{t('contacts.noBlocked')}</p>
+            ) : (
+              <PeopleRows
+                items={blocked.map((b) => ({ key: b.user.id, user: b.user }))}
+                actions={(item) => (
+                  <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.unblockUser(item.key))}>{t('contacts.unblock')}</button>
+                )}
+              />
+            )}
+          </div>
         )}
       </section>
 
-      {outgoing.length > 0 && (
-        <section className="cx-card mt-3" aria-labelledby="outgoing-title">
-          <h2 id="outgoing-title" className="cx-card-title">
-            {t('contacts.outgoing')}
-          </h2>
-          <PeopleList
-            items={outgoing.map((r) => ({ key: r.id, user: r.user }))}
-            actions={(item) => (
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.cancelRequest(item.key))}>
-                {t('contacts.cancel')}
-              </button>
-            )}
-          />
-        </section>
+      {profile && (
+        <ProfilePanel
+          contact={profile}
+          status={statusOf(profile.user.id)}
+          language={i18n.language}
+          onClose={() => setProfile(null)}
+          onMessage={() => message(profile.user.id)}
+          onRemove={() => remove(profile.user)}
+          onBlock={() => block(profile.user)}
+        />
       )}
-
-      {blocked.length > 0 && (
-        <section className="cx-card mt-3" aria-labelledby="blocked-title">
-          <h2 id="blocked-title" className="cx-card-title">
-            {t('contacts.blocked')}
-          </h2>
-          <PeopleList
-            items={blocked.map((b) => ({ key: b.user.id, user: b.user }))}
-            actions={(item) => (
-              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => void act(() => api.unblockUser(item.key))}>
-                {t('contacts.unblock')}
-              </button>
-            )}
-          />
-        </section>
-      )}
-    </>
+    </div>
   );
 }
 
-function UserSearch({ onRequest }: { onRequest: (user: UserSummary) => void }) {
+/** Arrow keys move between tabs (WAI-ARIA tabs pattern). */
+function moveTab(event: KeyboardEvent<HTMLButtonElement>, current: Tab, select: (tab: Tab) => void) {
+  const order: Tab[] = ['all', 'requests', 'blocked'];
+  const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+  if (step === 0) return;
+  event.preventDefault();
+  const next = order[(order.indexOf(current) + step + order.length) % order.length]!;
+  select(next);
+  document.getElementById(`contacts-tab-${next}`)?.focus();
+}
+
+function formatDay(value: string, language: string) {
+  return new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(new Date(value));
+}
+
+function PresenceLabel({ value }: { value: PresenceValue }) {
+  const { t } = useTranslation();
+  return (
+    <span className="cx-presence-label">
+      <span className={`cx-dot ${value === 'online' ? 'cx-dot-ok' : 'cx-dot-idle'}`} aria-hidden="true" />
+      {t(`contacts.presence.${value}`)}
+    </span>
+  );
+}
+
+function OrganizationTags({ organizations }: { organizations: ContactResponse['sharedOrganizations'] }) {
+  if (!organizations || organizations.length === 0) return <span className="cx-muted" aria-label="—">—</span>;
+  return (
+    <span className="cx-tags">
+      {organizations.map((o) => <span key={o.id} className="cx-tag">{o.name}</span>)}
+    </span>
+  );
+}
+
+interface RowMenuItem {
+  icon: 'user' | 'trash' | 'block';
+  label: string;
+  onSelect: () => void;
+  danger?: boolean;
+  separated?: boolean;
+}
+
+/** The "…" menu of a row: a menu button with arrow-key navigation, closed by Escape or a click outside. */
+function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event: MouseEvent) => {
+      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    box.current?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const onKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    const entries = Array.from(box.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? []);
+    const index = entries.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') {
+      setOpen(false);
+      button.current?.focus();
+    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      entries[(index + (event.key === 'ArrowDown' ? 1 : -1) + entries.length) % entries.length]?.focus();
+    }
+  };
+
+  return (
+    <div className="cx-row-menu" ref={box} onKeyDown={onKey}>
+      <button ref={button} type="button" className="cx-tool cx-row-menu-button" aria-haspopup="menu" aria-expanded={open} title={label} onClick={() => setOpen((o) => !o)}>
+        <NavIcon name="dots" size={18} />
+        <span className="visually-hidden">{label}</span>
+      </button>
+      {open && (
+        <div className="cx-menu" role="menu" aria-label={label}>
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              className={`cx-menu-item${item.danger ? ' is-danger' : ''}${item.separated ? ' is-separated' : ''}`}
+              onClick={() => {
+                setOpen(false);
+                item.onSelect();
+              }}
+            >
+              <NavIcon name={item.icon} size={18} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Page numbers with the first, last and neighbours of the current page; gaps shown as "…". */
+function Pagination({ page, pages, onPage }: { page: number; pages: number; onPage: (page: number) => void }) {
+  const { t } = useTranslation();
+  const numbers = [...new Set([1, page - 1, page, page + 1, pages])].filter((n) => n >= 1 && n <= pages).sort((a, b) => a - b);
+  return (
+    <nav className="cx-pagination" aria-label={t('contacts.pages')}>
+      <button type="button" className="cx-page-button" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label={t('contacts.previousPage')}>
+        <NavIcon name="chevron-left" size={16} />
+      </button>
+      {numbers.map((n, i) => (
+        <span key={n} className="d-contents">
+          {i > 0 && n - numbers[i - 1]! > 1 && <span className="cx-page-gap" aria-hidden="true">…</span>}
+          <button type="button" className={`cx-page-button${n === page ? ' is-current' : ''}`} aria-current={n === page ? 'page' : undefined}
+            aria-label={t('contacts.page', { page: n })} onClick={() => onPage(n)}>
+            {n}
+          </button>
+        </span>
+      ))}
+      <button type="button" className="cx-page-button" disabled={page >= pages} onClick={() => onPage(page + 1)} aria-label={t('contacts.nextPage')}>
+        <NavIcon name="chevron-right" size={16} />
+      </button>
+    </nav>
+  );
+}
+
+/** Profile side panel: a modal dialog on the right; Escape, the close button or the backdrop close it. */
+function ProfilePanel({ contact, status, language, onClose, onMessage, onRemove, onBlock }: {
+  contact: ContactResponse;
+  status: PresenceValue;
+  language: string;
+  onClose: () => void;
+  onMessage: () => void;
+  onRemove: () => void;
+  onBlock: () => void;
+}) {
+  const { t } = useTranslation();
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const opener = useRef<Element | null>(null);
+
+  useEffect(() => {
+    opener.current = document.activeElement;
+    closeButton.current?.focus();
+    return () => (opener.current as HTMLElement | null)?.focus?.();
+  }, []);
+
+  const organizations = contact.sharedOrganizations ?? [];
+  return (
+    <div className="cx-drawer-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <aside className="cx-drawer" role="dialog" aria-modal="true" aria-labelledby="profile-title" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+        <div className="cx-drawer-header">
+          <h2 id="profile-title" className="visually-hidden">{t('contacts.profileTitle', { name: contact.user.displayName })}</h2>
+          <button ref={closeButton} type="button" className="cx-tool" onClick={onClose} title={t('contacts.closeProfile')}>
+            <NavIcon name="close" size={18} />
+            <span className="visually-hidden">{t('contacts.closeProfile')}</span>
+          </button>
+        </div>
+        <div className="cx-drawer-identity">
+          <Avatar user={contact.user} size="md" presence={status} />
+          <p className="cx-drawer-name">{contact.user.displayName}</p>
+          <PresenceLabel value={status} />
+        </div>
+        <dl className="cx-drawer-facts">
+          <dt>{t('contacts.profileOrganizations')}</dt>
+          <dd>{organizations.length > 0 ? <OrganizationTags organizations={organizations} /> : <span className="cx-muted">{t('contacts.profileNoOrganizations')}</span>}</dd>
+          <dt className="visually-hidden">{t('contacts.columns.status')}</dt>
+          <dd className="cx-muted">{t('contacts.profileSince', { date: formatDay(contact.sinceUtc, language) })}</dd>
+        </dl>
+        <div className="cx-drawer-actions">
+          <button type="button" className="btn btn-primary cx-icon-button" onClick={onMessage}>
+            <NavIcon name="message" size={16} />
+            {t('contacts.message')}
+          </button>
+          <button type="button" className="btn btn-outline-secondary" onClick={onRemove}>{t('contacts.removeContact')}</button>
+          <button type="button" className="btn btn-outline-danger" onClick={onBlock}>{t('contacts.blockContact')}</button>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function UserSearch({ onRequest, inputRef }: { onRequest: (user: UserSummary) => void; inputRef: React.RefObject<HTMLInputElement | null> }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<UserSummary[] | null>(null);
@@ -174,38 +494,37 @@ function UserSearch({ onRequest }: { onRequest: (user: UserSummary) => void }) {
     }
   };
 
+  const errors = fieldErrors(error, 'q', t);
   return (
     <section className="cx-card" aria-labelledby="search-title">
-      <h2 id="search-title" className="cx-card-title">
-        {t('contacts.findTitle')}
-      </h2>
-      <form onSubmit={search} className="cx-inline-form" role="search">
-        <Field
-          label={t('contacts.searchLabel')}
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          hint={t('contacts.searchHint')}
-          errors={fieldErrors(error, 'q', t)}
-          className="flex-grow-1"
-        />
-        <button type="submit" className="btn btn-primary" disabled={query.trim().length < 2}>
-          {t('contacts.search')}
-        </button>
+      <h2 id="search-title" className="cx-card-title">{t('contacts.connectTitle')}</h2>
+      <form onSubmit={search} className="cx-search-row" role="search">
+        <label className="cx-search-field flex-grow-1">
+          <NavIcon name="search" size={18} />
+          <span className="visually-hidden">{t('contacts.searchLabel')}</span>
+          <input
+            ref={inputRef}
+            type="search"
+            className={`form-control${errors.length > 0 ? ' is-invalid' : ''}`}
+            placeholder={t('contacts.searchPlaceholder')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-describedby="search-hint"
+          />
+        </label>
+        <button type="submit" className="btn btn-primary" disabled={query.trim().length < 2}>{t('contacts.search')}</button>
       </form>
-      {error !== null && fieldErrors(error, 'q', t).length === 0 && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      <p id="search-hint" className="cx-meta mt-2 mb-0">{t('contacts.searchShortHint')}</p>
+      {errors.map((message) => <p key={message} className="text-danger small mb-0">{message}</p>)}
+      {error !== null && errors.length === 0 && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {results !== null && (
-        <div role="status" aria-live="polite">
+        <div role="status" aria-live="polite" className="mt-3">
           {results.length === 0 ? (
             <p className="cx-muted mb-0">{t('contacts.noResults')}</p>
           ) : (
-            <PeopleList
+            <PeopleRows
               items={results.map((u) => ({ key: u.id, user: u }))}
-              actions={(item) => (
-                <button type="button" className="btn btn-sm btn-primary" onClick={() => onRequest(item.user)}>
-                  {t('contacts.add')}
-                </button>
-              )}
+              actions={(item) => <button type="button" className="btn btn-sm btn-primary" onClick={() => onRequest(item.user)}>{t('contacts.add')}</button>}
             />
           )}
         </div>
@@ -214,26 +533,28 @@ function UserSearch({ onRequest }: { onRequest: (user: UserSummary) => void }) {
   );
 }
 
-export function PeopleList<T extends { key: string; user: UserSummary }>({
-  items,
-  actions,
-}: {
-  items: T[];
-  actions?: (item: T) => React.ReactNode;
-}) {
-  // Presence is only known for people the user may see (contacts and people they chat with, Phase 22).
+/** Simple rows of people with actions (search results, requests, blocked people). */
+function PeopleRows<T extends { key: string; user: UserSummary; meta?: string }>({ items, actions }: { items: T[]; actions: (item: T) => React.ReactNode }) {
   const { presence } = useRealtime();
   return (
-    <ul className="list-unstyled mb-0 cx-session-list">
+    <ul className="list-unstyled mb-0 cx-people-rows">
       {items.map((item) => (
-        <li key={item.key} className="cx-session">
-          <span className="d-flex align-items-center gap-2 min-w-0">
+        <li key={item.key}>
+          <span className="cx-person">
             <Avatar user={item.user} size="sm" presence={presence.get(item.user.id)} />
-            <span className="text-truncate">{item.user.displayName}</span>
+            <span className="min-w-0">
+              <span className="cx-person-name d-block">{item.user.displayName}</span>
+              {item.meta && <span className="cx-meta">{item.meta}</span>}
+            </span>
           </span>
-          {actions && <span className="d-flex gap-2 flex-wrap justify-content-end">{actions(item)}</span>}
+          <span className="d-flex gap-2 flex-wrap justify-content-end">{actions(item)}</span>
         </li>
       ))}
     </ul>
   );
+}
+
+/** Kept for other pages: a plain list of people with optional actions. */
+export function PeopleList<T extends { key: string; user: UserSummary }>({ items, actions }: { items: T[]; actions?: (item: T) => React.ReactNode }) {
+  return <PeopleRows items={items} actions={actions ?? (() => null)} />;
 }

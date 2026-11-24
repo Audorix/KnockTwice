@@ -171,6 +171,8 @@ export interface AccountDeletionCheckResponse {
 export interface ContactResponse {
   user: UserSummary;
   sinceUtc: string;
+  /** Organizations both of you belong to (contacts list; null in the blocked list). */
+  sharedOrganizations?: { id: string; name: string }[] | null;
 }
 
 export interface ContactRequestResponse {
@@ -211,6 +213,34 @@ export interface ConversationSummaryResponse {
   supportStatus?: 'open' | 'closed' | null;
   /** Phase 17: what notifies you here; `muted` is true for anything but "all". */
   notificationLevel?: NotificationLevel;
+  /** Redesign 2026-11: pinned to the top of your own list. */
+  pinned?: boolean;
+  /** Redesign 2026-11: the newest message you may see (list endpoints only). */
+  lastMessage?: ConversationLastMessage | null;
+}
+
+/** Excerpt is plain text; empty for a message with only files; null when deleted. */
+export interface ConversationLastMessage {
+  id: string;
+  author: UserSummary | null;
+  excerpt: string | null;
+  deleted: boolean;
+  createdAtUtc: string;
+}
+
+/** A file shared in a conversation (redesign 2026-11). */
+export interface SharedFileResponse {
+  file: { id: string; fileName: string; contentType: string; kind: string; size: number };
+  messageId: string;
+  sequence: number;
+  author: UserSummary | null;
+  sharedAtUtc: string;
+}
+
+export interface SharedFilesResponse {
+  items: SharedFileResponse[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export interface ConversationParticipantResponse {

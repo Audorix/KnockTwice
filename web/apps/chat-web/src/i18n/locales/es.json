@@ -19,6 +19,9 @@
     "private": "Privado",
     "home": "Inicio",
     "profile": "Perfil",
+    "brandName": "ChatX",
+    "brandBy": "por Audorix",
+    "workspace": "Espacio de trabajo",
     "chats": "Chats",
     "admin": "Admin",
     "channels": "Canales",
@@ -404,7 +407,62 @@
     "blockNamed": "Bloquear a {{name}}",
     "blockConfirm": "¿Bloquear a {{name}}? Dejarán de ser contactos, se cerrarán las solicitudes pendientes y ninguno podrá encontrar ni añadir al otro.",
     "blocked": "Personas bloqueadas",
-    "unblock": "Desbloquear"
+    "unblock": "Desbloquear",
+    "subtitle": "Tu gente, a una conversación de distancia.",
+    "findPeople": "Buscar personas",
+    "connectTitle": "Conecta con alguien nuevo",
+    "searchPlaceholder": "Escribe un correo exacto o un nombre de tu organización",
+    "searchShortHint": "Encuentra a cualquiera por su correo exacto. La búsqueda por nombre se limita a tus organizaciones. Los correos son privados.",
+    "tabs": {
+      "all": "Todos los contactos",
+      "requests": "Solicitudes",
+      "blocked": "Bloqueados",
+      "label": "Listas de contactos"
+    },
+    "filterLabel": "Filtrar tus contactos",
+    "filterPlaceholder": "Filtrar tus contactos…",
+    "statusFilter": {
+      "label": "Estado",
+      "all": "Estado: todos",
+      "online": "Estado: en línea",
+      "offline": "Estado: desconectado"
+    },
+    "sort": {
+      "label": "Ordenar",
+      "nameAsc": "Nombre A–Z",
+      "nameDesc": "Nombre Z–A",
+      "recent": "Añadidos recientemente"
+    },
+    "columns": {
+      "name": "Nombre",
+      "status": "Estado",
+      "organization": "Organización",
+      "actions": "Acciones"
+    },
+    "presence": {
+      "online": "En línea",
+      "offline": "Desconectado"
+    },
+    "moreFor": "Más acciones para {{name}}",
+    "viewProfile": "Ver perfil",
+    "removeContact": "Quitar contacto",
+    "blockContact": "Bloquear contacto",
+    "showing": "Mostrando {{from}}–{{to}} de {{total}} contactos",
+    "perPage": "{{count}} por página",
+    "perPageLabel": "Contactos por página",
+    "pages": "Páginas de contactos",
+    "previousPage": "Página anterior",
+    "nextPage": "Página siguiente",
+    "page": "Página {{page}}",
+    "noMatches": "Ningún contacto coincide con el filtro.",
+    "noRequests": "No hay solicitudes pendientes.",
+    "noBlocked": "No has bloqueado a nadie.",
+    "requestedOn": "Enviada el {{date}}",
+    "profileTitle": "Perfil de {{name}}",
+    "profileSince": "Contacto desde el {{date}}",
+    "profileOrganizations": "Organizaciones en común",
+    "profileNoOrganizations": "Ninguna organización en común",
+    "closeProfile": "Cerrar perfil"
   },
   "organizations": {
     "title": "Organizaciones",
@@ -557,7 +615,35 @@
     },
     "backToList": "Volver a las conversaciones",
     "websiteHint": "Un visitante escribió desde el chat de tu sitio web. Solo ve esta conversación.",
-    "counterpartDeleted": "Esta persona eliminó su cuenta. Puede seguir leyendo la conversación, pero ya no se pueden enviar mensajes."
+    "counterpartDeleted": "Esta persona eliminó su cuenta. Puede seguir leyendo la conversación, pero ya no se pueden enviar mensajes.",
+    "searchLabel": "Buscar conversaciones",
+    "searchPlaceholder": "Buscar conversaciones",
+    "chips": {
+      "label": "Mostrar",
+      "all": "Todas",
+      "unread": "No leídas",
+      "groups": "Grupos"
+    },
+    "noMatches": "Ninguna conversación coincide.",
+    "sections": {
+      "pinned": "Fijadas",
+      "recent": "Recientes"
+    },
+    "yesterday": "Ayer",
+    "previewDeleted": "Mensaje eliminado",
+    "previewFile": "Envió un archivo",
+    "previewYou": "Tú",
+    "searchIn": "Buscar en esta conversación",
+    "viewTabs": "Vistas de la conversación",
+    "views": {
+      "messages": "Mensajes",
+      "files": "Archivos compartidos"
+    },
+    "moreActions": "Más acciones",
+    "pin": "Fijar conversación",
+    "unpin": "Dejar de fijar",
+    "noFiles": "Aún no se han compartido archivos.",
+    "olderFiles": "Archivos anteriores"
   },
   "demo": {
     "title": "Datos de demostración",
@@ -612,7 +698,14 @@
     "threadUnread_one": "{{count}} nueva",
     "threadUnread_other": "{{count}} nuevas",
     "threadReplyShown": "Respondió en un hilo",
-    "openThread": "Ver hilo"
+    "openThread": "Ver hilo",
+    "newCount_one": "{{count}} mensaje nuevo",
+    "newCount_other": "{{count}} mensajes nuevos",
+    "todayOn": "Hoy, {{date}}",
+    "yesterdayOn": "Ayer, {{date}}",
+    "placeholderIn": "Mensaje para {{name}}…",
+    "insertEmoji": "Insertar emoji",
+    "hintShort": "Intro para enviar · Mayús + Intro para una línea nueva"
   },
   "threads": {
     "title": "Hilo",
@@ -1385,5 +1478,39 @@
     "cancelReminder": "Cancelar",
     "reminderTitle": "Recordatorio",
     "reminderFrom": "Un mensaje de {{name}}"
+  },
+  "activity": {
+    "title": "Actividad",
+    "subtitle": "Mantente al día con menciones, mensajes guardados y pendientes.",
+    "markAllRead": "Marcar todo como leído",
+    "markRead": "Marcar como leído",
+    "searchLabel": "Buscar menciones",
+    "searchPlaceholder": "Buscar menciones…",
+    "showLabel": "Mostrar",
+    "show": {
+      "all": "Todas",
+      "unread": "No leídas"
+    },
+    "conversationLabel": "Conversación",
+    "allConversations": "Todas las conversaciones",
+    "orderLabel": "Orden",
+    "order": {
+      "newest": "Más recientes primero",
+      "oldest": "Más antiguas primero"
+    },
+    "noMatches": "Ninguna mención coincide.",
+    "mentionedYouIn": "te mencionó en",
+    "sentYouDirect": "te mencionó en un mensaje directo",
+    "openConversation": "Abrir conversación",
+    "upToDate": "Estás al día",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "comingUp": "Próximamente",
+    "nothingComing": "No hay recordatorios ni mensajes programados.",
+    "openReminder": "Abrir recordatorio",
+    "scheduledMessage": "Mensaje programado",
+    "viewMessage": "Ver mensaje",
+    "tipTitle": "Tus menciones, en un solo lugar",
+    "tipText": "Abre una mención para ir directamente a su conversación."
   }
 }

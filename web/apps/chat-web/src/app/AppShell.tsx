@@ -167,52 +167,64 @@ function AppNavigation() {
   const supportDesk = useSupportDesk(user?.id);
   if (!user) return null;
 
-  const items: { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string }[] = [
+  type Item = { to: string; label: string; icon: NavIconName; active: boolean; badge?: number; badgeLabel?: string };
+  const communicate: Item[] = [
     { to: '/conversations', label: t('nav.chats'), icon: 'chats', active: pathname === '/conversations', badge: unread, badgeLabel: t('notifications.unread', { count: unread }) },
     { to: '/mentions', label: t('nav.mentions'), icon: 'at', active: pathname === '/mentions', badge: activity, badgeLabel: t('notifications.activity', { count: activity }) },
     { to: '/search', label: t('nav.search'), icon: 'search', active: pathname === '/search' },
     { to: '/channels', label: t('nav.channels'), icon: 'hash', active: pathname === '/channels' || pathname === '/channel' },
     ...(supportDesk ? [{ to: '/support', label: t('nav.support'), icon: 'headset' as const, active: pathname === '/support' }] : []),
     { to: '/private', label: t('nav.private'), icon: 'lock', active: pathname === '/private', badge: invitations, badgeLabel: t('notifications.invitations', { count: invitations }) },
+  ];
+  const workspace: Item[] = [
     { to: '/contacts', label: t('nav.contacts'), icon: 'people', active: pathname === '/contacts' },
     { to: '/organizations', label: t('nav.organizations'), icon: 'building', active: pathname === '/organizations' || pathname === '/organization' },
     ...(canAdminister(user.permissions) ? [{ to: '/admin', label: t('nav.admin'), icon: 'shield' as const, active: pathname === '/admin' }] : []),
   ];
 
+  const renderItem = (item: Item) => (
+    <li key={item.to}>
+      <Link to={item.to} className={`cx-rail-link${item.icon === 'lock' ? ' is-private' : ''}`} aria-current={item.active ? 'page' : undefined}>
+        <span className="cx-rail-icon">
+          <NavIcon name={item.icon} />
+          {item.badge ? (
+            <span className="cx-rail-badge" aria-label={item.badgeLabel}>
+              {item.badge > 99 ? '99+' : item.badge}
+            </span>
+          ) : null}
+        </span>
+        <span className="cx-rail-label">{item.label}</span>
+      </Link>
+    </li>
+  );
+
+  // Redesign 2026-11: a labelled sidebar on wide screens (brand, the communication pages, a
+  // Workspace section and the signed-in person at the bottom), an icon rail in between, and a
+  // bottom tab bar on phones — all from this one markup.
   return (
     <nav className="cx-rail" aria-label={t('nav.label')}>
       <Link to="/" className="cx-rail-brand" aria-current={pathname === '/' ? 'page' : undefined} title={t('nav.home')}>
         <BrandMark />
+        <span className="cx-rail-brand-text" aria-hidden="true">
+          <span className="cx-rail-brand-name">{t('nav.brandName')}</span>
+          <span className="cx-rail-brand-by">{t('nav.brandBy')}</span>
+        </span>
         <span className="visually-hidden">{t('nav.home')}</span>
       </Link>
-      <ul className="cx-rail-items list-unstyled">
-        {items.map((item) => (
-          <li key={item.to}>
-            <Link to={item.to} className={`cx-rail-link${item.icon === 'lock' ? ' is-private' : ''}`} aria-current={item.active ? 'page' : undefined}>
-              <span className="cx-rail-icon">
-                <NavIcon name={item.icon} />
-                {item.badge ? (
-                  <span className="cx-rail-badge" aria-label={item.badgeLabel}>
-                    {item.badge > 99 ? '99+' : item.badge}
-                  </span>
-                ) : null}
-              </span>
-              <span className="cx-rail-label">{item.label}</span>
-            </Link>
-          </li>
-        ))}
-        <li className="cx-rail-account">
-          <Link to="/account" className="cx-rail-link" aria-current={pathname === '/account' ? 'page' : undefined}>
-            <span className="cx-rail-icon">
-              <Avatar user={user} size="sm" />
-            </span>
-            <span className="cx-rail-label">{t('nav.profile')}</span>
-          </Link>
-        </li>
-      </ul>
-      <div className="cx-rail-status">
-        <RealtimeIndicator />
-      </div>
+      <ul className="cx-rail-items list-unstyled">{communicate.map(renderItem)}</ul>
+      <p className="cx-rail-section" aria-hidden="true">{t('nav.workspace')}</p>
+      <ul className="cx-rail-items list-unstyled" aria-label={t('nav.workspace')}>{workspace.map(renderItem)}</ul>
+      <Link to="/account" className="cx-rail-user" aria-current={pathname === '/account' ? 'page' : undefined}>
+        <Avatar user={user} size="sm" />
+        <span className="cx-rail-user-text">
+          <span className="cx-rail-user-name">{user.displayName}</span>
+          <RealtimeIndicator />
+        </span>
+        <span className="cx-rail-user-settings">
+          <NavIcon name="settings" size={20} />
+        </span>
+        <span className="cx-rail-label cx-rail-user-label">{t('nav.profile')}</span>
+      </Link>
     </nav>
   );
 }

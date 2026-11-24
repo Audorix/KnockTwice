@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
@@ -122,10 +122,12 @@ describe('Planning (Phase 20)', () => {
 
     window.history.replaceState(null, '', '/mentions?tab=reminders');
     render(<MentionsPage />);
-    expect(await screen.findByText('Lunch?')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Done' }));
+    // The reminders tab (the "Coming up" column shows the next reminder too).
+    const reminders = await screen.findByRole('region', { name: 'Reminders' });
+    expect(await within(reminders).findByText('Lunch?')).toBeInTheDocument();
+    await user.click(within(reminders).getByRole('button', { name: 'Done' }));
     expect(deleted).toContain('r1');
-    expect(await screen.findByText(/No reminders/)).toBeInTheDocument();
+    expect(await within(reminders).findByText(/No reminders/)).toBeInTheDocument();
     window.history.replaceState(null, '', '/');
   });
 

@@ -680,6 +680,10 @@ namespace Audorix.ChatX.Persistence.Sqlite.Migrations
                         .HasDefaultValue("All")
                         .HasColumnName("notification_level");
 
+                    b.Property<DateTimeOffset?>("PinnedAtUtc")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("pinned_at_utc");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(16)

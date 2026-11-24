@@ -501,6 +501,18 @@ public sealed class ConversationParticipant
         NotificationLevel = Require.Defined(level);
     }
 
+    /// <summary>
+    /// When the person pinned this conversation to the top of their list (redesign 2026-11), or
+    /// null. Personal: nobody else sees it.
+    /// </summary>
+    public DateTimeOffset? PinnedAtUtc { get; private set; }
+
+    public void SetPinned(bool pinned, DateTimeOffset nowUtc)
+    {
+        RequireActive();
+        PinnedAtUtc = pinned ? PinnedAtUtc ?? Require.Utc(nowUtc) : null;
+    }
+
     /// <summary>Whether a message, mentioning the person or not, should notify them.</summary>
     public bool WantsNotification(bool mentioned) => NotificationLevel switch
     {

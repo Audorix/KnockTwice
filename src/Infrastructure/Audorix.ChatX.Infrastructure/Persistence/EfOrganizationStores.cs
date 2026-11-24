@@ -211,6 +211,28 @@ internal sealed class EfContactStore(ChatXDbContext db) : IContactStore
                 r => r.PairLowId == pair.Low && r.PairHighId == pair.High && r.Status == ContactRequestStatus.Pending, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<SharedOrganization>>> ListSharedOrganizationsAsync(
+        Guid userId, IReadOnlyCollection<Guid> otherUserIds, CancellationToken cancellationToken)
+    {
+        if (otherUserIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<SharedOrganization>>();
+        }
+
+        var others = otherUserIds.ToList();
+        var rows = await (
+            from mine in db.OrganizationMembers.AsNoTracking()
+            where mine.UserId == userId && mine.Status == MembershipStatus.Active
+            join other in db.OrganizationMembers.AsNoTracking() on mine.OrganizationId equals other.OrganizationId
+            where other.Status == MembershipStatus.Active && others.Contains(other.UserId)
+            join organization in db.Organizations.AsNoTracking() on mine.OrganizationId equals organization.Id
+            select new { other.UserId, organization.Id, organization.Name })
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        return rows.GroupBy(r => r.UserId).ToDictionary(
+            g => g.Key,
+            g => (IReadOnlyList<SharedOrganization>)g.Select(r => new SharedOrganization(r.Id, r.Name)).OrderBy(o => o.Name, StringComparer.CurrentCultureIgnoreCase).ToList());
+    }
+
     public void Add(Contact contact) => db.Contacts.Add(contact);
 
     public void Add(ContactRequest request) => db.ContactRequests.Add(request);

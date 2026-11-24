@@ -19,6 +19,9 @@
     "private": "Private",
     "home": "Home",
     "profile": "Profile",
+    "brandName": "ChatX",
+    "brandBy": "by Audorix",
+    "workspace": "Workspace",
     "chats": "Chats",
     "admin": "Admin",
     "channels": "Channels",
@@ -404,7 +407,62 @@
     "blockNamed": "Block {{name}}",
     "blockConfirm": "Block {{name}}? You will no longer be contacts, pending requests are closed and neither of you can find or add the other.",
     "blocked": "Blocked people",
-    "unblock": "Unblock"
+    "unblock": "Unblock",
+    "subtitle": "Your people, one conversation away.",
+    "findPeople": "Find people",
+    "connectTitle": "Connect with someone new",
+    "searchPlaceholder": "Enter an exact email or a name in your organization",
+    "searchShortHint": "Find anyone by exact email. Name search is limited to your organizations. Emails stay private.",
+    "tabs": {
+      "all": "All contacts",
+      "requests": "Requests",
+      "blocked": "Blocked",
+      "label": "Contact lists"
+    },
+    "filterLabel": "Filter your contacts",
+    "filterPlaceholder": "Filter your contacts…",
+    "statusFilter": {
+      "label": "Status",
+      "all": "Status: All",
+      "online": "Status: Online",
+      "offline": "Status: Offline"
+    },
+    "sort": {
+      "label": "Sort",
+      "nameAsc": "Name A–Z",
+      "nameDesc": "Name Z–A",
+      "recent": "Recently added"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "organization": "Organization",
+      "actions": "Actions"
+    },
+    "presence": {
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "moreFor": "More actions for {{name}}",
+    "viewProfile": "View profile",
+    "removeContact": "Remove contact",
+    "blockContact": "Block contact",
+    "showing": "Showing {{from}}–{{to}} of {{total}} contacts",
+    "perPage": "{{count}} per page",
+    "perPageLabel": "Contacts per page",
+    "pages": "Contact pages",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "page": "Page {{page}}",
+    "noMatches": "No contacts match the filter.",
+    "noRequests": "No pending requests.",
+    "noBlocked": "You have not blocked anyone.",
+    "requestedOn": "Sent {{date}}",
+    "profileTitle": "Profile of {{name}}",
+    "profileSince": "Contact since {{date}}",
+    "profileOrganizations": "Shared organizations",
+    "profileNoOrganizations": "No shared organizations",
+    "closeProfile": "Close profile"
   },
   "organizations": {
     "title": "Organizations",
@@ -557,7 +615,35 @@
     },
     "backToList": "Back to conversations",
     "websiteHint": "A visitor wrote through your website chat. They only see this conversation.",
-    "counterpartDeleted": "This person deleted their account. You can still read the conversation, but no new messages can be sent."
+    "counterpartDeleted": "This person deleted their account. You can still read the conversation, but no new messages can be sent.",
+    "searchLabel": "Search conversations",
+    "searchPlaceholder": "Search conversations",
+    "chips": {
+      "label": "Show",
+      "all": "All",
+      "unread": "Unread",
+      "groups": "Groups"
+    },
+    "noMatches": "No conversations match.",
+    "sections": {
+      "pinned": "Pinned",
+      "recent": "Recent"
+    },
+    "yesterday": "Yesterday",
+    "previewDeleted": "Message deleted",
+    "previewFile": "Sent a file",
+    "previewYou": "You",
+    "searchIn": "Search in this conversation",
+    "viewTabs": "Conversation views",
+    "views": {
+      "messages": "Messages",
+      "files": "Shared files"
+    },
+    "moreActions": "More actions",
+    "pin": "Pin conversation",
+    "unpin": "Unpin conversation",
+    "noFiles": "No files shared yet.",
+    "olderFiles": "Older files"
   },
   "demo": {
     "title": "Demo data",
@@ -612,7 +698,14 @@
     "threadUnread_one": "{{count}} new",
     "threadUnread_other": "{{count}} new",
     "threadReplyShown": "Replied in a thread",
-    "openThread": "View thread"
+    "openThread": "View thread",
+    "newCount_one": "{{count}} new message",
+    "newCount_other": "{{count}} new messages",
+    "todayOn": "Today, {{date}}",
+    "yesterdayOn": "Yesterday, {{date}}",
+    "placeholderIn": "Message {{name}}…",
+    "insertEmoji": "Insert emoji",
+    "hintShort": "Enter to send · Shift + Enter for a new line"
   },
   "threads": {
     "title": "Thread",
@@ -1385,5 +1478,39 @@
     "cancelReminder": "Cancel",
     "reminderTitle": "Reminder",
     "reminderFrom": "A message from {{name}}"
+  },
+  "activity": {
+    "title": "Activity",
+    "subtitle": "Stay on top of mentions, saved messages and follow-ups.",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read",
+    "searchLabel": "Search mentions",
+    "searchPlaceholder": "Search mentions…",
+    "showLabel": "Show",
+    "show": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "conversationLabel": "Conversation",
+    "allConversations": "All conversations",
+    "orderLabel": "Order",
+    "order": {
+      "newest": "Newest first",
+      "oldest": "Oldest first"
+    },
+    "noMatches": "No mentions match.",
+    "mentionedYouIn": "mentioned you in",
+    "sentYouDirect": "mentioned you in a direct message",
+    "openConversation": "Open conversation",
+    "upToDate": "You're up to date",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "comingUp": "Coming up",
+    "nothingComing": "No reminders or scheduled messages.",
+    "openReminder": "Open reminder",
+    "scheduledMessage": "Scheduled message",
+    "viewMessage": "View message",
+    "tipTitle": "Your mentions, in one place",
+    "tipText": "Open a mention to jump directly to its conversation."
   }
 }

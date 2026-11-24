@@ -39,11 +39,14 @@ export function localInputValue(date: Date): string {
 export function TimeMenu({
   label,
   buttonClassName,
+  buttonContent,
   disabled,
   onPick,
 }: {
   label: string;
   buttonClassName?: string;
+  /** Shown instead of the label (which then names the button for assistive technology and the tooltip). */
+  buttonContent?: React.ReactNode;
   disabled?: boolean;
   onPick: (at: Date) => void;
 }) {
@@ -77,8 +80,16 @@ export function TimeMenu({
 
   return (
     <span className="cx-reaction-picker" ref={box}>
-      <button type="button" className={buttonClassName ?? 'btn btn-sm btn-link p-0'} aria-expanded={open} aria-haspopup="menu" disabled={disabled} onClick={() => setOpen((o) => !o)}>
-        {label}
+      <button type="button" className={buttonClassName ?? 'btn btn-sm btn-link p-0'} aria-expanded={open} aria-haspopup="menu" disabled={disabled}
+        title={buttonContent ? label : undefined} onClick={() => setOpen((o) => !o)}>
+        {buttonContent ? (
+          <>
+            {buttonContent}
+            <span className="visually-hidden">{label}</span>
+          </>
+        ) : (
+          label
+        )}
       </button>
       {open && (
         <span className="cx-reaction-menu cx-tools-menu cx-time-menu" role="menu" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>

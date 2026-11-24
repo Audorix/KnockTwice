@@ -2320,6 +2320,97 @@
         }
       }
     },
+    "/api/v1/conversations/{conversationId}/files": {
+      "get": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Files shared in the conversation that the caller may see (not deleted, from their join), newest first; default 30, at most 100. Pass nextCursor as 'before' for older files.",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "pattern": "^-?(?:0|[1-9]\\d*)$",
+              "type": [
+                "integer",
+                "string"
+              ],
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedFilesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversations/{conversationId}/pinned": {
+      "put": {
+        "tags": [
+          "Conversations"
+        ],
+        "summary": "Pins or unpins the conversation at the top of the caller's own list (personal; nobody else sees it).",
+        "parameters": [
+          {
+            "name": "conversationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetConversationPinnedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/conversations/{conversationId}/pins": {
       "get": {
         "tags": [
@@ -7410,6 +7501,15 @@
           "sinceUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "sharedOrganizations": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SharedOrganizationResponse"
+            }
           }
         }
       },
@@ -7652,6 +7752,45 @@
           }
         }
       },
+      "ConversationLastMessageResponse": {
+        "required": [
+          "id",
+          "author",
+          "excerpt",
+          "deleted",
+          "createdAtUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserSummaryResponse"
+              }
+            ]
+          },
+          "excerpt": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "deleted": {
+            "type": "boolean"
+          },
+          "createdAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "ConversationListPageResponse": {
         "required": [
           "items",
@@ -7877,6 +8016,20 @@
           "notificationLevel": {
             "type": "string",
             "default": "all"
+          },
+          "pinned": {
+            "type": "boolean",
+            "default": false
+          },
+          "lastMessage": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ConversationLastMessageResponse"
+              }
+            ]
           }
         }
       },
@@ -9969,6 +10122,17 @@
           }
         }
       },
+      "SetConversationPinnedRequest": {
+        "required": [
+          "pinned"
+        ],
+        "type": "object",
+        "properties": {
+          "pinned": {
+            "type": "boolean"
+          }
+        }
+      },
       "SetPinnedRequest": {
         "required": [
           "pinned"
@@ -10058,6 +10222,88 @@
           },
           "completed": {
             "type": "boolean"
+          }
+        }
+      },
+      "SharedFileResponse": {
+        "required": [
+          "file",
+          "messageId",
+          "sequence",
+          "author",
+          "sharedAtUtc"
+        ],
+        "type": "object",
+        "properties": {
+          "file": {
+            "$ref": "#/components/schemas/MessageAttachmentResponse"
+          },
+          "messageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sequence": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "author": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/UserSummaryResponse"
+              }
+            ]
+          },
+          "sharedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SharedFilesResponse": {
+        "required": [
+          "items",
+          "nextCursor",
+          "hasMore"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SharedFileResponse"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SharedOrganizationResponse": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
