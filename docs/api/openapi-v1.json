@@ -77,7 +77,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included.",
+        "summary": "Populates demo data and waits until it is done (several minutes; prefer POST /admin/demo-data/jobs): 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included. Joins a load that is already running.",
         "responses": {
           "200": {
             "description": "OK",
@@ -124,6 +124,49 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/demo-data/jobs": {
+      "post": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Starts loading demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. While a load runs, returns that load instead of starting another.",
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoDataJobResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/demo-data/jobs/current": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "The running demo data load with progress per part, or the last one since the API started (204 when there was none).",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemoDataJobResponse"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
           }
         }
       }
@@ -9329,6 +9372,60 @@
           }
         }
       },
+      "DemoDataJobResponse": {
+        "required": [
+          "id",
+          "state",
+          "startedAtUtc",
+          "finishedAtUtc",
+          "steps",
+          "result",
+          "errorCode"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string"
+          },
+          "startedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAtUtc": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DemoDataStepResponse"
+            }
+          },
+          "result": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DemoDataResponse"
+              }
+            ]
+          },
+          "errorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
       "DemoDataResponse": {
         "required": [
           "created",
@@ -9352,6 +9449,35 @@
           },
           "password": {
             "type": "string"
+          }
+        }
+      },
+      "DemoDataStepResponse": {
+        "required": [
+          "key",
+          "done",
+          "total"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "done": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "total": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

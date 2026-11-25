@@ -6,6 +6,18 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
 
 ## [Unreleased]
 
+### Added
+
+- **Demo data loads with progress.** *Populate demo data* now starts the load in the background and
+  shows a progress bar for each part (people, companies, contacts, groups and direct chats, channels,
+  messages, activity items, support conversations and profile photos) and an overall percentage.
+  When every part reaches 100%, a dialog shows what is loaded and how to sign in as a demo person;
+  *OK* hides the progress. Reopening the page while a load runs picks the progress up again.
+- **API:** `POST /api/v1/admin/demo-data/jobs` starts a load and returns at once (202);
+  `GET /api/v1/admin/demo-data/jobs/current` reports it with progress per part. Only one load runs at
+  a time. `POST /api/v1/admin/demo-data` still waits for the result, and clearing demo data during a
+  load is refused with `demo_data_loading` (409).
+
 ### Changed
 
 - **Code base renamed to Audorix.KnockTwice.** Namespaces, projects, folders and the solution
@@ -22,6 +34,10 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
   organization members, audit log) and the private chat invitation showed initials even for people
   with a photo. The admin API now returns `photoUrl` for users and organization members and
   `actorPhotoUrl` for audit entries. Groups and channels keep their initials.
+- **Loading demo data no longer appears to hang.** The button stayed on *Please wait* because the
+  load ran in one request that could outlast the browser or a proxy. Loading also took several
+  minutes because each of the 300 demo profile photos was saved while all the just-loaded data was
+  still tracked; a full load now takes about a minute.
 
 ## [1.0.0] - 2026-11-25
 

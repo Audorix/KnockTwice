@@ -836,7 +836,7 @@
   },
   "demo": {
     "title": "Demo data",
-    "intro": "Adds 300 demo people, 50 companies, contacts, 150 groups, 800 channels, direct conversations, about 24,000 messages, activity (mentions, saved messages, reminders and scheduled messages: 500 items for you, 50–100 for everyone else) and 500 support conversations with replies and internal notes, and includes you in part of it: you become a support agent in your demo companies. Safe to run again: only missing data is added. Loading can take a minute or two.",
+    "intro": "Adds 300 demo people, 50 companies, contacts, 150 groups, 800 channels, direct conversations, about 24,000 messages, activity (mentions, saved messages, reminders and scheduled messages: 500 items for you, 50–100 for everyone else) and 500 support conversations with replies and internal notes, and includes you in part of it: you become a support agent in your demo companies. Safe to run again: only missing data is added. Loading takes a few minutes and continues on the server; you can follow each part here.",
     "populate": "Populate demo data",
     "created": "Added {{users}} people, {{organizations}} companies, {{contacts}} contacts, {{conversations}} conversations, {{messages}} messages, {{activity}} activity items, {{support}} support conversations and {{photos}} profile photos.",
     "upToDate": "The demo data is already complete; nothing was added.",
@@ -854,7 +854,27 @@
       "activity": "Activity items",
       "support": "Support conversations"
     },
-    "clearNote": "Clearing asks for confirmation."
+    "clearNote": "Clearing asks for confirmation.",
+    "loading": "Loading demo data…",
+    "progressTitle": "Loading demo data",
+    "progressOverall": "{{percent}}% complete",
+    "progressCount": "{{done}} of {{total}}",
+    "steps": {
+      "people": "People",
+      "companies": "Companies",
+      "contacts": "Contacts",
+      "chats": "Groups and direct chats",
+      "channels": "Channels",
+      "messages": "Messages",
+      "activity": "Activity items",
+      "support": "Support conversations",
+      "photos": "Profile photos"
+    },
+    "doneTitle": "Demo data is ready",
+    "doneText": "Everything is loaded. This is the demo data you now have:",
+    "doneUpToDate": "The demo data was already complete; nothing needed to be added. This is what you have:",
+    "doneOk": "OK",
+    "failed": "Loading demo data stopped before it finished. Try again: only what is missing is added."
   },
   "messages": {
     "compose": "Message",

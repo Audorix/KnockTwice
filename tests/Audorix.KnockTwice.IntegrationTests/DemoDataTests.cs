@@ -114,7 +114,34 @@ public sealed class DemoDataTests
         var hikers = mine.Single(c => c.GetProperty("title").GetString() == "Weekend hikers").GetProperty("id").GetGuid();
         AssertStatus(HttpStatusCode.NoContent, await admin.PostAsync($"/api/v1/conversations/{hikers}/leave"));
         var afterLeave = await CountRowsAsync(api);
-        var again = (await JsonAsync(await admin.PostAsync("/api/v1/admin/demo-data"))).GetProperty("created");
+
+        // The second load runs in the background (2026-11-25) and reports progress per part. The first
+        // (synchronous) load went through the same background job and is the current one until then.
+        Assert.Equal("completed", (await JsonAsync(await admin.GetAsync("/api/v1/admin/demo-data/jobs/current"))).GetProperty("state").GetString());
+        var started = await admin.PostAsync("/api/v1/admin/demo-data/jobs");
+        AssertStatus(HttpStatusCode.Accepted, started, await started.Content.ReadAsStringAsync(Ct));
+        var startedJob = await JsonAsync(started);
+        Assert.Equal(["people", "companies", "contacts", "chats", "channels", "messages", "activity", "support", "photos"],
+            startedJob.GetProperty("steps").EnumerateArray().Select(s => s.GetProperty("key").GetString()));
+        var job = startedJob;
+        for (var i = 0; i < 600 && job.GetProperty("state").GetString() == "running"; i++)
+        {
+            // While it runs, starting again joins the same load.
+            if (i == 0)
+            {
+                var join = await JsonAsync(await admin.PostAsync("/api/v1/admin/demo-data/jobs"));
+                Assert.Equal(startedJob.GetProperty("id").GetGuid(), join.GetProperty("id").GetGuid());
+            }
+
+            await Task.Delay(200, Ct);
+            job = await JsonAsync(await admin.GetAsync("/api/v1/admin/demo-data/jobs/current"));
+        }
+
+        Assert.Equal("completed", job.GetProperty("state").GetString());
+        Assert.All(job.GetProperty("steps").EnumerateArray(), s => Assert.Equal(s.GetProperty("total").GetInt32(), s.GetProperty("done").GetInt32()));
+        Assert.True(job.GetProperty("steps").EnumerateArray().All(s => s.GetProperty("total").GetInt32() > 0));
+        Assert.Equal(Audorix.KnockTwice.Application.Demo.DemoDataService.Password, job.GetProperty("result").GetProperty("password").GetString());
+        var again = job.GetProperty("result").GetProperty("created");
         Assert.Equal((0, 0, 0, 0, 0, 0, 0), (again.GetProperty("users").GetInt32(), again.GetProperty("organizations").GetInt32(),
             again.GetProperty("contacts").GetInt32(), again.GetProperty("conversations").GetInt32(), again.GetProperty("messages").GetInt32(),
             again.GetProperty("activity").GetInt32(), again.GetProperty("support").GetInt32()));
@@ -177,6 +204,8 @@ public sealed class DemoDataTests
             var (user, _) = await SignedInAsync(enabled, "user@example.org", "User");
             using var _1 = user;
             Assert.Equal(HttpStatusCode.Forbidden, (await user.PostAsync("/api/v1/admin/demo-data")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await user.PostAsync("/api/v1/admin/demo-data/jobs")).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await user.GetAsync("/api/v1/admin/demo-data/jobs/current")).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden, (await user.SendAsync(HttpMethod.Delete, "/api/v1/admin/demo-data")).StatusCode);
             Assert.True((await JsonAsync(await user.GetAsync("/api/v1/auth/config"))).GetProperty("demoDataEnabled").GetBoolean());
         }
@@ -191,6 +220,8 @@ public sealed class DemoDataTests
         var refused = await admin.PostAsync("/api/v1/admin/demo-data");
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
         Assert.Equal("demo_data_disabled", await ErrorCodeAsync(refused));
+        Assert.Equal("demo_data_disabled", await ErrorCodeAsync(await admin.PostAsync("/api/v1/admin/demo-data/jobs")));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.GetAsync("/api/v1/admin/demo-data/jobs/current")).StatusCode);
         Assert.False((await JsonAsync(await admin.GetAsync("/api/v1/auth/config"))).GetProperty("demoDataEnabled").GetBoolean());
     }
 

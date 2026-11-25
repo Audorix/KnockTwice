@@ -836,7 +836,7 @@
   },
   "demo": {
     "title": "Datos de demostración",
-    "intro": "Añade 300 personas de demostración, 50 empresas, contactos, 150 grupos, 800 canales, conversaciones directas, unos 24.000 mensajes, actividad (menciones, mensajes guardados, recordatorios y mensajes programados: 500 elementos para usted, 50–100 para cada persona) y 500 conversaciones de soporte con respuestas y notas internas, y le incluye en parte de ello: pasa a ser agente de soporte en sus empresas de demostración. Puede repetirse: solo se añade lo que falta. La carga puede tardar uno o dos minutos.",
+    "intro": "Añade 300 personas de demostración, 50 empresas, contactos, 150 grupos, 800 canales, conversaciones directas, unos 24.000 mensajes, actividad (menciones, mensajes guardados, recordatorios y mensajes programados: 500 elementos para usted, 50–100 para cada persona) y 500 conversaciones de soporte con respuestas y notas internas, y le incluye en parte de ello: pasa a ser agente de soporte en sus empresas de demostración. Puede repetirse: solo se añade lo que falta. La carga tarda unos minutos y continúa en el servidor; aquí puede seguir cada parte.",
     "populate": "Cargar datos de demostración",
     "created": "Se añadieron {{users}} personas, {{organizations}} empresas, {{contacts}} contactos, {{conversations}} conversaciones, {{messages}} mensajes, {{activity}} elementos de actividad, {{support}} conversaciones de soporte y {{photos}} fotos de perfil.",
     "upToDate": "Los datos de demostración ya están completos; no se añadió nada.",
@@ -854,7 +854,27 @@
       "activity": "Elementos de actividad",
       "support": "Conversaciones de soporte"
     },
-    "clearNote": "Borrar pide confirmación."
+    "clearNote": "Borrar pide confirmación.",
+    "loading": "Cargando datos de demostración…",
+    "progressTitle": "Cargando datos de demostración",
+    "progressOverall": "{{percent}} % completado",
+    "progressCount": "{{done}} de {{total}}",
+    "steps": {
+      "people": "Personas",
+      "companies": "Empresas",
+      "contacts": "Contactos",
+      "chats": "Grupos y conversaciones directas",
+      "channels": "Canales",
+      "messages": "Mensajes",
+      "activity": "Elementos de actividad",
+      "support": "Conversaciones de soporte",
+      "photos": "Fotos de perfil"
+    },
+    "doneTitle": "Los datos de demostración están listos",
+    "doneText": "Todo está cargado. Estos son los datos de demostración que tiene ahora:",
+    "doneUpToDate": "Los datos de demostración ya estaban completos; no hizo falta añadir nada. Esto es lo que tiene:",
+    "doneOk": "Aceptar",
+    "failed": "La carga de los datos de demostración se detuvo antes de terminar. Vuelva a intentarlo: solo se añade lo que falta."
   },
   "messages": {
     "compose": "Mensaje",

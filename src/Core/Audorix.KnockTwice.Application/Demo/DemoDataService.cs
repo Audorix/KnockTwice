@@ -39,7 +39,8 @@ public interface IDemoDataStore
     /// Adds whatever of <paramref name="plan"/> is missing, flags it as demo data and gives every demo
     /// account <paramref name="password"/>. Nothing a person later left, removed or deleted is put back.
     /// </summary>
-    Task<DemoDataCounts> PopulateAsync(DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, CancellationToken cancellationToken);
+    Task<DemoDataCounts> PopulateAsync(
+        DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, IDemoDataProgress? progress, CancellationToken cancellationToken);
 
     /// <summary>What demo data exists now.</summary>
     Task<DemoDataCounts> CountAsync(CancellationToken cancellationToken);
@@ -75,16 +76,47 @@ public sealed class DemoDataService(
 
     private static readonly Lazy<DemoDataPlan> Plan = new(DemoDataPlan.Create);
 
-    public async Task<DemoDataResult> PopulateAsync(Guid callerId, CancellationToken cancellationToken)
+    /// <summary>Refuses with <c>demo_data_disabled</c> unless demo data is switched on.</summary>
+    public void EnsureEnabled()
     {
         if (!settings.Value.Enabled)
         {
             throw new FeatureDisabledException("demo_data_disabled");
         }
+    }
 
+    /// <summary>The parts a load goes through and their sizes; photos only when the avatars folder exists.</summary>
+    public IReadOnlyList<DemoDataStep> Steps()
+    {
         var plan = Plan.Value;
-        var created = await store.PopulateAsync(plan, callerId, Password, time.GetUtcNow(), cancellationToken).ConfigureAwait(false);
-        created = created with { Photos = await AssignPhotosAsync(plan, cancellationToken).ConfigureAwait(false) };
+        var steps = new List<DemoDataStep>
+        {
+            new(DemoDataSteps.People, plan.People.Count),
+            new(DemoDataSteps.Companies, plan.Companies.Count),
+            new(DemoDataSteps.Contacts, plan.Contacts.Count),
+            new(DemoDataSteps.Chats, plan.Groups.Count + plan.Directs.Count),
+            new(DemoDataSteps.Channels, plan.Channels.Count),
+            new(DemoDataSteps.Messages, plan.Messages.Count),
+            new(DemoDataSteps.Activity, plan.Saved.Count + plan.Reminders.Count + plan.Scheduled.Count),
+            new(DemoDataSteps.Support, plan.Support.Count),
+        };
+        if (AvatarsFolder() is not null)
+        {
+            steps.Add(new(DemoDataSteps.Photos, plan.People.Count));
+        }
+
+        return steps;
+    }
+
+    public async Task<DemoDataResult> PopulateAsync(Guid callerId, CancellationToken cancellationToken) =>
+        await PopulateAsync(callerId, null, cancellationToken).ConfigureAwait(false);
+
+    public async Task<DemoDataResult> PopulateAsync(Guid callerId, IDemoDataProgress? progress, CancellationToken cancellationToken)
+    {
+        EnsureEnabled();
+        var plan = Plan.Value;
+        var created = await store.PopulateAsync(plan, callerId, Password, time.GetUtcNow(), progress, cancellationToken).ConfigureAwait(false);
+        created = created with { Photos = await AssignPhotosAsync(plan, progress, cancellationToken).ConfigureAwait(false) };
         var total = await store.CountAsync(cancellationToken).ConfigureAwait(false);
         return new DemoDataResult(created, total, plan.People.Take(10).Select(p => p.Email).ToList(), Password);
     }
@@ -108,10 +140,9 @@ public sealed class DemoDataService(
     /// an earlier load, or one they chose) are left alone, and so are deleted accounts. Returns how
     /// many photos were set.
     /// </summary>
-    private async Task<int> AssignPhotosAsync(DemoDataPlan plan, CancellationToken cancellationToken)
+    private async Task<int> AssignPhotosAsync(DemoDataPlan plan, IDemoDataProgress? progress, CancellationToken cancellationToken)
     {
-        var folder = settings.Value.AvatarsPath;
-        if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        if (AvatarsFolder() is not { } folder)
         {
             return 0;
         }
@@ -119,6 +150,7 @@ public sealed class DemoDataService(
         var assigned = 0;
         for (var i = 0; i < plan.People.Count; i++)
         {
+            progress?.Report(DemoDataSteps.Photos, i + 1);
             var file = AvatarFile(folder, i + 1);
             if (file is null)
             {
@@ -150,6 +182,9 @@ public sealed class DemoDataService(
 
         return assigned;
     }
+
+    private string? AvatarsFolder() =>
+        settings.Value.AvatarsPath is { Length: > 0 } folder && !string.IsNullOrWhiteSpace(folder) && Directory.Exists(folder) ? folder : null;
 
     private static readonly string[] AvatarExtensions = [".jpg", ".jpeg", ".png", ".webp"];
 

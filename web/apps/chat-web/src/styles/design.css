@@ -8402,3 +8402,107 @@ button.cx-person:hover .cx-person-name {
     margin-top: 0.6rem;
   }
 }
+
+/* ---- Demo data: progress per part and the completion dialog (2026-11-25) ---------------------- */
+
+.cx-demo-progress {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-sm);
+  background: var(--cx-raised);
+}
+
+.cx-demo-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cx-demo-progress-overall {
+  font-weight: 700;
+  color: var(--cx-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-demo-step + .cx-demo-step {
+  margin-top: 0.6rem;
+}
+
+.cx-demo-step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.cx-demo-step-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.cx-demo-step.is-done .cx-demo-step-name svg {
+  color: var(--cx-ok);
+}
+
+.cx-demo-bar {
+  height: 0.5rem;
+  background: var(--cx-field);
+}
+
+.cx-demo-bar .progress-bar {
+  background: var(--cx-primary);
+  transition: width 0.4s ease;
+}
+
+.cx-demo-step.is-done .cx-demo-bar .progress-bar {
+  background: var(--cx-ok);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-demo-bar .progress-bar {
+    transition: none;
+  }
+}
+
+.cx-confirm-icon.is-success {
+  background: rgba(31, 138, 76, 0.16);
+  color: var(--cx-ok);
+}
+
+.cx-demo-done-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.cx-demo-done-list li {
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius-sm);
+}
+
+.cx-demo-done-list strong {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 575.98px) {
+  .cx-demo-done-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cx-demo-step-head {
+    flex-direction: column;
+    gap: 0;
+  }
+}

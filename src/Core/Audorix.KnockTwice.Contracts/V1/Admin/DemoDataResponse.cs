@@ -13,3 +13,16 @@ public sealed record DemoDataCountsResponse(int Users, int Organizations, int Co
 
 /// <param name="Removed">The demo data that was removed.</param>
 public sealed record DemoDataClearedResponse(DemoDataCountsResponse Removed);
+
+/// <summary>A demo data load running in the background (2026-11-25), with progress per part.</summary>
+/// <param name="State"><c>running</c>, <c>completed</c> or <c>failed</c>.</param>
+/// <param name="Steps">The parts in loading order: <c>people</c>, <c>companies</c>, <c>contacts</c>, <c>chats</c>,
+/// <c>channels</c>, <c>messages</c>, <c>activity</c>, <c>support</c> and, with a demo avatars folder, <c>photos</c>.</param>
+/// <param name="Result">What the load added and the demo accounts, once completed.</param>
+/// <param name="ErrorCode">Why the load stopped, once failed.</param>
+public sealed record DemoDataJobResponse(
+    Guid Id, string State, DateTimeOffset StartedAtUtc, DateTimeOffset? FinishedAtUtc, IReadOnlyList<DemoDataStepResponse> Steps,
+    DemoDataResponse? Result, string? ErrorCode);
+
+/// <param name="Done">Items processed so far: added, or found already there.</param>
+public sealed record DemoDataStepResponse(string Key, int Done, int Total);

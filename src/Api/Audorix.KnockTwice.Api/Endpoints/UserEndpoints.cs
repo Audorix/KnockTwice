@@ -74,15 +74,26 @@ internal static class UserEndpoints
             .WithTags("Administration")
             .WithSummary("Installation metadata. Requires the installation.read permission.");
 
-        v1.MapPost("/admin/demo-data", async (HttpContext http, Application.Demo.DemoDataService demo, Application.Administration.AuditService audit, CancellationToken ct) =>
+        v1.MapPost("/admin/demo-data", async (HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, CancellationToken ct) =>
         {
-            var result = await demo.PopulateAsync(http.User.RequireUserId(), ct);
-            await audit.RecordAsync(Application.Administration.AuditActions.DemoDataPopulated, http.User.RequireUserId(), cancellationToken: ct);
-            return TypedResults.Ok(new DemoDataResponse(ToCounts(result.Created), ToCounts(result.Total), result.UserEmails, result.Password));
+            var job = jobs.Start(http.User.RequireUserId(), demo);
+            return TypedResults.Ok(ToResponse(await Administration.DemoDataJobs.WaitAsync(job, ct)));
         })
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
-            .WithSummary("Populates demo data: 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included.");
+            .WithSummary("Populates demo data and waits until it is done (several minutes; prefer POST /admin/demo-data/jobs): 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included. Joins a load that is already running.");
+
+        v1.MapPost("/admin/demo-data/jobs", (HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs) =>
+            TypedResults.Accepted("/api/v1/admin/demo-data/jobs/current", ToResponse(jobs.Start(http.User.RequireUserId(), demo))))
+            .RequireAuthorization(Permissions.DemoDataManage)
+            .WithTags("Administration")
+            .WithSummary("Starts loading demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. While a load runs, returns that load instead of starting another.");
+
+        v1.MapGet("/admin/demo-data/jobs/current", Results<Ok<DemoDataJobResponse>, NoContent> (Administration.DemoDataJobs jobs) =>
+            jobs.Current is { } job ? TypedResults.Ok(ToResponse(job)) : TypedResults.NoContent())
+            .RequireAuthorization(Permissions.DemoDataManage)
+            .WithTags("Administration")
+            .WithSummary("The running demo data load with progress per part, or the last one since the API started (204 when there was none).");
 
         v1.MapGet("/admin/demo-data", async (Application.Demo.DemoDataService demo, CancellationToken ct) =>
             TypedResults.Ok(ToCounts(await demo.CountAsync(ct))))
@@ -90,8 +101,14 @@ internal static class UserEndpoints
             .WithTags("Administration")
             .WithSummary("How much demo data exists.");
 
-        v1.MapDelete("/admin/demo-data", async (HttpContext http, Application.Demo.DemoDataService demo, Application.Administration.AuditService audit, CancellationToken ct) =>
+        v1.MapDelete("/admin/demo-data", async (
+            HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, Application.Administration.AuditService audit, CancellationToken ct) =>
         {
+            if (jobs.IsRunning)
+            {
+                throw new Application.Common.ConflictException("demo_data_loading");
+            }
+
             var removed = await demo.ClearAsync(ct);
             await audit.RecordAsync(Application.Administration.AuditActions.DemoDataCleared, http.User.RequireUserId(),
                 details: new Dictionary<string, object?> { ["users"] = removed.Users, ["conversations"] = removed.Conversations, ["messages"] = removed.Messages },
@@ -110,6 +127,15 @@ internal static class UserEndpoints
 
     private static ProfileLinkResponse ToLink(Domain.Users.ProfileLink link) =>
         new(ProfileMediaService.PlatformName(link.Platform), link.Url, ProfileMediaService.VisibilityName(link.Visibility));
+
+    private static DemoDataResponse ToResponse(Application.Demo.DemoDataResult result) =>
+        new(ToCounts(result.Created), ToCounts(result.Total), result.UserEmails, result.Password);
+
+    private static DemoDataJobResponse ToResponse(Administration.DemoDataJob job) => new(
+        job.Id, job.State, job.StartedAtUtc, job.FinishedAtUtc,
+        job.Steps().Select(s => new DemoDataStepResponse(s.Key, s.Done, s.Total)).ToList(),
+        job.Completion.IsCompletedSuccessfully ? ToResponse(job.Completion.Result) : null,
+        job.ErrorCode);
 
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
         new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support, counts.Photos);

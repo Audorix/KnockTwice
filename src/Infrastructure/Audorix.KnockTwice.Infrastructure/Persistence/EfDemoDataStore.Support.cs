@@ -71,7 +71,7 @@ internal sealed partial class EfDemoDataStore
         var existingVisitors = (await db.Users.Where(u => visitorUserIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(cancellationToken).ConfigureAwait(false)).ToHashSet();
         var caller = users[DemoDataPlan.Me];
         var pending = 0;
-        foreach (var item in plan.Support)
+        foreach (var item in Tracked(plan.Support, DemoDataSteps.Support))
         {
             var organizationId = DemoDataPlan.DemoId("org:" + item.CompanyKey);
             var widgetId = WidgetId(item.CompanyKey, item.InApp);

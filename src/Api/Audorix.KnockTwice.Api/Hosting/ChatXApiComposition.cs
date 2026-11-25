@@ -112,6 +112,7 @@ public static class ChatXApiComposition
                     s.AvatarsPath = Path.GetFullPath(s.AvatarsPath, env.ContentRootPath);
                 }
             });
+        services.AddSingleton<Administration.DemoDataJobs>();
         services.AddOptions<Application.Messaging.MessagingSettings>()
             .BindConfiguration(Application.Messaging.MessagingSettings.SectionName)
             .ValidateOnStart();

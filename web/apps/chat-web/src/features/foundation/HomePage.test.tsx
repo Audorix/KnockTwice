@@ -48,6 +48,7 @@ const routes = (permissions: string[], demo = false) => ({
   ]),
   'GET /health/ready': () => json(200, { status: 'healthy', checks: [] }),
   'GET /api/v1/admin/demo-data': () => json(200, { users: 300, organizations: 50, contacts: 900, conversations: 975, messages: 12495, activity: 100, support: 500 }),
+  'GET /api/v1/admin/demo-data/jobs/current': () => new Response(null, { status: 204 }),
 });
 
 describe('Home page (redesign 2026-11)', () => {

@@ -20,8 +20,12 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
 {
     private const int Batch = 1000;
 
-    public async Task<DemoDataCounts> PopulateAsync(DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, CancellationToken cancellationToken)
+    private IDemoDataProgress? _progress;
+
+    public async Task<DemoDataCounts> PopulateAsync(
+        DemoDataPlan plan, Guid callerId, string password, DateTimeOffset nowUtc, IDemoDataProgress? progress, CancellationToken cancellationToken)
     {
+        _progress = progress;
         var created = new int[7];
         var start = nowUtc.AddDays(-DemoDataPlan.PeriodDays - 1);
         var users = await EnsureUsersAsync(plan, password, start, created, cancellationToken).ConfigureAwait(false);
@@ -38,7 +42,25 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         await EnsureMessagesAsync(plan, users, conversations, start, created, cancellationToken).ConfigureAwait(false);
         await EnsureActivityAsync(plan, users, conversations, nowUtc, created, cancellationToken).ConfigureAwait(false);
         await EnsureSupportAsync(plan, users, start, created, cancellationToken).ConfigureAwait(false);
+
+        // Everything is saved. Tens of thousands of tracked entities would otherwise make every later
+        // save in this scope (one per demo profile photo) scan all of them.
+        db.ChangeTracker.Clear();
         return new DemoDataCounts(created[0], created[1], created[2], created[3], created[4], created[5], created[6]);
+    }
+
+    /// <summary>
+    /// Enumerates <paramref name="items"/> and reports each one as processed once the loop body is done
+    /// with it (also after <c>continue</c>), counting from <paramref name="offset"/> within the step.
+    /// </summary>
+    private IEnumerable<T> Tracked<T>(IEnumerable<T> items, string step, int offset = 0)
+    {
+        var done = offset;
+        foreach (var item in items)
+        {
+            yield return item;
+            _progress?.Report(step, ++done);
+        }
     }
 
     // ---- People ------------------------------------------------------------------------------
@@ -52,7 +74,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         // One hash for every demo account: hashing is deliberately slow, and they share the password anyway.
         var hash = new PasswordHasher<ChatXUser>().HashPassword(new ChatXUser(), password);
         var users = new Dictionary<string, Guid>(StringComparer.Ordinal);
-        foreach (var person in plan.People)
+        foreach (var person in Tracked(plan.People, DemoDataSteps.People))
         {
             if (existing.TryGetValue(person.Email.ToUpperInvariant(), out var user))
             {
@@ -112,7 +134,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             .ToDictionary(m => (m.OrganizationId, m.UserId));
         var generalIds = plan.Companies.Select(c => DemoDataPlan.DemoId($"workspace:{c.Key}:general")).ToList();
         var generals = await db.Workspaces.Where(w => generalIds.Contains(w.Id)).ToDictionaryAsync(w => w.Id, cancellationToken).ConfigureAwait(false);
-        foreach (var company in plan.Companies)
+        foreach (var company in Tracked(plan.Companies, DemoDataSteps.Companies))
         {
             if (existing.TryGetValue(company.Id, out var organization))
             {
@@ -188,7 +210,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         var blocked = (await db.UserBlocks.Where(b => people.Contains(b.BlockerId) || people.Contains(b.BlockedId))
                 .Select(b => new { b.BlockerId, b.BlockedId }).ToListAsync(cancellationToken).ConfigureAwait(false))
             .Select(b => UserPair.Of(b.BlockerId, b.BlockedId)).Select(p => (p.Low, p.High)).ToHashSet();
-        foreach (var (a, b) in plan.Contacts)
+        foreach (var (a, b) in Tracked(plan.Contacts, DemoDataSteps.Contacts))
         {
             var pair = UserPair.Of(users[a], users[b]);
             if (contacts.Contains((pair.Low, pair.High)) || blocked.Contains((pair.Low, pair.High)))
@@ -226,7 +248,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
 
         var demoPeople = users.Where(u => u.Key != DemoDataPlan.Me).Select(u => u.Value).ToHashSet();
         var result = new Dictionary<string, Conversation>(StringComparer.Ordinal);
-        foreach (var group in plan.Groups)
+        foreach (var group in Tracked(plan.Groups, DemoDataSteps.Chats))
         {
             var organizationId = group.CompanyKey is null ? (Guid?)null : DemoDataPlan.DemoId("org:" + group.CompanyKey);
             var owner = users[group.Owner];
@@ -277,7 +299,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             result[group.Key] = conversation;
         }
 
-        foreach (var (directKey, direct) in directKeys)
+        foreach (var (directKey, direct) in Tracked(directKeys, DemoDataSteps.Chats, plan.Groups.Count))
         {
             var conversation = existing.FirstOrDefault(c => c.DirectKey == directKey);
             if (conversation is null)
@@ -331,7 +353,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             .Select(p => (p.ConversationId, p.UserId)).ToHashSet();
 
         var result = new Dictionary<string, Conversation>(StringComparer.Ordinal);
-        foreach (var channel in plan.Channels)
+        foreach (var channel in Tracked(plan.Channels, DemoDataSteps.Channels))
         {
             var workspaceId = WorkspaceOf(channel);
             if (!workspaces.TryGetValue(workspaceId, out var workspace))
@@ -401,7 +423,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         var touched = new HashSet<Guid>();
         var unreadFrom = new Dictionary<(Guid ConversationId, Guid UserId), long>();
         var unreadAfter = DemoDataPlan.PeriodDays * 24 * 60 - DemoDataPlan.UnreadMinutes;
-        foreach (var message in plan.Messages.OrderBy(m => m.At))
+        foreach (var message in Tracked(plan.Messages.OrderBy(m => m.At), DemoDataSteps.Messages))
         {
             if (!conversations.TryGetValue(message.ConversationKey, out var conversation))
             {
@@ -492,7 +514,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             conversations.TryGetValue(conversationKey, out var conversation) && active.Contains((conversation.Id, userId))
                 && messages.TryGetValue((conversation.Id, clientId), out var message) ? message : null;
 
-        foreach (var item in plan.Saved)
+        foreach (var item in Tracked(plan.Saved, DemoDataSteps.Activity))
         {
             var userId = users[item.Person];
             if (Find(item.ConversationKey, item.ClientId, userId) is { } message && saved.Add((userId, message.Id)))
@@ -503,7 +525,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             }
         }
 
-        foreach (var item in plan.Reminders)
+        foreach (var item in Tracked(plan.Reminders, DemoDataSteps.Activity, plan.Saved.Count))
         {
             var id = DemoDataPlan.DemoId("reminder:" + item.Key);
             var userId = users[item.Person];
@@ -514,7 +536,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             }
         }
 
-        foreach (var item in plan.Scheduled)
+        foreach (var item in Tracked(plan.Scheduled, DemoDataSteps.Activity, plan.Saved.Count + plan.Reminders.Count))
         {
             var id = DemoDataPlan.DemoId("scheduled:" + item.Key);
             var userId = users[item.Person];
