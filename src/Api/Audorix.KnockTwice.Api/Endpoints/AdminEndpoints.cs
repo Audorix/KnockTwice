@@ -187,9 +187,13 @@ internal static class AdminEndpoints
                 from?.ToUniversalTime(), to?.ToUniversalTime(), q, Math.Max(0, skip ?? 0), oldestFirst);
             var entries = await audit.QueryAsync(query, ct);
             var names = await directory.GetSummariesAsync(entries.Where(e => e.ActorUserId is not null).Select(e => e.ActorUserId!.Value).Distinct().ToList(), ct);
-            var items = entries.Select(e => new AuditEntryResponse(
-                e.Id, e.OccurredAtUtc, e.Action, e.Succeeded, e.ActorUserId, e.ActorUserId is { } id ? names.GetValueOrDefault(id)?.DisplayName : null,
-                e.TargetType, e.TargetId, e.IpAddress, e.Details)).ToList();
+            var items = entries.Select(e =>
+            {
+                var actor = e.ActorUserId is { } id ? names.GetValueOrDefault(id) : null;
+                return new AuditEntryResponse(
+                    e.Id, e.OccurredAtUtc, e.Action, e.Succeeded, e.ActorUserId, actor?.DisplayName,
+                    e.TargetType, e.TargetId, e.IpAddress, e.Details, actor is null ? null : UserEndpoints.PhotoUrl(actor.Id, actor.PhotoVersion));
+            }).ToList();
             // Page numbers (skip given) come with a total; the older "before" cursor keeps working.
             var total = skip is not null ? await audit.CountAsync(query, ct) : (int?)null;
             return TypedResults.Ok(new AuditPageResponse(items, !oldestFirst && items.Count == size ? items[^1].OccurredAtUtc : null, total));
@@ -245,14 +249,16 @@ internal static class AdminEndpoints
     };
 
     private static AdminUserResponse ToResponse(AdminUserView u) =>
-        new(u.Id, u.Email, u.DisplayName, u.Initials, u.EmailConfirmed, u.Disabled, u.LockedOut, u.Roles, u.CreatedAtUtc, u.LastSignInAtUtc, u.ActiveSessions, u.Organizations);
+        new(u.Id, u.Email, u.DisplayName, u.Initials, u.EmailConfirmed, u.Disabled, u.LockedOut, u.Roles, u.CreatedAtUtc, u.LastSignInAtUtc, u.ActiveSessions, u.Organizations,
+            UserEndpoints.PhotoUrl(u.Id, u.PhotoVersion));
 
     private static AdminOrganizationResponse ToResponse(AdminOrganizationView o) => new(o.Id, o.Name, o.CreatedAtUtc, o.Members, o.Owners,
         o.PhotoVersion is { } version ? $"/api/v1/admin/organizations/{o.Id}/photo?v={version}" : null);
 
     private static AdminOrganizationDetailResponse ToResponse(AdminOrganizationDetail d) => new(
         ToResponse(d.Organization),
-        d.Members.Select(m => new AdminOrganizationMemberResponse(m.User.Id, m.User.DisplayName, m.User.Initials, m.Email, RoleName(m.Role), m.JoinedAtUtc)).ToList());
+        d.Members.Select(m => new AdminOrganizationMemberResponse(
+            m.User.Id, m.User.DisplayName, m.User.Initials, m.Email, RoleName(m.Role), m.JoinedAtUtc, UserEndpoints.PhotoUrl(m.User.Id, m.User.PhotoVersion))).ToList());
 
     private static RuntimeSettingResponse ToResponse(RuntimeSettingView s) => new(s.Key, s.Group, s.Kind, s.Value, s.Source, s.Locked, s.Min, s.Max, s.Choices);
 

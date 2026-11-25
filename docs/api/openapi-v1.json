@@ -7391,6 +7391,12 @@
           "joinedAtUtc": {
             "type": "string",
             "format": "date-time"
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7681,6 +7687,12 @@
               "string"
             ],
             "format": "int32"
+          },
+          "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
@@ -7890,6 +7902,12 @@
             ]
           },
           "details": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actorPhotoUrl": {
             "type": [
               "null",
               "string"

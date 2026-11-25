@@ -16,6 +16,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
 - **Log categories** now start with `Audorix.KnockTwice`. If you filter logs with
   `Logging:LogLevel:Audorix.ChatX`, use `Logging:LogLevel:Audorix.KnockTwice` instead.
 
+### Fixed
+
+- **Profile photos everywhere a person is shown.** Administration (user list, user details,
+  organization members, audit log) and the private chat invitation showed initials even for people
+  with a photo. The admin API now returns `photoUrl` for users and organization members and
+  `actorPhotoUrl` for audit entries. Groups and channels keep their initials.
+
 ## [1.0.0] - 2026-11-25
 
 The first stable release, under the product name **Knock Twice**. It contains everything since 0.1.0:

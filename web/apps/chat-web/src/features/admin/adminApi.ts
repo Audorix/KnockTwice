@@ -15,6 +15,8 @@ export interface AdminUser {
   lastSignInAtUtc: string | null;
   activeSessions: number;
   organizations: number;
+  /** The person's profile photo, or null when they show initials. */
+  photoUrl?: string | null;
 }
 
 export interface Page<T> {
@@ -39,6 +41,8 @@ export interface AdminOrganizationMember {
   email: string;
   role: 'owner' | 'administrator' | 'member';
   joinedAtUtc: string;
+  /** The member's profile photo, or null when they show initials. */
+  photoUrl?: string | null;
 }
 
 export interface AdminOrganizationDetail {
@@ -63,6 +67,8 @@ export interface AuditEntry {
   targetId: string | null;
   ipAddress: string | null;
   details: string | null;
+  /** The actor's profile photo, or null when they show initials or are gone. */
+  actorPhotoUrl?: string | null;
 }
 
 export type SettingKind = 'boolean' | 'integer' | 'bytes' | 'duration' | 'choice' | 'languages' | 'extensions';

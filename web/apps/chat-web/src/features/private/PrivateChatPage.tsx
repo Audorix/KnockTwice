@@ -323,7 +323,9 @@ function StartPrivateChat({ userId, name }: { userId: string; name: string | nul
   return (
     <PrivatePage title={t('private.inviteTitle')} subtitle={t('private.inviteSubtitle')} crumb={t('private.invitationCrumb')}>
       <InvitationCard
-        person={{ id: userId, displayName: who, avatar: { initials: initialsOf(who) } }}
+        // Only the id and name are known before sending: the photo address works without a version and
+        // falls back to the initials (404) for people without a photo.
+        person={{ id: userId, displayName: who, avatar: { initials: initialsOf(who), photoUrl: `/api/v1/users/${encodeURIComponent(userId)}/photo` } }}
         name={who}
         status={t('private.status.notSent')}
         heading={t('private.beforeSending')}

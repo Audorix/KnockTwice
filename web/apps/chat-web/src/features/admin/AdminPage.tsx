@@ -454,7 +454,7 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
                   <tr key={u.id} className={u.disabled ? 'is-disabled' : undefined}>
                     <td data-label={t('admin.users.columns.user')}>
                       <span className="cx-admin-person">
-                        <Avatar user={{ id: u.id, avatar: { initials: u.initials } }} size="sm" />
+                        <Avatar user={{ id: u.id, avatar: { initials: u.initials, photoUrl: u.photoUrl ?? null } }} size="sm" />
                         <span className="min-w-0">
                           <strong className="d-block text-truncate">{u.displayName}</strong>
                           <span className="cx-muted small d-block text-truncate">{u.email}</span>
@@ -544,7 +544,7 @@ function UserPanel({ user, canManage, self, actions, onClose }: { user: api.Admi
   return (
     <Drawer title={user.displayName} label={t('admin.users.detailsFor', { name: user.displayName })} onClose={onClose}>
       <div className="cx-drawer-identity">
-        <Avatar user={{ id: user.id, avatar: { initials: user.initials } }} size="md" />
+        <Avatar user={{ id: user.id, avatar: { initials: user.initials, photoUrl: user.photoUrl ?? null } }} size="md" />
         <p className="cx-drawer-name">{user.displayName}</p>
         <span className="cx-muted">{user.email}</span>
         <UserStatus user={user} />
@@ -758,7 +758,7 @@ function OrganizationDetail({ id, canManage, onChanged, onDeleted }: { id: strin
           <ul className="list-unstyled mb-0 cx-admin-members">
             {data.members.map((m) => (
               <li key={m.userId} className="cx-admin-member">
-                <Avatar user={{ id: m.userId, avatar: { initials: m.initials } }} size="sm" />
+                <Avatar user={{ id: m.userId, avatar: { initials: m.initials, photoUrl: m.photoUrl ?? null } }} size="sm" />
                 <span className="flex-grow-1 min-w-0">
                   <strong className="d-block text-truncate">{m.displayName}</strong>
                   <span className="cx-muted small d-block text-truncate">{m.email}</span>
@@ -1773,7 +1773,7 @@ function Audit() {
                       </td>
                       <td data-label={t('admin.audit.actor')}>
                         <span className="cx-admin-person">
-                          <Avatar user={{ id: e.actorUserId ?? 'anonymous', avatar: { initials: initialsOf(actor) } }} size="sm" />
+                          <Avatar user={{ id: e.actorUserId ?? 'anonymous', avatar: { initials: initialsOf(actor), photoUrl: e.actorPhotoUrl ?? null } }} size="sm" />
                           <span className="text-truncate">{actor}</span>
                         </span>
                       </td>

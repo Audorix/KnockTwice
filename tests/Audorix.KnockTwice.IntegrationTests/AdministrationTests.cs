@@ -332,6 +332,40 @@ public sealed class AdministrationTests
         Assert.Equal("organization_not_found", await ErrorCodeAsync(await ana.GetAsync($"/api/v1/organizations/{organization}")));
     }
 
+    [Fact]
+    public async Task Administration_shows_profile_photos_of_people_who_have_one()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (admin, adminId) = await SignedInAsync(api, "admin@example.org", "Admin");
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, _) = await SignedInAsync(api, "ben@example.org", "Ben");
+        using var _1 = admin;
+        using var _2 = ana;
+        using var _3 = ben;
+        await GrantAsync(api, adminId, Roles.InstallationAdministrator);
+        AssertStatus(HttpStatusCode.OK, await admin.UploadAsync("/api/v1/users/me/photo", "admin.png", TestFiles.Png(2048), "image/png"));
+        AssertStatus(HttpStatusCode.OK, await ana.UploadAsync("/api/v1/users/me/photo", "ana.png", TestFiles.Png(2048), "image/png"));
+        var organization = await CreateOrganizationAsync(ana, (ben, "ben@example.org"));
+
+        // Users: Ana and the administrator have photos, Ben shows initials.
+        var users = (await JsonAsync(await admin.GetAsync("/api/v1/admin/users"))).GetProperty("items").EnumerateArray()
+            .ToDictionary(u => u.GetProperty("displayName").GetString()!, u => u.GetProperty("photoUrl").GetString());
+        Assert.Equal($"/api/v1/users/{anaId}/photo?v=1", users["Ana"]);
+        Assert.Null(users["Ben"]);
+
+        // Organization members.
+        var members = (await JsonAsync(await admin.GetAsync($"/api/v1/admin/organizations/{organization}"))).GetProperty("members").EnumerateArray()
+            .ToDictionary(m => m.GetProperty("displayName").GetString()!, m => m.GetProperty("photoUrl").GetString());
+        Assert.Equal(($"/api/v1/users/{anaId}/photo?v=1", (string?)null), (members["Ana"], members["Ben"]));
+
+        // The audit log: the actor's photo next to what they did.
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/users/{anaId}/disable"));
+        var byAdmin = (await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?limit=200"))).GetProperty("items").EnumerateArray()
+            .First(e => e.TryGetProperty("actorUserId", out var actor) && actor.ValueKind == JsonValueKind.String && actor.GetGuid() == adminId);
+        Assert.Equal($"/api/v1/users/{adminId}/photo?v=1", byAdmin.GetProperty("actorPhotoUrl").GetString());
+    }
+
     // ---- helpers -------------------------------------------------------------------------------
 
     private static async Task GrantAsync(ChatXApiFactory api, Guid userId, string role)

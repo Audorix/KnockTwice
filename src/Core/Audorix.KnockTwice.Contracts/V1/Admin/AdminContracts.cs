@@ -2,6 +2,7 @@ namespace Audorix.KnockTwice.Contracts.V1.Admin;
 
 /// <summary>An account as installation administrators and auditors see it. Never includes message content.</summary>
 /// <param name="LockedOut">Temporarily locked after failed sign-ins (not the same as disabled).</param>
+/// <param name="PhotoUrl">The person's profile photo (versioned), or null when they show initials.</param>
 public sealed record AdminUserResponse(
     Guid Id,
     string Email,
@@ -14,7 +15,8 @@ public sealed record AdminUserResponse(
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset? LastSignInAtUtc,
     int ActiveSessions,
-    int Organizations);
+    int Organizations,
+    string? PhotoUrl = null);
 
 public sealed record AdminUserPageResponse(IReadOnlyList<AdminUserResponse> Items, int Total);
 
@@ -29,7 +31,9 @@ public sealed record AdminOrganizationResponse(Guid Id, string Name, DateTimeOff
 public sealed record AdminOrganizationPageResponse(IReadOnlyList<AdminOrganizationResponse> Items, int Total);
 
 /// <param name="Role"><c>owner</c>, <c>administrator</c> or <c>member</c>.</param>
-public sealed record AdminOrganizationMemberResponse(Guid UserId, string DisplayName, string Initials, string Email, string Role, DateTimeOffset JoinedAtUtc);
+/// <param name="PhotoUrl">The member's profile photo (versioned), or null when they show initials.</param>
+public sealed record AdminOrganizationMemberResponse(
+    Guid UserId, string DisplayName, string Initials, string Email, string Role, DateTimeOffset JoinedAtUtc, string? PhotoUrl = null);
 
 public sealed record AdminOrganizationDetailResponse(AdminOrganizationResponse Organization, IReadOnlyList<AdminOrganizationMemberResponse> Members);
 
@@ -41,9 +45,10 @@ public sealed record AdminMemberRoleRequest(string? Role);
 public sealed record AdminRoleResponse(string Name, IReadOnlyList<string> Permissions, int Members);
 
 /// <summary>One audit record. Details hold short, non-sensitive facts only.</summary>
+/// <param name="ActorPhotoUrl">The actor's profile photo (versioned), or null when they show initials or are gone.</param>
 public sealed record AuditEntryResponse(
     Guid Id, DateTimeOffset OccurredAtUtc, string Action, bool Succeeded, Guid? ActorUserId, string? ActorName, string? TargetType, string? TargetId,
-    string? IpAddress, string? Details);
+    string? IpAddress, string? Details, string? ActorPhotoUrl = null);
 
 /// <param name="NextBefore">Pass as <c>before</c> for older entries; null at the end.</param>
 /// <param name="Total">Redesign 2026-11: how many entries match the filters (for page numbers with <c>skip</c>).</param>

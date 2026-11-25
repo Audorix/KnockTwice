@@ -248,7 +248,9 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
             join u in db.Users.AsNoTracking() on m.UserId equals u.Id
             select new { Member = m, Profile = p, u.Email }).ToListAsync(cancellationToken).ConfigureAwait(false);
         var views = members
-            .Select(x => new AdminMemberView(new UserSummary(x.Profile.UserId, x.Profile.DisplayName, x.Profile.Initials), x.Email ?? string.Empty, x.Member.Role, x.Member.JoinedAtUtc))
+            .Select(x => new AdminMemberView(
+                new UserSummary(x.Profile.UserId, x.Profile.DisplayName, x.Profile.Initials, PhotoVersion: x.Profile.HasPhoto && !x.Profile.IsDeleted ? x.Profile.PhotoVersion : 0),
+                x.Email ?? string.Empty, x.Member.Role, x.Member.JoinedAtUtc))
             .OrderByDescending(m => m.Role)
             .ThenBy(m => m.User.DisplayName, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
@@ -306,7 +308,8 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
                 row.Profile.CreatedAtUtc,
                 mine.Count == 0 ? null : mine.Max(s => s.CreatedAtUtc),
                 mine.Count(s => s.RevokedAtUtc is null && s.ExpiresAtUtc > now),
-                memberships.Count(m => m == id));
+                memberships.Count(m => m == id),
+                row.Profile.HasPhoto ? row.Profile.PhotoVersion : 0);
         }).ToList();
     }
 }

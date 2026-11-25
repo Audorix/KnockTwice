@@ -9,9 +9,11 @@ using Audorix.KnockTwice.Domain.Organizations;
 namespace Audorix.KnockTwice.Application.Administration;
 
 /// <summary>An account as administrators see it: identity and state, never message content.</summary>
+/// <param name="PhotoVersion">The profile photo's version, or 0 when the person shows initials.</param>
 public sealed record AdminUserView(
     Guid Id, string Email, string DisplayName, string Initials, bool EmailConfirmed, bool Disabled, bool LockedOut,
-    IReadOnlyList<string> Roles, DateTimeOffset CreatedAtUtc, DateTimeOffset? LastSignInAtUtc, int ActiveSessions, int Organizations);
+    IReadOnlyList<string> Roles, DateTimeOffset CreatedAtUtc, DateTimeOffset? LastSignInAtUtc, int ActiveSessions, int Organizations,
+    int PhotoVersion = 0);
 
 public sealed record AdminUserPage(IReadOnlyList<AdminUserView> Items, int Total);
 
