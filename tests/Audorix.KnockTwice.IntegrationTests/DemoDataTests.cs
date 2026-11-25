@@ -152,8 +152,25 @@ public sealed class DemoDataTests
         var photoKeys = await PhotoKeysAsync(api);
         Assert.Equal(3, photoKeys.Count);
 
-        // Clearing removes the demo data and nothing else.
-        var cleared = await JsonAsync(await admin.SendAsync(HttpMethod.Delete, "/api/v1/admin/demo-data"));
+        // Clearing removes the demo data and nothing else. It runs in the background too (2026-11-25),
+        // with progress per part; an unknown action is refused.
+        Assert.Equal("validation_failed", await ErrorCodeAsync(await admin.PostAsync("/api/v1/admin/demo-data/jobs?action=sideways")));
+        var clearing = await admin.PostAsync("/api/v1/admin/demo-data/jobs?action=clear");
+        AssertStatus(HttpStatusCode.Accepted, clearing, await clearing.Content.ReadAsStringAsync(Ct));
+        var clearJob = await JsonAsync(clearing);
+        Assert.Equal("clear", clearJob.GetProperty("kind").GetString());
+        Assert.Equal(["files", "messages", "conversations", "companies", "people"],
+            clearJob.GetProperty("steps").EnumerateArray().Select(s => s.GetProperty("key").GetString()));
+        Assert.Equal(300, clearJob.GetProperty("steps")[4].GetProperty("total").GetInt32());
+        for (var i = 0; i < 600 && clearJob.GetProperty("state").GetString() == "running"; i++)
+        {
+            await Task.Delay(200, Ct);
+            clearJob = await JsonAsync(await admin.GetAsync("/api/v1/admin/demo-data/jobs/current"));
+        }
+
+        Assert.Equal("completed", clearJob.GetProperty("state").GetString());
+        Assert.All(clearJob.GetProperty("steps").EnumerateArray(), s => Assert.Equal(s.GetProperty("total").GetInt32(), s.GetProperty("done").GetInt32()));
+        var cleared = clearJob;
         Assert.Equal(300, cleared.GetProperty("removed").GetProperty("users").GetInt32());
         Assert.Equal(500, cleared.GetProperty("removed").GetProperty("support").GetInt32());
         Assert.Equal(real, await CountRowsAsync(api));

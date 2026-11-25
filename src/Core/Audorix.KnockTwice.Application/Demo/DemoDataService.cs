@@ -48,8 +48,8 @@ public interface IDemoDataStore
     /// <summary>Storage keys of files that clearing demo data removes.</summary>
     Task<IReadOnlyList<string>> ListAttachmentKeysAsync(CancellationToken cancellationToken);
 
-    /// <summary>Removes the demo data; returns what was removed.</summary>
-    Task<DemoDataCounts> ClearAsync(CancellationToken cancellationToken);
+    /// <summary>Removes the demo data; returns what was removed. Reports messages, conversations, companies and people as each is removed.</summary>
+    Task<DemoDataCounts> ClearAsync(IDemoDataProgress? progress, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -122,14 +122,34 @@ public sealed class DemoDataService(
     }
 
     /// <summary>Removes all demo data (allowed even after the demo switch was turned off). File content first.</summary>
-    public async Task<DemoDataCounts> ClearAsync(CancellationToken cancellationToken)
+    public Task<DemoDataCounts> ClearAsync(CancellationToken cancellationToken) => ClearAsync(null, cancellationToken);
+
+    public async Task<DemoDataCounts> ClearAsync(IDemoDataProgress? progress, CancellationToken cancellationToken)
     {
-        foreach (var key in await store.ListAttachmentKeysAsync(cancellationToken).ConfigureAwait(false))
+        var keys = await store.ListAttachmentKeysAsync(cancellationToken).ConfigureAwait(false);
+        for (var i = 0; i < keys.Count; i++)
         {
-            await storage.DeleteAsync(key, cancellationToken).ConfigureAwait(false);
+            await storage.DeleteAsync(keys[i], cancellationToken).ConfigureAwait(false);
+            progress?.Report(DemoDataSteps.Files, i + 1);
         }
 
-        return await store.ClearAsync(cancellationToken).ConfigureAwait(false);
+        progress.Complete(DemoDataSteps.Files);
+        return await store.ClearAsync(progress, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>The parts clearing goes through, sized from what exists now.</summary>
+    public async Task<IReadOnlyList<DemoDataStep>> ClearStepsAsync(CancellationToken cancellationToken)
+    {
+        var counts = await store.CountAsync(cancellationToken).ConfigureAwait(false);
+        var files = (await store.ListAttachmentKeysAsync(cancellationToken).ConfigureAwait(false)).Count;
+        return
+        [
+            new(DemoDataSteps.Files, files),
+            new(DemoDataSteps.Messages, counts.Messages),
+            new(DemoDataSteps.Conversations, counts.Conversations),
+            new(DemoDataSteps.Companies, counts.Organizations),
+            new(DemoDataSteps.People, counts.Users),
+        ];
     }
 
     public Task<DemoDataCounts> CountAsync(CancellationToken cancellationToken) => store.CountAsync(cancellationToken);

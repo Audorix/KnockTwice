@@ -67,6 +67,8 @@
   <data name="participant_not_found" xml:space="preserve"><value>No se encontró al participante.</value></data>
   <data name="demo_data_disabled" xml:space="preserve"><value>Los datos de demostración no están habilitados en esta instalación.</value></data>
   <data name="demo_data_loading" xml:space="preserve"><value>Se están cargando los datos de demostración. Espere a que termine la carga.</value></data>
+  <data name="demo_data_clearing" xml:space="preserve"><value>Se están borrando los datos de demostración. Espere a que termine el borrado.</value></data>
+  <data name="demo_data_action_invalid" xml:space="preserve"><value>Elija cargar o borrar.</value></data>
   <data name="client_message_id_invalid" xml:space="preserve"><value>Falta el identificador de cliente del mensaje o no es válido.</value></data>
   <data name="idempotency_conflict" xml:space="preserve"><value>Ya se envió un mensaje distinto con este identificador de cliente.</value></data>
   <data name="message_body_invalid" xml:space="preserve"><value>El mensaje contiene caracteres no válidos.</value></data>

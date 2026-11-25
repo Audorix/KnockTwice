@@ -113,7 +113,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Removes only the demo data: demo people (and what they wrote), demo companies and demo conversations. Conversations and data real people created stay.",
+        "summary": "Removes only the demo data and waits until it is done (prefer POST /admin/demo-data/jobs?action=clear): demo people (and what they wrote), demo companies and demo conversations. Conversations and data real people created stay.",
         "responses": {
           "200": {
             "description": "OK",
@@ -133,7 +133,16 @@
         "tags": [
           "Administration"
         ],
-        "summary": "Starts loading demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. While a load runs, returns that load instead of starting another.",
+        "summary": "Starts loading (action=load, the default) or clearing (action=clear) demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. One job runs at a time: the same action joins it, the other is refused (demo_data_loading or demo_data_clearing).",
+        "parameters": [
+          {
+            "name": "action",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "202": {
             "description": "Accepted",
@@ -153,7 +162,7 @@
         "tags": [
           "Administration"
         ],
-        "summary": "The running demo data load with progress per part, or the last one since the API started (204 when there was none).",
+        "summary": "The running demo data job (load or clear) with progress per part, or the last one since the API started (204 when there was none).",
         "responses": {
           "200": {
             "description": "OK",
@@ -9422,6 +9431,20 @@
             "type": [
               "null",
               "string"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "default": "load"
+          },
+          "removed": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DemoDataCountsResponse"
+              }
             ]
           }
         }

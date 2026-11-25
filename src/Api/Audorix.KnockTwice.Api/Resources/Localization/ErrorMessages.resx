@@ -67,6 +67,8 @@
   <data name="participant_not_found" xml:space="preserve"><value>The participant was not found.</value></data>
   <data name="demo_data_disabled" xml:space="preserve"><value>Demo data is not enabled on this installation.</value></data>
   <data name="demo_data_loading" xml:space="preserve"><value>Demo data is being loaded. Wait until loading has finished.</value></data>
+  <data name="demo_data_clearing" xml:space="preserve"><value>Demo data is being cleared. Wait until clearing has finished.</value></data>
+  <data name="demo_data_action_invalid" xml:space="preserve"><value>Choose load or clear.</value></data>
   <data name="client_message_id_invalid" xml:space="preserve"><value>The client message id is missing or invalid.</value></data>
   <data name="idempotency_conflict" xml:space="preserve"><value>A different message was already sent with this client message id.</value></data>
   <data name="message_body_invalid" xml:space="preserve"><value>The message contains invalid characters.</value></data>

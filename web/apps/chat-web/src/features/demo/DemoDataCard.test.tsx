@@ -71,4 +71,49 @@ describe('Demo data loading with progress (2026-11-25)', () => {
     expect(screen.getByText(/^Added 300 people, 50 companies/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Populate demo data' })).toBeEnabled();
   });
+
+  it('clears after confirmation with progress per part, then confirms what was removed', async () => {
+    const clearSteps = (fraction: number) => [['files', 302], ['messages', 25817], ['conversations', 1776], ['companies', 50], ['people', 300]]
+      .map(([key, total]) => ({ key, total, done: fraction === 1 ? total : key === 'files' ? Math.round((total as number) * fraction) : 0 }));
+    const clearJob = (state: string, fraction: number) => ({
+      id: 'j-2', kind: 'clear', state, startedAtUtc: new Date().toISOString(), finishedAtUtc: null, steps: clearSteps(fraction),
+      result: null, removed: state === 'completed' ? counts(1) : null, errorCode: null,
+    });
+    const polls = [clearJob('running', 0.5), clearJob('completed', 1)];
+    let started = false;
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, { ...authConfig, demoDataEnabled: true }),
+      'GET /api/v1/users/me': () => json(200, me),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/admin/demo-data': () => json(200, counts(1)),
+      'GET /api/v1/admin/demo-data/jobs/current': () => (!started ? new Response(null, { status: 204 }) : json(200, polls.shift() ?? clearJob('completed', 1))),
+      'POST /api/v1/admin/demo-data/jobs?action=clear': () => {
+        started = true;
+        return json(202, clearJob('running', 0));
+      },
+    });
+    const user = userEvent.setup();
+    render(<AuthProvider><DemoDataCard /></AuthProvider>);
+
+    await user.click(await screen.findByRole('button', { name: 'Clear demo data' }));
+    const ask = screen.getByRole('alertdialog', { name: 'Remove all demo data?' });
+    await user.click(within(ask).getByRole('button', { name: 'Remove demo data' }));
+
+    expect(await screen.findByText('Clearing demo data')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clearing demo data…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Populate demo data' })).toBeDisabled();
+    expect(screen.getByRole('progressbar', { name: 'Files and profile photos' })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'People and their contacts' })).toHaveAttribute('aria-valuenow', '0');
+
+    expect(await screen.findByText('10% complete', undefined, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Files and profile photos' })).toHaveAttribute('aria-valuenow', '50');
+    const dialog = await screen.findByRole('dialog', { name: 'Demo data removed' }, { timeout: 4000 });
+    expect(within(dialog).getByText('All demo data is gone. This is what was removed:')).toBeInTheDocument();
+    expect(within(dialog).getByText('Conversations and data that real people created were kept.')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }));
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.getByText(/^Removed 300 demo people, 50 companies/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear demo data' })).toBeDisabled();
+  });
 });

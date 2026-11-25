@@ -606,7 +606,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
         return (users, organizations, conversations);
     }
 
-    public async Task<DemoDataCounts> ClearAsync(CancellationToken cancellationToken)
+    public async Task<DemoDataCounts> ClearAsync(IDemoDataProgress? progress, CancellationToken cancellationToken)
     {
         var before = await CountAsync(cancellationToken).ConfigureAwait(false);
         var strategy = db.Database.CreateExecutionStrategy();
@@ -638,6 +638,7 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
                 .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.OutboxMessages.Where(o => conversations.Contains(o.ConversationId) || eventIds.Contains(o.EntryId)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await events.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            progress.Complete(DemoDataSteps.Messages);
 
             await db.ChannelTeams.Where(l => conversations.Contains(l.ConversationId)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.GuestInvitations.Where(i => conversations.Contains(i.ConversationId) || organizations.Contains(i.OrganizationId) || users.Contains(i.InvitedByUserId))
@@ -649,12 +650,15 @@ internal sealed partial class EfDemoDataStore(ChatXDbContext db, Application.Wid
             await db.ConversationParticipants.Where(p => conversations.Contains(p.ConversationId) || users.Contains(p.UserId))
                 .ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
             await db.Conversations.Where(c => conversations.Contains(c.Id)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            progress.Complete(DemoDataSteps.Conversations);
             await db.Widgets.Where(w => organizations.Contains(w.OrganizationId) || users.Contains(w.CreatedByUserId)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
 
             // Members, workspaces and teams follow the organizations by cascade; profiles, sessions,
             // contacts, requests, blocks and memberships follow the accounts.
             await db.Organizations.Where(o => organizations.Contains(o.Id)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            progress.Complete(DemoDataSteps.Companies);
             await db.Users.Where(u => users.Contains(u.Id)).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+            progress.Complete(DemoDataSteps.People);
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
         }).ConfigureAwait(false);
 

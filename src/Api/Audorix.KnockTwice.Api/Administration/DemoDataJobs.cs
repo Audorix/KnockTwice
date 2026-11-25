@@ -5,19 +5,23 @@ using Audorix.KnockTwice.Application.Demo;
 namespace Audorix.KnockTwice.Api.Administration;
 
 /// <summary>
-/// One demo data load in the background (owner request 2026-11-25): loading takes minutes, longer
-/// than browsers and proxies wait for one request, so it runs here and reports progress per part.
+/// One demo data load or clearing in the background (owner requests 2026-11-25): both take longer
+/// than browsers and proxies wait for one request, so they run here and report progress per part.
 /// </summary>
 internal sealed class DemoDataJob : IDemoDataProgress
 {
+    public const string Load = "load";
+    public const string Clear = "clear";
+
     private readonly string[] _keys;
     private readonly int[] _totals;
     private readonly int[] _done;
-    private readonly TaskCompletionSource<DemoDataResult> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public DemoDataJob(Guid id, DateTimeOffset startedAtUtc, IReadOnlyList<DemoDataStep> steps)
+    public DemoDataJob(Guid id, string kind, DateTimeOffset startedAtUtc, IReadOnlyList<DemoDataStep> steps)
     {
         Id = id;
+        Kind = kind;
         StartedAtUtc = startedAtUtc;
         _keys = steps.Select(s => s.Key).ToArray();
         _totals = steps.Select(s => s.Total).ToArray();
@@ -26,12 +30,21 @@ internal sealed class DemoDataJob : IDemoDataProgress
 
     public Guid Id { get; }
 
+    /// <summary><see cref="Load"/> or <see cref="Clear"/>.</summary>
+    public string Kind { get; }
+
     public DateTimeOffset StartedAtUtc { get; }
 
     public DateTimeOffset? FinishedAtUtc { get; private set; }
 
-    /// <summary>The result once completed; awaiting it rethrows the failure.</summary>
-    public Task<DemoDataResult> Completion => _completion.Task;
+    /// <summary>What a completed load added and the demo accounts.</summary>
+    public DemoDataResult? Result { get; private set; }
+
+    /// <summary>What a completed clearing removed.</summary>
+    public DemoDataCounts? Removed { get; private set; }
+
+    /// <summary>Completes when the job ends; awaiting it rethrows the failure.</summary>
+    public Task Completion => _completion.Task;
 
     public bool IsRunning => !_completion.Task.IsCompleted;
 
@@ -58,17 +71,19 @@ internal sealed class DemoDataJob : IDemoDataProgress
         }
     }
 
-    /// <summary>Each part's progress; a completed load shows every part at 100%.</summary>
+    /// <summary>Each part's progress; a completed job shows every part at 100%.</summary>
     public IReadOnlyList<(string Key, int Done, int Total)> Steps()
     {
         var completed = _completion.Task.Status == TaskStatus.RanToCompletion;
         return _keys.Select((key, i) => (key, completed ? _totals[i] : Volatile.Read(ref _done[i]), _totals[i])).ToList();
     }
 
-    public void Complete(DemoDataResult result, DateTimeOffset nowUtc)
+    public void Complete(DemoDataResult? result, DemoDataCounts? removed, DateTimeOffset nowUtc)
     {
+        Result = result;
+        Removed = removed;
         FinishedAtUtc = nowUtc;
-        _completion.TrySetResult(result);
+        _completion.TrySetResult();
     }
 
     public void Fail(Exception exception, DateTimeOffset nowUtc)
@@ -86,8 +101,9 @@ internal sealed class DemoDataJob : IDemoDataProgress
 }
 
 /// <summary>
-/// Starts demo data loads and keeps the latest one (this node only; demo data is a development
-/// feature). Only one load runs at a time: starting while one runs returns the running one.
+/// Starts demo data loads and clearings and keeps the latest one (this node only; demo data is a
+/// development feature). One runs at a time: starting the same kind again returns the running one,
+/// starting the other kind is refused (<c>demo_data_loading</c> or <c>demo_data_clearing</c>).
 /// </summary>
 internal sealed partial class DemoDataJobs(
     IServiceScopeFactory scopes, IHostApplicationLifetime lifetime, TimeProvider time, ILogger<DemoDataJobs> logger)
@@ -95,7 +111,7 @@ internal sealed partial class DemoDataJobs(
     private readonly Lock _gate = new();
     private DemoDataJob? _current;
 
-    /// <summary>The running load, or the last one since the API started.</summary>
+    /// <summary>The running job, or the last one since the API started.</summary>
     public DemoDataJob? Current
     {
         get
@@ -107,62 +123,93 @@ internal sealed partial class DemoDataJobs(
         }
     }
 
-    public bool IsRunning => Current is { IsRunning: true };
-
     /// <summary>Starts a load (refused with <c>demo_data_disabled</c> where demo data is off) or joins the running one.</summary>
-    public DemoDataJob Start(Guid callerId, DemoDataService demo)
+    public DemoDataJob StartLoad(Guid callerId, DemoDataService demo)
     {
         ArgumentNullException.ThrowIfNull(demo);
         demo.EnsureEnabled();
-        lock (_gate)
+        return Start(DemoDataJob.Load, demo.Steps(), callerId, async (services, job) =>
         {
-            if (_current is { IsRunning: true } running)
-            {
-                return running;
-            }
-
-            var now = time.GetUtcNow();
-            var job = new DemoDataJob(Guid.CreateVersion7(now), now, demo.Steps());
-            _current = job;
-            _ = Task.Run(() => RunAsync(job, callerId));
-            return job;
-        }
+            var result = await services.GetRequiredService<DemoDataService>().PopulateAsync(callerId, job, lifetime.ApplicationStopping).ConfigureAwait(false);
+            await services.GetRequiredService<AuditService>().RecordAsync(AuditActions.DemoDataPopulated, callerId, cancellationToken: lifetime.ApplicationStopping)
+                .ConfigureAwait(false);
+            job.Complete(result, null, time.GetUtcNow());
+        });
     }
 
-    /// <summary>Waits for <paramref name="job"/> and returns its result; its failure is rethrown as it happened.</summary>
-    public static Task<DemoDataResult> WaitAsync(DemoDataJob job, CancellationToken cancellationToken)
+    /// <summary>Starts clearing (allowed even after demo data was switched off) or joins the running one.</summary>
+    public async Task<DemoDataJob> StartClearAsync(Guid callerId, DemoDataService demo, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(demo);
+        if (Current is { IsRunning: true } running)
+        {
+            return Join(running, DemoDataJob.Clear);
+        }
+
+        var steps = await demo.ClearStepsAsync(cancellationToken).ConfigureAwait(false);
+        return Start(DemoDataJob.Clear, steps, callerId, async (services, job) =>
+        {
+            var removed = await services.GetRequiredService<DemoDataService>().ClearAsync(job, lifetime.ApplicationStopping).ConfigureAwait(false);
+            await services.GetRequiredService<AuditService>().RecordAsync(AuditActions.DemoDataCleared, callerId,
+                    details: new Dictionary<string, object?> { ["users"] = removed.Users, ["conversations"] = removed.Conversations, ["messages"] = removed.Messages },
+                    cancellationToken: lifetime.ApplicationStopping)
+                .ConfigureAwait(false);
+            job.Complete(null, removed, time.GetUtcNow());
+        });
+    }
+
+    /// <summary>Waits for <paramref name="job"/>; its failure is rethrown as it happened.</summary>
+    public static Task WaitAsync(DemoDataJob job, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(job);
         return job.Completion.WaitAsync(cancellationToken);
     }
 
-    private async Task RunAsync(DemoDataJob job, Guid callerId)
+    private DemoDataJob Start(string kind, IReadOnlyList<DemoDataStep> steps, Guid callerId, Func<IServiceProvider, DemoDataJob, Task> work)
+    {
+        lock (_gate)
+        {
+            if (_current is { IsRunning: true } running)
+            {
+                return Join(running, kind);
+            }
+
+            var now = time.GetUtcNow();
+            var job = new DemoDataJob(Guid.CreateVersion7(now), kind, now, steps);
+            _current = job;
+            _ = Task.Run(() => RunAsync(job, work));
+            return job;
+        }
+    }
+
+    private static DemoDataJob Join(DemoDataJob running, string kind) =>
+        running.Kind == kind
+            ? running
+            : throw new ConflictException(running.Kind == DemoDataJob.Load ? "demo_data_loading" : "demo_data_clearing");
+
+    private async Task RunAsync(DemoDataJob job, Func<IServiceProvider, DemoDataJob, Task> work)
     {
         try
         {
             var scope = scopes.CreateAsyncScope();
             await using (scope.ConfigureAwait(false))
             {
-                var demo = scope.ServiceProvider.GetRequiredService<DemoDataService>();
-                var audit = scope.ServiceProvider.GetRequiredService<AuditService>();
-                var result = await demo.PopulateAsync(callerId, job, lifetime.ApplicationStopping).ConfigureAwait(false);
-                await audit.RecordAsync(AuditActions.DemoDataPopulated, callerId, cancellationToken: lifetime.ApplicationStopping).ConfigureAwait(false);
-                job.Complete(result, time.GetUtcNow());
+                await work(scope.ServiceProvider, job).ConfigureAwait(false);
             }
         }
-#pragma warning disable CA1031 // A background load reports any failure through its state instead of crashing the host.
+#pragma warning disable CA1031 // A background job reports any failure through its state instead of crashing the host.
         catch (Exception ex)
 #pragma warning restore CA1031
         {
             if (ex is not OperationCanceledException)
             {
-                LogFailed(logger, ex);
+                LogFailed(logger, job.Kind, ex);
             }
 
             job.Fail(ex, time.GetUtcNow());
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "Loading demo data failed.")]
-    private static partial void LogFailed(ILogger logger, Exception exception);
+    [LoggerMessage(Level = LogLevel.Error, Message = "Demo data job ({Kind}) failed.")]
+    private static partial void LogFailed(ILogger logger, string kind, Exception exception);
 }

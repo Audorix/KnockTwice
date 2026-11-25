@@ -8506,3 +8506,14 @@ button.cx-person:hover .cx-person-name {
     gap: 0;
   }
 }
+
+/* The part being worked on moves; before its first count arrives it is a faded full bar. */
+.cx-demo-step.is-active .cx-demo-bar .progress-bar.is-pending {
+  opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cx-demo-step.is-active .cx-demo-bar .progress-bar {
+    animation: none;
+  }
+}

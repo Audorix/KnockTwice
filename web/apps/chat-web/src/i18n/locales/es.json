@@ -874,7 +874,21 @@
     "doneText": "Todo está cargado. Estos son los datos de demostración que tiene ahora:",
     "doneUpToDate": "Los datos de demostración ya estaban completos; no hizo falta añadir nada. Esto es lo que tiene:",
     "doneOk": "Aceptar",
-    "failed": "La carga de los datos de demostración se detuvo antes de terminar. Vuelva a intentarlo: solo se añade lo que falta."
+    "failed": "La carga de los datos de demostración se detuvo antes de terminar. Vuelva a intentarlo: solo se añade lo que falta.",
+    "clearing": "Borrando datos de demostración…",
+    "clearingTitle": "Borrando datos de demostración",
+    "clearSteps": {
+      "files": "Archivos y fotos de perfil",
+      "messages": "Mensajes y actividad",
+      "conversations": "Conversaciones",
+      "companies": "Empresas",
+      "people": "Personas y sus contactos"
+    },
+    "clearedTitle": "Datos de demostración eliminados",
+    "clearedText": "Se eliminaron todos los datos de demostración. Esto es lo que se eliminó:",
+    "clearedNothing": "No había datos de demostración que eliminar.",
+    "clearedKept": "Se conservaron las conversaciones y los datos creados por personas reales.",
+    "clearFailed": "El borrado de los datos de demostración se detuvo antes de terminar. Vuelva a intentarlo: se elimina lo que quede."
   },
   "messages": {
     "compose": "Mensaje",

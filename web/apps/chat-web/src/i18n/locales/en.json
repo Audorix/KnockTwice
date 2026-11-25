@@ -874,7 +874,21 @@
     "doneText": "Everything is loaded. This is the demo data you now have:",
     "doneUpToDate": "The demo data was already complete; nothing needed to be added. This is what you have:",
     "doneOk": "OK",
-    "failed": "Loading demo data stopped before it finished. Try again: only what is missing is added."
+    "failed": "Loading demo data stopped before it finished. Try again: only what is missing is added.",
+    "clearing": "Clearing demo data…",
+    "clearingTitle": "Clearing demo data",
+    "clearSteps": {
+      "files": "Files and profile photos",
+      "messages": "Messages and activity",
+      "conversations": "Conversations",
+      "companies": "Companies",
+      "people": "People and their contacts"
+    },
+    "clearedTitle": "Demo data removed",
+    "clearedText": "All demo data is gone. This is what was removed:",
+    "clearedNothing": "There was no demo data to remove.",
+    "clearedKept": "Conversations and data that real people created were kept.",
+    "clearFailed": "Clearing demo data stopped before it finished. Try again: what is left is removed."
   },
   "messages": {
     "compose": "Message",

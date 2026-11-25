@@ -17,6 +17,13 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
   `GET /api/v1/admin/demo-data/jobs/current` reports it with progress per part. Only one load runs at
   a time. `POST /api/v1/admin/demo-data` still waits for the result, and clearing demo data during a
   load is refused with `demo_data_loading` (409).
+- **Clearing demo data shows progress too.** After the confirmation, clearing runs in the background
+  with a bar per part (files and profile photos, messages and activity, conversations, companies,
+  people and their contacts). The part being worked on moves while its count is pending. A
+  *Demo data removed* dialog then lists what was removed; *OK* hides the progress. The API starts it
+  with `POST /api/v1/admin/demo-data/jobs?action=clear`; job responses carry `kind` (`load` or
+  `clear`) and, once clearing completes, `removed`. `DELETE /api/v1/admin/demo-data` still waits for
+  the result. Loading while clearing is refused with `demo_data_clearing` (409).
 
 ### Changed
 

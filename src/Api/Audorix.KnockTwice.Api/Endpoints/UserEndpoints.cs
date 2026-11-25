@@ -76,24 +76,33 @@ internal static class UserEndpoints
 
         v1.MapPost("/admin/demo-data", async (HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, CancellationToken ct) =>
         {
-            var job = jobs.Start(http.User.RequireUserId(), demo);
-            return TypedResults.Ok(ToResponse(await Administration.DemoDataJobs.WaitAsync(job, ct)));
+            var job = jobs.StartLoad(http.User.RequireUserId(), demo);
+            await Administration.DemoDataJobs.WaitAsync(job, ct);
+            return TypedResults.Ok(ToResponse(job.Result!));
         })
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
             .WithSummary("Populates demo data and waits until it is done (several minutes; prefer POST /admin/demo-data/jobs): 300 people (password Demo123!), 50 companies, contacts, 150 groups, 800 channels, direct conversations, messages and activity (mentions, saved messages, reminders, scheduled messages: 500 items for the caller, 50-100 for everyone else). Idempotent; only where DemoData:Enabled. The caller is included. Joins a load that is already running.");
 
-        v1.MapPost("/admin/demo-data/jobs", (HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs) =>
-            TypedResults.Accepted("/api/v1/admin/demo-data/jobs/current", ToResponse(jobs.Start(http.User.RequireUserId(), demo))))
+        v1.MapPost("/admin/demo-data/jobs", async (string? action, HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, CancellationToken ct) =>
+        {
+            var job = action switch
+            {
+                null or "" or Administration.DemoDataJob.Load => jobs.StartLoad(http.User.RequireUserId(), demo),
+                Administration.DemoDataJob.Clear => await jobs.StartClearAsync(http.User.RequireUserId(), demo, ct),
+                _ => throw new Application.Common.RequestValidationException("action", "demo_data_action_invalid"),
+            };
+            return TypedResults.Accepted("/api/v1/admin/demo-data/jobs/current", ToResponse(job));
+        })
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
-            .WithSummary("Starts loading demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. While a load runs, returns that load instead of starting another.");
+            .WithSummary("Starts loading (action=load, the default) or clearing (action=clear) demo data in the background and returns at once; follow it with GET /admin/demo-data/jobs/current. One job runs at a time: the same action joins it, the other is refused (demo_data_loading or demo_data_clearing).");
 
         v1.MapGet("/admin/demo-data/jobs/current", Results<Ok<DemoDataJobResponse>, NoContent> (Administration.DemoDataJobs jobs) =>
             jobs.Current is { } job ? TypedResults.Ok(ToResponse(job)) : TypedResults.NoContent())
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
-            .WithSummary("The running demo data load with progress per part, or the last one since the API started (204 when there was none).");
+            .WithSummary("The running demo data job (load or clear) with progress per part, or the last one since the API started (204 when there was none).");
 
         v1.MapGet("/admin/demo-data", async (Application.Demo.DemoDataService demo, CancellationToken ct) =>
             TypedResults.Ok(ToCounts(await demo.CountAsync(ct))))
@@ -101,23 +110,15 @@ internal static class UserEndpoints
             .WithTags("Administration")
             .WithSummary("How much demo data exists.");
 
-        v1.MapDelete("/admin/demo-data", async (
-            HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, Application.Administration.AuditService audit, CancellationToken ct) =>
+        v1.MapDelete("/admin/demo-data", async (HttpContext http, Application.Demo.DemoDataService demo, Administration.DemoDataJobs jobs, CancellationToken ct) =>
         {
-            if (jobs.IsRunning)
-            {
-                throw new Application.Common.ConflictException("demo_data_loading");
-            }
-
-            var removed = await demo.ClearAsync(ct);
-            await audit.RecordAsync(Application.Administration.AuditActions.DemoDataCleared, http.User.RequireUserId(),
-                details: new Dictionary<string, object?> { ["users"] = removed.Users, ["conversations"] = removed.Conversations, ["messages"] = removed.Messages },
-                cancellationToken: ct);
-            return TypedResults.Ok(new DemoDataClearedResponse(ToCounts(removed)));
+            var job = await jobs.StartClearAsync(http.User.RequireUserId(), demo, ct);
+            await Administration.DemoDataJobs.WaitAsync(job, ct);
+            return TypedResults.Ok(new DemoDataClearedResponse(ToCounts(job.Removed!)));
         })
             .RequireAuthorization(Permissions.DemoDataManage)
             .WithTags("Administration")
-            .WithSummary("Removes only the demo data: demo people (and what they wrote), demo companies and demo conversations. Conversations and data real people created stay.");
+            .WithSummary("Removes only the demo data and waits until it is done (prefer POST /admin/demo-data/jobs?action=clear): demo people (and what they wrote), demo companies and demo conversations. Conversations and data real people created stay.");
 
         return v1;
     }
@@ -134,8 +135,10 @@ internal static class UserEndpoints
     private static DemoDataJobResponse ToResponse(Administration.DemoDataJob job) => new(
         job.Id, job.State, job.StartedAtUtc, job.FinishedAtUtc,
         job.Steps().Select(s => new DemoDataStepResponse(s.Key, s.Done, s.Total)).ToList(),
-        job.Completion.IsCompletedSuccessfully ? ToResponse(job.Completion.Result) : null,
-        job.ErrorCode);
+        job.Result is { } result ? ToResponse(result) : null,
+        job.ErrorCode,
+        job.Kind,
+        job.Removed is { } removed ? ToCounts(removed) : null);
 
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
         new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support, counts.Photos);
