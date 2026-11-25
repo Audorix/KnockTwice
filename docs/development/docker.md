@@ -23,7 +23,8 @@ Services in each profile:
 - `postgres` (PostgreSQL profile only) — not published to the host by default.
 
 **First start: the setup wizard.** Open <http://localhost:8080>; the web app shows the setup
-wizard. Its setup code is in the API log:
+wizard. Its setup code is in the API log (see also
+[Finding the setup code](../installation.md#finding-the-setup-code)):
 
 ```powershell
 docker compose -f docker/compose.sqlite.yaml logs api

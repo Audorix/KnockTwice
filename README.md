@@ -88,7 +88,8 @@ Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/K
 | Develop it | [Getting started](docs/development/getting-started.md) and [contributing](CONTRIBUTING.md) |
 
 Every path starts with the **setup wizard** in the browser. It chooses the database, configures email
-and creates the first administrator, after you enter the setup code the server prints.
+and creates the first administrator, after you enter the setup code the server prints
+([where to find it](docs/installation.md#finding-the-setup-code)).
 
 ## Embed the website chat
 

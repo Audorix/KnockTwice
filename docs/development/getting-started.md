@@ -38,7 +38,9 @@ setup code in its console, in the log and as a banner:
 ```
 
 The code changes at every start. It is also saved to `App_Data/setup-code.txt` (next to the
-settings file), which is removed when setup completes or the API stops.
+settings file), which is removed when setup completes or the API stops. All the places to look, for
+every kind of installation, are in
+[Finding the setup code](../installation.md#finding-the-setup-code).
 
 In setup mode the API serves only `/health/*` and the setup API (`/api/v1/setup/*`); every other
 API path answers 503 `setup_required`. The `chatx` launch profile opens Swagger UI

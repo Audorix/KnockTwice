@@ -93,7 +93,8 @@ anonymous website-chat sessions) see real client addresses. Keep the web port bo
 
 ## 4. First start: the setup wizard
 
-Open `https://chat.example.org`. The web app shows the setup wizard. Find the setup code:
+Open `https://chat.example.org`. The web app shows the setup wizard. Find the setup code (more in
+[Finding the setup code](installation.md#finding-the-setup-code)):
 
 ```sh
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production logs api | grep -i "setup code"

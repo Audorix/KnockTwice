@@ -81,8 +81,8 @@ above) lets per-address limits see the real client address.
 ## 4. Setup wizard
 
 Open `https://your-domain`. On the first start the API runs in **setup mode** and the web app shows
-the setup wizard. The **setup code** is printed in the API log and saved to
-`App_Data/setup-code.txt`.
+the setup wizard. It asks for the **setup code**, which proves you operate the server; see
+[Finding the setup code](#finding-the-setup-code).
 
 1. **Database**
    - *SQLite:* a file path, default `App_Data/chatx.db`. Back it up with the rest of `App_Data`.
@@ -113,6 +113,38 @@ to normal mode. Nothing is written before *Install*.
 5. Make it an administrator with `grant-role` (below).
 
 All keys are described in [the configuration reference](development/configuration.md).
+
+### Finding the setup code
+
+In setup mode the API prints a new code at every start, in three places:
+
+- **the console**, as a banner:
+
+  ```text
+  ================================================================
+    Knock Twice setup code:  K7QM-2XRA-9PDN
+    Open https://your-domain to complete setup.
+    The code is also saved to /opt/chatx/api/App_Data/setup-code.txt
+  ================================================================
+  ```
+
+- **the log**, as a warning starting with `Setup required:`;
+- **the file `setup-code.txt`** next to the settings file. It is removed when setup completes or the
+  API stops.
+
+| Installation | Where to look |
+| --- | --- |
+| Without Docker (systemd) | `journalctl -u chatx \| grep -i "setup code"`, or `App_Data/setup-code.txt` next to the DLL |
+| Docker | `docker compose -f docker/compose.production.yaml --env-file docker/.env.production logs api \| grep -i "setup code"`, or `docker compose ... exec api cat /app/data/setup-code.txt` |
+| Local development (`dotnet run`) | the API console, or `src/Api/Audorix.KnockTwice.Api/App_Data/setup-code.txt` |
+
+Only the most recent code works: after a restart, use the new one. To choose the code yourself (for
+automated installs), set `Setup:Token` to at least 12 characters; the API then logs that a
+configured code is in use instead of printing it.
+
+**The wizard appears on an installation that was already set up?** The API did not find its
+settings file. Check that `App_Data` (or the folder in `Setup:SettingsPath`) is still where it was,
+for example after moving or renaming the install folder, instead of running setup again.
 
 ## Administrators
 
