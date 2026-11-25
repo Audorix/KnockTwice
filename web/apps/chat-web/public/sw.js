@@ -1,5 +1,5 @@
 /*
- * Audorix.ChatX service worker (Phase 15): shows Web Push notifications while Knock Twice is closed and
+ * Knock Twice service worker (Phase 15): shows Web Push notifications while Knock Twice is closed and
  * opens the conversation when one is clicked. It caches nothing and handles no requests.
  * The payload is { title, body, url, tag }, encrypted by the server for this browser only.
  */

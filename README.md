@@ -16,8 +16,10 @@
 and React. One messaging engine serves personal chat, business communication and an embeddable
 website chat. Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
 
-The code base keeps its original name, **Audorix.ChatX**: namespaces, projects, packages and the
-`ChatXWidget` JavaScript API all use it.
+The .NET code lives in the **Audorix.KnockTwice** namespaces and projects. Some public names still
+carry the original name ChatX, for compatibility with existing installations and embeds: the
+`ChatXWidget` JavaScript API, `X-ChatX-*` headers, `CHATX_*` variables and the `Audorix.ChatX.Api.dll`
+file. They change in 2.0.
 
 > **Version 1.0.0.** Covered by automated tests on both databases. See the
 > [changelog](CHANGELOG.md).
@@ -118,12 +120,12 @@ A complete example with server-signed identities is in
 ## Repository layout
 
 ```text
-src/Api/Audorix.ChatX.Api                       HTTP host, setup wizard, migrate/grant-role commands
-src/Core/Audorix.ChatX.Domain                   entities and invariants
-src/Core/Audorix.ChatX.Application              use cases and ports
-src/Core/Audorix.ChatX.Contracts                wire DTOs and error codes
-src/Infrastructure/Audorix.ChatX.Infrastructure EF Core model, Identity, email, storage adapters
-src/Infrastructure/Audorix.ChatX.Persistence.*  SQLite and PostgreSQL adapters with migrations
+src/Api/Audorix.KnockTwice.Api                       HTTP host, setup wizard, migrate/grant-role commands
+src/Core/Audorix.KnockTwice.Domain                   entities and invariants
+src/Core/Audorix.KnockTwice.Application              use cases and ports
+src/Core/Audorix.KnockTwice.Contracts                wire DTOs and error codes
+src/Infrastructure/Audorix.KnockTwice.Infrastructure EF Core model, Identity, email, storage adapters
+src/Infrastructure/Audorix.KnockTwice.Persistence.*  SQLite and PostgreSQL adapters with migrations
 tests/                                          unit, architecture and integration tests
 web/apps/chat-web                               React web app, embedded chat page, widget loader
 web/packages/chat-embed                         React integration for the website chat

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.KnockTwice.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Audorix.KnockTwice.Domain\Audorix.KnockTwice.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only framework abstractions; no EF Core, ASP.NET Core, SignalR or provider packages. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" />
+  </ItemGroup>
+
+</Project>

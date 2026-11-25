@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Audorix.ChatX API image. Build context: repository root.
+# Knock Twice API image. Build context: repository root.
 #   docker build -f docker/api.Dockerfile -t audorix/chatx-api:dev .
 # The same image serves HTTP (default) or applies migrations: `... audorix/chatx-api:dev migrate`.
 
@@ -8,17 +8,17 @@ WORKDIR /src
 
 # Restore first so dependency layers are cached independently of source edits.
 COPY global.json Directory.Build.props Directory.Packages.props ./
-COPY src/Core/Audorix.ChatX.Domain/Audorix.ChatX.Domain.csproj src/Core/Audorix.ChatX.Domain/
-COPY src/Core/Audorix.ChatX.Application/Audorix.ChatX.Application.csproj src/Core/Audorix.ChatX.Application/
-COPY src/Core/Audorix.ChatX.Contracts/Audorix.ChatX.Contracts.csproj src/Core/Audorix.ChatX.Contracts/
-COPY src/Infrastructure/Audorix.ChatX.Infrastructure/Audorix.ChatX.Infrastructure.csproj src/Infrastructure/Audorix.ChatX.Infrastructure/
-COPY src/Infrastructure/Audorix.ChatX.Persistence.Sqlite/Audorix.ChatX.Persistence.Sqlite.csproj src/Infrastructure/Audorix.ChatX.Persistence.Sqlite/
-COPY src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql/Audorix.ChatX.Persistence.PostgreSql.csproj src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql/
-COPY src/Api/Audorix.ChatX.Api/Audorix.ChatX.Api.csproj src/Api/Audorix.ChatX.Api/
-RUN dotnet restore src/Api/Audorix.ChatX.Api/Audorix.ChatX.Api.csproj
+COPY src/Core/Audorix.KnockTwice.Domain/Audorix.KnockTwice.Domain.csproj src/Core/Audorix.KnockTwice.Domain/
+COPY src/Core/Audorix.KnockTwice.Application/Audorix.KnockTwice.Application.csproj src/Core/Audorix.KnockTwice.Application/
+COPY src/Core/Audorix.KnockTwice.Contracts/Audorix.KnockTwice.Contracts.csproj src/Core/Audorix.KnockTwice.Contracts/
+COPY src/Infrastructure/Audorix.KnockTwice.Infrastructure/Audorix.KnockTwice.Infrastructure.csproj src/Infrastructure/Audorix.KnockTwice.Infrastructure/
+COPY src/Infrastructure/Audorix.KnockTwice.Persistence.Sqlite/Audorix.KnockTwice.Persistence.Sqlite.csproj src/Infrastructure/Audorix.KnockTwice.Persistence.Sqlite/
+COPY src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql/Audorix.KnockTwice.Persistence.PostgreSql.csproj src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql/
+COPY src/Api/Audorix.KnockTwice.Api/Audorix.KnockTwice.Api.csproj src/Api/Audorix.KnockTwice.Api/
+RUN dotnet restore src/Api/Audorix.KnockTwice.Api/Audorix.KnockTwice.Api.csproj
 
 COPY src/ src/
-RUN dotnet publish src/Api/Audorix.ChatX.Api/Audorix.ChatX.Api.csproj \
+RUN dotnet publish src/Api/Audorix.KnockTwice.Api/Audorix.KnockTwice.Api.csproj \
     --configuration Release --no-restore --output /app/publish -p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime

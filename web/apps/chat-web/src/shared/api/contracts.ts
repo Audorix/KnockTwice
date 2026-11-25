@@ -1,6 +1,6 @@
 /**
- * TypeScript mirrors of Audorix.ChatX.Contracts wire types. Keep in sync with
- * src/Core/Audorix.ChatX.Contracts (until an OpenAPI-generated client replaces them).
+ * TypeScript mirrors of Audorix.KnockTwice.Contracts wire types. Keep in sync with
+ * src/Core/Audorix.KnockTwice.Contracts (until an OpenAPI-generated client replaces them).
  */
 
 export type HealthStatus = 'healthy' | 'degraded' | 'unhealthy';

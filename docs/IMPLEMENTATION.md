@@ -1,4 +1,4 @@
-# Audorix.ChatX — Implementation Specification
+# Knock Twice — Implementation Specification
 
 > **Source and revision policy.** Prepared from the user-supplied `Pasted markdown(4).md`, which contains the ChatX documentation draft. The unavailable shared link was not used as evidence. Source technology choices and feature intent are retained. “Accepted” and “Approved” labels in that draft are not treated as evidence of separate user approval. New implementation recommendations below are proposals, not previously agreed requirements. These documents describe intended behavior; they do not certify implemented or tested software.
 
@@ -10,7 +10,7 @@
 
 ## 1. Development objective
 
-Implement Audorix.ChatX as a working open-source communication platform using the source architecture baseline.
+Implement Knock Twice as a working open-source communication platform using the source architecture baseline.
 
 Development must be incremental.
 
@@ -37,7 +37,7 @@ Do not implement all modules simultaneously.
 
 Namespace root:
 
-`Audorix.ChatX`
+`Audorix.KnockTwice`
 
 ### 2.2 Frontend
 
@@ -528,7 +528,7 @@ Deliverables:
 - Reconnect catch-up: a change log written with every history change, `GET /api/v1/changes` with a cursor, and the web app applying the changes after a reconnect (reload over 500 changes or after 24 hours).
 - Route-level code splitting of the web app and a bundle budget checked in CI.
 - A paged conversation list (`GET /api/v1/conversations/page`) used by the web app with "Show more conversations".
-- `tools/Audorix.ChatX.LoadTest`, a repeatable load test with the agreed targets, and a measured baseline.
+- `tools/Audorix.KnockTwice.LoadTest`, a repeatable load test with the agreed targets, and a measured baseline.
 
 Acceptance criteria:
 
@@ -889,7 +889,7 @@ Do not immediately generate all business modules, messaging functionality or the
 
 The first milestone should produce:
 
-- Audorix.ChatX solution.
+- Knock Twice solution.
 - Correct namespace conventions.
 - Clean project dependencies.
 - SQLite provider.
@@ -906,8 +906,8 @@ Once the foundation is stable, proceed to Identity.
 
 ---
 
-**Project identity:** Audorix.ChatX\
-**Root namespace:** Audorix.ChatX\
+**Project identity:** Audorix.KnockTwice\
+**Root namespace:** Audorix.KnockTwice\
 **npm scope:** @audorix; **SDK package:** @audorix/chatx\
 **License:** MIT\
 **Architecture:** Modular monolith\
@@ -929,7 +929,7 @@ Channels, teams, support-agent workflows and widgets are unavailable until their
 ### 12.1 Foundation work order
 
 1. Inspect the repository and existing instructions; preserve unrelated work. Confirm this is documentation-only until implementation is explicitly requested.
-2. For implementation, create the minimal project dependencies in Architecture section 17.1 and apply `Audorix.ChatX` namespaces.
+2. For implementation, create the minimal project dependencies in Architecture section 17.1 and apply `Audorix.KnockTwice` namespaces.
 3. Add configuration validation and database provider selection; unsupported provider values fail startup with a useful error.
 4. Establish provider-specific migration assemblies. Exercise a minimal persisted foundation record on both providers without creating all future entities.
 5. Add API error envelopes, health endpoints and structured logs with sensitive-field exclusion.

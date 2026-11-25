@@ -38,8 +38,8 @@ param(
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
 $root = Split-Path -Parent $PSScriptRoot
-$apiDir = Join-Path $root 'src/Api/Audorix.ChatX.Api/bin/Release/net10.0'
-if (-not (Test-Path (Join-Path $apiDir 'Audorix.ChatX.Api.dll'))) { throw 'Build first: dotnet build Audorix.ChatX.slnx -c Release' }
+$apiDir = Join-Path $root 'src/Api/Audorix.KnockTwice.Api/bin/Release/net10.0'
+if (-not (Test-Path (Join-Path $apiDir 'Audorix.ChatX.Api.dll'))) { throw 'Build first: dotnet build Audorix.KnockTwice.slnx -c Release' }
 
 $work = Join-Path ([IO.Path]::GetTempPath()) ('chatx-restore-drill-' + [guid]::NewGuid().ToString('N'))
 $live = Join-Path $work 'live'

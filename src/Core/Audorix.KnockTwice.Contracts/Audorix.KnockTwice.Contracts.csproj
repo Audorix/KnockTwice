@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.KnockTwice.Contracts</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Contracts are wire types only: no Domain, EF Core or ASP.NET references. -->
+
+</Project>

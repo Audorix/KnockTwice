@@ -19,7 +19,7 @@ const configuration = {
   email: {
     provider: 'Smtp',
     fromAddress: 'no-reply@chatx.localhost',
-    fromName: 'Audorix.ChatX',
+    fromName: 'Knock Twice',
     smtpHost: 'localhost',
     smtpPort: 1025,
     smtpSecurity: 'None',

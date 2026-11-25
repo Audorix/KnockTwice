@@ -7,13 +7,13 @@ This page describes the **implemented** Phase 1 solution. Direction comes from
 
 | Project | Path | Responsibility today |
 | --- | --- | --- |
-| `Audorix.ChatX.Domain` | `src/Core/` | Entities and invariants: `Installation`, `UserProfile` (display name, UI language, initials), `UserSession`, role/permission vocabulary, `DomainRuleException`. |
-| `Audorix.ChatX.Application` | `src/Core/` | Use cases and ports: `AccountService` (registration, confirmation, recovery, password change, external provisioning), `SessionService`, `UserProfileService`, `InstallationService`; ports `IUserAccountManager`, `IUserProfileStore`, `ISessionStore`, `IEmailSender`, `ICaptchaVerifier`; localized account emails. |
-| `Audorix.ChatX.Contracts` | `src/Core/` | Wire DTOs for meta, health, auth, users and admin; stable `ErrorCodes`. |
-| `Audorix.ChatX.Infrastructure` | `src/Infrastructure/` | Provider-neutral EF Core model (`ChatXDbContext` incl. ASP.NET Core Identity tables and Data Protection keys), store adapters, `IdentityUserAccountManager`, email adapters (SMTP via MailKit, Postmark via HTTP), captcha adapters (Cloudflare Turnstile, disabled), options validation, readiness check, `DatabaseMigrator`. |
-| `Audorix.ChatX.Persistence.Sqlite` | `src/Infrastructure/` | SQLite adapter, its migrations and model snapshot, design-time factory. |
-| `Audorix.ChatX.Persistence.PostgreSql` | `src/Infrastructure/` | PostgreSQL (Npgsql) adapter, its migrations and model snapshot, design-time factory. |
-| `Audorix.ChatX.Api` | `src/Api/` | Composition root, HTTP pipeline, setup mode and wizard API, health/OpenAPI endpoints, the SignalR hub `/hubs/chat`, problem responses, localization resources, `migrate`/`grant-role` commands. |
+| `Audorix.KnockTwice.Domain` | `src/Core/` | Entities and invariants: `Installation`, `UserProfile` (display name, UI language, initials), `UserSession`, role/permission vocabulary, `DomainRuleException`. |
+| `Audorix.KnockTwice.Application` | `src/Core/` | Use cases and ports: `AccountService` (registration, confirmation, recovery, password change, external provisioning), `SessionService`, `UserProfileService`, `InstallationService`; ports `IUserAccountManager`, `IUserProfileStore`, `ISessionStore`, `IEmailSender`, `ICaptchaVerifier`; localized account emails. |
+| `Audorix.KnockTwice.Contracts` | `src/Core/` | Wire DTOs for meta, health, auth, users and admin; stable `ErrorCodes`. |
+| `Audorix.KnockTwice.Infrastructure` | `src/Infrastructure/` | Provider-neutral EF Core model (`ChatXDbContext` incl. ASP.NET Core Identity tables and Data Protection keys), store adapters, `IdentityUserAccountManager`, email adapters (SMTP via MailKit, Postmark via HTTP), captcha adapters (Cloudflare Turnstile, disabled), options validation, readiness check, `DatabaseMigrator`. |
+| `Audorix.KnockTwice.Persistence.Sqlite` | `src/Infrastructure/` | SQLite adapter, its migrations and model snapshot, design-time factory. |
+| `Audorix.KnockTwice.Persistence.PostgreSql` | `src/Infrastructure/` | PostgreSQL (Npgsql) adapter, its migrations and model snapshot, design-time factory. |
+| `Audorix.KnockTwice.Api` | `src/Api/` | Composition root, HTTP pipeline, setup mode and wizard API, health/OpenAPI endpoints, the SignalR hub `/hubs/chat`, problem responses, localization resources, `migrate`/`grant-role` commands. |
 | Test projects | `tests/` | `UnitTests`, `ArchitectureTests`, `IntegrationTests` (real SQLite/PostgreSQL). |
 
 ## Actual reference graph
@@ -48,7 +48,7 @@ flowchart LR
   reference each other.
 - **Api** is the only project that sees every adapter; `Database:Provider` selects one at runtime.
 
-The graph is enforced by `tests/Audorix.ChatX.ArchitectureTests`, which checks both the
+The graph is enforced by `tests/Audorix.KnockTwice.ArchitectureTests`, which checks both the
 declared `ProjectReference`/`PackageReference` items and the references compiled into each
 assembly, plus that Contracts types expose only primitives, collections and other contracts.
 Adding an edge requires updating that test and this page.

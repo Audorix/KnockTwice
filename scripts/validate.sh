@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reproducible local validation for Audorix.ChatX (no CI provider is assumed).
+# Reproducible local validation for Knock Twice (no CI provider is assumed).
 # PostgreSQL integration tests run only when CHATX_TEST_POSTGRES is set; they create and
 # drop uniquely named chatx_test_* databases and touch nothing else.
 #   ./scripts/validate.sh
@@ -16,9 +16,9 @@ fi
 step() { echo; echo "==> $1"; shift; "$@"; }
 
 step "dotnet tool restore" dotnet tool restore
-step "dotnet restore" dotnet restore Audorix.ChatX.slnx
-step "dotnet build" dotnet build Audorix.ChatX.slnx --no-restore --configuration Release
-step "dotnet test" dotnet test --solution Audorix.ChatX.slnx --no-build --configuration Release
+step "dotnet restore" dotnet restore Audorix.KnockTwice.slnx
+step "dotnet build" dotnet build Audorix.KnockTwice.slnx --no-restore --configuration Release
+step "dotnet test" dotnet test --solution Audorix.KnockTwice.slnx --no-build --configuration Release
 
 if [[ "${SKIP_FRONTEND:-0}" != "1" ]]; then
   pushd web > /dev/null

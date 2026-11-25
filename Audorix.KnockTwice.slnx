@@ -1,0 +1,24 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/Audorix.KnockTwice.Api/Audorix.KnockTwice.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/Audorix.KnockTwice.Application/Audorix.KnockTwice.Application.csproj" />
+    <Project Path="src/Core/Audorix.KnockTwice.Contracts/Audorix.KnockTwice.Contracts.csproj" />
+    <Project Path="src/Core/Audorix.KnockTwice.Domain/Audorix.KnockTwice.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Audorix.KnockTwice.Infrastructure/Audorix.KnockTwice.Infrastructure.csproj" />
+    <Project Path="src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql/Audorix.KnockTwice.Persistence.PostgreSql.csproj" />
+    <Project Path="src/Infrastructure/Audorix.KnockTwice.Persistence.Sqlite/Audorix.KnockTwice.Persistence.Sqlite.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Audorix.KnockTwice.LoadTest/Audorix.KnockTwice.LoadTest.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Audorix.KnockTwice.ArchitectureTests/Audorix.KnockTwice.ArchitectureTests.csproj" />
+    <Project Path="tests/Audorix.KnockTwice.IntegrationTests/Audorix.KnockTwice.IntegrationTests.csproj" />
+    <Project Path="tests/Audorix.KnockTwice.UnitTests/Audorix.KnockTwice.UnitTests.csproj" />
+  </Folder>
+</Solution>

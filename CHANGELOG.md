@@ -6,6 +6,16 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
 
 ## [Unreleased]
 
+### Changed
+
+- **Code base renamed to Audorix.KnockTwice.** Namespaces, projects, folders and the solution
+  (`Audorix.KnockTwice.slnx`) now use the product name. Installations are not affected: the database,
+  sign-ins, website-chat signing secrets and push subscriptions carry over unchanged, and the API
+  file is still `Audorix.ChatX.Api.dll`, so systemd units and the `migrate` and `grant-role` commands
+  keep working.
+- **Log categories** now start with `Audorix.KnockTwice`. If you filter logs with
+  `Logging:LogLevel:Audorix.ChatX`, use `Logging:LogLevel:Audorix.KnockTwice` instead.
+
 ## [1.0.0] - 2026-11-25
 
 The first stable release, under the product name **Knock Twice**. It contains everything since 0.1.0:

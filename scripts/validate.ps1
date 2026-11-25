@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Reproducible local validation for Audorix.ChatX (no CI provider is assumed).
+  Reproducible local validation for Knock Twice (no CI provider is assumed).
 
 .DESCRIPTION
   1. Restores, builds and tests the .NET solution (unit, architecture and integration tests).
@@ -38,9 +38,9 @@ try {
     }
 
     Invoke-Step 'dotnet tool restore' { dotnet tool restore }
-    Invoke-Step 'dotnet restore' { dotnet restore Audorix.ChatX.slnx }
-    Invoke-Step 'dotnet build' { dotnet build Audorix.ChatX.slnx --no-restore --configuration Release }
-    Invoke-Step 'dotnet test' { dotnet test --solution Audorix.ChatX.slnx --no-build --configuration Release }
+    Invoke-Step 'dotnet restore' { dotnet restore Audorix.KnockTwice.slnx }
+    Invoke-Step 'dotnet build' { dotnet build Audorix.KnockTwice.slnx --no-restore --configuration Release }
+    Invoke-Step 'dotnet test' { dotnet test --solution Audorix.KnockTwice.slnx --no-build --configuration Release }
 
     if (-not $SkipFrontend) {
         Push-Location web

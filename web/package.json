@@ -1,7 +1,7 @@
 {
   "name": "@audorix/chatx-workspace",
   "private": true,
-  "description": "npm workspace root for Audorix.ChatX frontend applications and (later) packages.",
+  "description": "npm workspace root for Knock Twice frontend applications and (later) packages.",
   "license": "MIT",
   "workspaces": [
     "apps/*"

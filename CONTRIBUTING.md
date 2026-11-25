@@ -1,4 +1,4 @@
-# Contributing to Audorix.ChatX
+# Contributing to Knock Twice
 
 Thank you for helping. This guide covers how to set up, what we expect in a change, and how to get
 it merged. By contributing you agree that your work is licensed under the [MIT License](LICENSE).
@@ -25,7 +25,7 @@ Follow [docs/development/getting-started.md](docs/development/getting-started.md
 
 **Run it**
 
-1. Run the API (`dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx`).
+1. Run the API (`dotnet run --project src/Api/Audorix.KnockTwice.Api --launch-profile chatx`).
 2. Start the web app (`cd web && npm ci && npm run dev`).
 3. Complete the setup wizard at <http://localhost:5173>.
 4. **Populate demo data** on the home page gives you people, organizations and conversations to
@@ -48,7 +48,7 @@ Follow [docs/development/getting-started.md](docs/development/getting-started.md
 **Both languages.** Every user-visible text exists in English and Spanish:
 
 - `web/apps/chat-web/src/i18n/locales/{en,es}.json`;
-- API error titles in `src/Api/Audorix.ChatX.Api/Resources/Localization/ErrorMessages*.resx`.
+- API error titles in `src/Api/Audorix.KnockTwice.Api/Resources/Localization/ErrorMessages*.resx`.
 
 New error codes are lower_snake_case, stable, and get translations.
 
@@ -75,8 +75,8 @@ updates; test at phone width and in dark mode.
 
 Add or update tests with every behaviour change:
 
-- **Domain rules:** `tests/Audorix.ChatX.UnitTests`.
-- **API behaviour, authorization and persistence:** `tests/Audorix.ChatX.IntegrationTests`. These
+- **Domain rules:** `tests/Audorix.KnockTwice.UnitTests`.
+- **API behaviour, authorization and persistence:** `tests/Audorix.KnockTwice.IntegrationTests`. These
   run against the real API with SQLite and, when `CHATX_TEST_POSTGRES` is set, PostgreSQL. Use the
   `Providers` theory data for anything that touches the database.
 - **Web:** Vitest + Testing Library next to the component (`*.test.tsx`).

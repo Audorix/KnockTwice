@@ -1,6 +1,6 @@
 # @audorix/chatx-embed
 
-React integration for the website chat of an [Audorix.ChatX](../../../README.md) installation.
+React integration for the website chat of an [Knock Twice](../../../README.md) installation.
 
 The chat runs in an iframe served by your installation. This package only loads the
 installation's `widget.js` and drives it, so no chat code runs in your page and your page never
@@ -51,4 +51,4 @@ npm pack --dry-run       # builds (prepack) and lists what would be published
 ```
 
 Maintainers publish a release with `npm publish` from this folder (the `@audorix` npm scope is
-required; `publishConfig.access` is public). The version follows the Audorix.ChatX release.
+required; `publishConfig.access` is public). The version follows the Knock Twice release.

@@ -1,6 +1,6 @@
 # Example: website chat on your own site
 
-A dependency-free Node.js site (`server.mjs`) that embeds the Audorix.ChatX website chat. It shows:
+A dependency-free Node.js site (`server.mjs`) that embeds the Knock Twice website chat. It shows:
 
 - the loader snippet;
 - identifying a signed-in customer with a token **your server** signs;
@@ -8,7 +8,7 @@ A dependency-free Node.js site (`server.mjs`) that embeds the Audorix.ChatX webs
 
 ## 1. Create a widget
 
-In Audorix.ChatX, as an owner or administrator of an organization:
+In Knock Twice, as an owner or administrator of an organization:
 
 1. Open **Organizations → your organization → Website chat** and create a widget.
 2. Copy the **signing secret** shown once (you can replace it later).
@@ -28,7 +28,7 @@ PowerShell:
 $env:CHATX_URL='http://localhost:5173'; $env:CHATX_WIDGET_ID='<widget id>'; $env:CHATX_WIDGET_SECRET='<signing secret>'; node server.mjs
 ```
 
-`CHATX_URL` is the address people use to open Audorix.ChatX:
+`CHATX_URL` is the address people use to open Knock Twice:
 
 - `http://localhost:5173` with the development servers;
 - `http://localhost:8080` with the Docker development profiles;

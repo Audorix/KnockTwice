@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Audorix.ChatX web image: static React build served by unprivileged nginx, which also
+# Knock Twice web image: static React build served by unprivileged nginx, which also
 # forwards /api, /health and /openapi to the `api` service (same origin, no CORS).
 # Build context: repository root.
 

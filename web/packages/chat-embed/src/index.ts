@@ -1,9 +1,9 @@
 import { createElement, useEffect, useRef, type ReactElement } from 'react';
 
 /**
- * @audorix/chatx-embed: React integration for the Audorix.ChatX website chat.
+ * @audorix/chatx-embed: React integration for the Knock Twice website chat.
  *
- * The chat itself runs in an iframe served by your Audorix.ChatX installation (ADR-024); this
+ * The chat itself runs in an iframe served by your Knock Twice installation (ADR-024); this
  * package only loads that installation's `widget.js` loader and drives it. Nothing from the chat
  * runs in your page's JavaScript context, and your page never sees the visitor's session token.
  */
@@ -79,7 +79,7 @@ export function loadChatXWidget(baseUrl: string, doc: Document = document): Prom
 }
 
 export interface ChatXWidgetProps extends ChatXWidgetOptions {
-  /** Your Audorix.ChatX installation, e.g. "https://chat.example.org". */
+  /** Your Knock Twice installation, e.g. "https://chat.example.org". */
   baseUrl: string;
   onReady?: () => void;
   onUnreadChange?: (count: number) => void;

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Core\Audorix.KnockTwice.Domain\Audorix.KnockTwice.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Core\Audorix.KnockTwice.Application\Audorix.KnockTwice.Application.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Audorix.KnockTwice.Infrastructure\Audorix.KnockTwice.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Audorix.KnockTwice.Persistence.Sqlite\Audorix.KnockTwice.Persistence.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\Infrastructure\Audorix.KnockTwice.Persistence.PostgreSql\Audorix.KnockTwice.Persistence.PostgreSql.csproj" />
+    <ProjectReference Include="..\..\src\Api\Audorix.KnockTwice.Api\Audorix.KnockTwice.Api.csproj" />
+  </ItemGroup>
+
+</Project>

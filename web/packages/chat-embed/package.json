@@ -1,7 +1,7 @@
 {
   "name": "@audorix/chatx-embed",
   "version": "1.0.0",
-  "description": "React integration for the Audorix.ChatX website chat (loads your installation's widget.js).",
+  "description": "React integration for the Knock Twice website chat (loads your installation's widget.js).",
   "license": "MIT",
   "author": "Audorix",
   "keywords": ["audorix", "chatx", "chat", "live-chat", "widget", "react"],

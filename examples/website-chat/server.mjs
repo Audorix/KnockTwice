@@ -1,4 +1,4 @@
-// Example website that embeds an Audorix.ChatX website chat (no dependencies; Node.js 22+).
+// Example website that embeds an Knock Twice website chat (no dependencies; Node.js 22+).
 //
 //   CHATX_URL=https://chat.example.org CHATX_WIDGET_ID=<widget id> CHATX_WIDGET_SECRET=<signing secret> node server.mjs
 //
@@ -22,7 +22,7 @@ const sessions = new Map();
 
 const base64url = (value) => Buffer.from(value).toString('base64url');
 
-/** An identity token as Audorix.ChatX expects it: HS256 JWT, aud = widget id, short-lived. */
+/** An identity token as Knock Twice expects it: HS256 JWT, aud = widget id, short-lived. */
 function identityToken(customer) {
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -71,7 +71,7 @@ function page(customer) {
     ${customer ? '' : `// After signing out, end the visitor session so the next person on this device starts fresh.
     if (location.search.includes('signedout')) window.ChatXWidget.push(['logout']);`}
   </script>
-  <!-- 2. The loader, served by your Audorix.ChatX installation. -->
+  <!-- 2. The loader, served by your Knock Twice installation. -->
   <script src="${escape(chatUrl)}/widget.js" async></script>
 </body>
 </html>`;

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Audorix.KnockTwice.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Audorix.KnockTwice.Application\Audorix.KnockTwice.Application.csproj" />
+    <ProjectReference Include="..\..\Core\Audorix.KnockTwice.Domain\Audorix.KnockTwice.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Provider-neutral EF Core only. SQLite and PostgreSQL packages live in their own persistence projects. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- EF-backed persistence for Identity and Data Protection keys (no HTTP pipeline types). -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
+    <PackageReference Include="MailKit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Audorix.KnockTwice.UnitTests" />
+    <InternalsVisibleTo Include="Audorix.KnockTwice.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

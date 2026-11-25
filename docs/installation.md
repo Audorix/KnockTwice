@@ -1,6 +1,6 @@
 # Installation
 
-Audorix.ChatX is one ASP.NET Core API plus a static web app. Choose:
+Knock Twice is one ASP.NET Core API plus a static web app. Choose:
 
 - **Docker** (recommended for servers): [deployment-docker.md](deployment-docker.md). PostgreSQL,
   migrations as a job, nginx in front.
@@ -23,7 +23,7 @@ Audorix.ChatX is one ASP.NET Core API plus a static web app. Choose:
 From the repository root:
 
 ```sh
-dotnet publish src/Api/Audorix.ChatX.Api -c Release -o /opt/chatx/api
+dotnet publish src/Api/Audorix.KnockTwice.Api -c Release -o /opt/chatx/api
 cd web && npm ci && npm run build && cd ..
 mkdir -p /opt/chatx/web && cp -r web/apps/chat-web/dist/* /opt/chatx/web/
 ```
@@ -46,7 +46,7 @@ Example systemd unit (`/etc/systemd/system/chatx.service`):
 
 ```ini
 [Unit]
-Description=Audorix.ChatX API
+Description=Knock Twice API
 After=network.target postgresql.service
 
 [Service]

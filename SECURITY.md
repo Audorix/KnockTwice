@@ -45,7 +45,7 @@ In scope:
 Out of scope:
 
 - vulnerabilities in third-party services or dependencies without a demonstrated impact on
-  Audorix.ChatX (report those upstream);
+  Knock Twice (report those upstream);
 - installations that deviate from the documentation (for example running Development settings in
   production, or exposing the API without HTTPS);
 - missing best-practice headers without a concrete attack.

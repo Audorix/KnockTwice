@@ -82,7 +82,7 @@ checks that people sign in, the history and contacts are there and the attachmen
 unchanged (SHA-256).
 
 ```powershell
-dotnet build Audorix.ChatX.slnx -c Release
+dotnet build Audorix.KnockTwice.slnx -c Release
 ./scripts/restore-drill.ps1 -Provider Sqlite
 ```
 

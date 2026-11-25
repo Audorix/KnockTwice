@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Api\Audorix.KnockTwice.Api\Audorix.KnockTwice.Api.csproj" />
+  </ItemGroup>
+
+</Project>

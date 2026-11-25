@@ -7,7 +7,7 @@ name="${1:?Usage: add-migration.sh <MigrationName>}"
 [[ "$name" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]] || { echo "Invalid migration name: $name" >&2; exit 1; }
 
 dotnet tool restore
-for project in Audorix.ChatX.Persistence.Sqlite Audorix.ChatX.Persistence.PostgreSql; do
+for project in Audorix.KnockTwice.Persistence.Sqlite Audorix.KnockTwice.Persistence.PostgreSql; do
   path="src/Infrastructure/$project"
   echo "==> $project"
   dotnet ef migrations add "$name" --project "$path" --startup-project "$path" --output-dir Migrations

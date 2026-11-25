@@ -17,13 +17,13 @@ shown; on bash replace `$env:NAME = "value";` with `export NAME="value"`.
 
 ```powershell
 dotnet tool restore
-dotnet build Audorix.ChatX.slnx
+dotnet build Audorix.KnockTwice.slnx
 ```
 
 ## 2. Start the API
 
 ```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx
+dotnet run --project src/Api/Audorix.KnockTwice.Api --launch-profile chatx
 ```
 
 On the first start there is no completed setup, so the API runs in **setup mode** and prints a
@@ -31,9 +31,9 @@ setup code in its console, in the log and as a banner:
 
 ```text
 ================================================================
-  Audorix.ChatX setup code:  K7QM-2XRA-9PDN
+  Knock Twice setup code:  K7QM-2XRA-9PDN
   Open http://localhost:5173 to complete setup.
-  The code is also saved to ...\src\Api\Audorix.ChatX.Api\App_Data\setup-code.txt
+  The code is also saved to ...\src\Api\Audorix.KnockTwice.Api\App_Data\setup-code.txt
 ================================================================
 ```
 
@@ -70,7 +70,7 @@ instead of the application:
    confirmation email is sent; preselected in the Development environment), the web app address,
    default language and human verification (Cloudflare Turnstile keys, or off).
 6. **Review** — *Install* migrates the database, creates the administrator, writes
-   `src/Api/Audorix.ChatX.Api/App_Data/chatx.settings.json` (git-ignored; it contains your
+   `src/Api/Audorix.KnockTwice.Api/App_Data/chatx.settings.json` (git-ignored; it contains your
    database and SMTP passwords) and restarts the API in normal mode. Then sign in.
 
 Nothing is written before *Install*. To run setup again, stop the API and delete the settings file
@@ -84,7 +84,7 @@ wizard when working offline.
 Further administrators are assigned from the command line after they registered:
 
 ```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- grant-role you@example.org InstallationAdministrator
+dotnet run --project src/Api/Audorix.KnockTwice.Api --launch-profile chatx -- grant-role you@example.org InstallationAdministrator
 ```
 
 Schema updates after pulling new code are applied automatically when the API starts in
@@ -93,7 +93,7 @@ explicit step (the API logs the pending migrations and reports "not ready" until
 again is safe:
 
 ```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- migrate
+dotnet run --project src/Api/Audorix.KnockTwice.Api --launch-profile chatx -- migrate
 ```
 
 ### Web application details
@@ -129,7 +129,7 @@ Stop either process with `Ctrl+C`; data is kept.
 API first; the next start shows the setup wizard again):
 
 ```powershell
-Remove-Item src/Api/Audorix.ChatX.Api/App_Data/chatx.settings.json, src/Api/Audorix.ChatX.Api/App_Data/chatx.db*
+Remove-Item src/Api/Audorix.KnockTwice.Api/App_Data/chatx.settings.json, src/Api/Audorix.KnockTwice.Api/App_Data/chatx.db*
 ```
 
 **Destructive — deletes a PostgreSQL development database** (only run against a database you
@@ -151,7 +151,7 @@ For controlled production rollouts, either run the image's `migrate` command as 
 before deploying the new API version, or hand a DBA an idempotent SQL script:
 
 ```powershell
-dotnet ef migrations script --idempotent --project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql --startup-project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql --output chatx-postgresql.sql
+dotnet ef migrations script --idempotent --project src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql --startup-project src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql --output chatx-postgresql.sql
 ```
 
 Next: [Docker profiles](docker.md) · [Configuration](configuration.md) · [Testing](testing.md) ·

@@ -18,7 +18,7 @@ $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
     dotnet tool restore
-    foreach ($project in 'Audorix.ChatX.Persistence.Sqlite', 'Audorix.ChatX.Persistence.PostgreSql') {
+    foreach ($project in 'Audorix.KnockTwice.Persistence.Sqlite', 'Audorix.KnockTwice.Persistence.PostgreSql') {
         $path = "src/Infrastructure/$project"
         Write-Host "==> $project" -ForegroundColor Cyan
         dotnet ef migrations add $Name --project $path --startup-project $path --output-dir Migrations

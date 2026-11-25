@@ -1,4 +1,4 @@
-# Audorix.ChatX — Architecture Decision Records
+# Knock Twice — Architecture Decision Records
 
 > **Source and revision policy.** Prepared from the user-supplied `Pasted markdown(4).md`, which contains the ChatX documentation draft. The unavailable shared link was not used as evidence. Source technology choices and feature intent are retained. “Accepted” and “Approved” labels in that draft are not treated as evidence of separate user approval. New implementation recommendations below are proposals, not previously agreed requirements. These documents describe intended behavior; they do not certify implemented or tested software.
 
@@ -29,15 +29,15 @@ Microservices are explicitly excluded from the initial release.
 
 **Decision:** Use ASP.NET Core Web API with .NET 10.
 
-**Namespace root:** `Audorix.ChatX`
+**Namespace root:** `Audorix.KnockTwice`
 
 All backend projects must use the following namespace convention:
 
-- `Audorix.ChatX.Api`
-- `Audorix.ChatX.Domain`
-- `Audorix.ChatX.Application`
-- `Audorix.ChatX.Contracts`
-- `Audorix.ChatX.Infrastructure`
+- `Audorix.KnockTwice.Api`
+- `Audorix.KnockTwice.Domain`
+- `Audorix.KnockTwice.Application`
+- `Audorix.KnockTwice.Contracts`
+- `Audorix.KnockTwice.Infrastructure`
 
 Additional projects follow the same convention.
 
@@ -531,7 +531,7 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 - *Change feed.* Every new or changed history entry, and every entry whose reactions changed, adds a row to `change_log` (identity id, conversation, entry, time) in the same transaction as the change (`ChatXDbContext`, like the search and push queues). `GET /api/v1/changes/cursor` returns an opaque cursor for "now"; `GET /api/v1/changes?since=` returns the current state of every changed entry the caller may still see (membership and visible-from position re-checked), the ids of conversations touched, and a new cursor.
   - *Limits (owner decision):* more than **500** changes, or a cursor older than the **24-hour** retention, returns `reset: true` and the client reloads; the purge runs with the hourly planning cleanup.
   - *Ordering:* identity values can commit out of order, so the returned cursor only advances past changes older than 5 seconds; clients may receive a recent change twice and deduplicate by entry id and version.
-- *Capacity targets (owner decision, "mid-size", one server):* 2,000 connected people, 100 messages a second, p95 send under 300 ms, p95 history page under 200 ms, no errors. `tools/Audorix.ChatX.LoadTest` measures them against any installation through the public API (it needs a test installation in development mode); it also reports delivery latency to each recipient (target p95 under 1 s).
+- *Capacity targets (owner decision, "mid-size", one server):* 2,000 connected people, 100 messages a second, p95 send under 300 ms, p95 history page under 200 ms, no errors. `tools/Audorix.KnockTwice.LoadTest` measures them against any installation through the public API (it needs a test installation in development mode); it also reports delivery latency to each recipient (target p95 under 1 s).
 - *Web bundle.* Pages other than the conversations, home and sign-in pages are loaded on demand (`React.lazy`), the SignalR client is loaded when realtime starts, and `scripts/check-bundle.mjs` fails CI when the first download exceeds 180 kB gzip or any chunk 80 kB.
 - *Presence audience (owner decision, after the first baseline).* Presence goes to contacts and to people sharing an active direct chat or group, minus blocks, instead of everyone sharing an organization. Channels and website chats do not count (their size is unbounded; groups are capped by `Conversations:MaxGroupParticipants`). The audience was the whole organization, so connecting everyone in a 2,000-person organization meant about 4 million announcements; it is now bounded by a person's chats.
 - *Conversation list pages.* `GET /api/v1/conversations/page?limit=&after=` returns the list in the same order 50 at a time (at most 200); the existing unpaged endpoint stays for other callers. The page boundary is (activity time, id), so a conversation that becomes active moves to the top and arrives through realtime updates rather than being repeated.

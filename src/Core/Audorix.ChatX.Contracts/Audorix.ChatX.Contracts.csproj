@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <RootNamespace>Audorix.ChatX.Contracts</RootNamespace>
-  </PropertyGroup>
-
-  <!-- Contracts are wire types only: no Domain, EF Core or ASP.NET references. -->
-
-</Project>

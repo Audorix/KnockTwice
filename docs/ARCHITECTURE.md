@@ -1,4 +1,4 @@
-# Audorix.ChatX — System Architecture
+# Knock Twice — System Architecture
 
 > **Source and revision policy.** Prepared from the user-supplied `Pasted markdown(4).md`, which contains the ChatX documentation draft. The unavailable shared link was not used as evidence. Source technology choices and feature intent are retained. “Accepted” and “Approved” labels in that draft are not treated as evidence of separate user approval. New implementation recommendations below are proposals, not previously agreed requirements. These documents describe intended behavior; they do not certify implemented or tested software.
 
@@ -10,7 +10,7 @@
 
 ## 1. Overview
 
-Audorix.ChatX is an open-source, configurable communication platform built on .NET 10 and React.
+Knock Twice is an open-source, configurable communication platform built on .NET 10 and React.
 
 The platform provides three primary experiences:
 
@@ -43,16 +43,16 @@ flowchart TD
 
 | Directory / project | Responsibility |
 | --- | --- |
-| `src/Api/Audorix.ChatX.Api` | HTTP and SignalR endpoints; composition root |
-| `src/Core/Audorix.ChatX.Domain` | Entities, value objects and business rules |
-| `src/Core/Audorix.ChatX.Application` | Use cases and provider ports |
-| `src/Core/Audorix.ChatX.Contracts` | Public DTOs and event envelopes |
-| `src/Infrastructure/Audorix.ChatX.Infrastructure` | EF mappings and initial adapters |
-| `src/Infrastructure/Audorix.ChatX.Persistence.Sqlite` | SQLite configuration and migrations |
-| `src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql` | PostgreSQL configuration and migrations |
+| `src/Api/Audorix.KnockTwice.Api` | HTTP and SignalR endpoints; composition root |
+| `src/Core/Audorix.KnockTwice.Domain` | Entities, value objects and business rules |
+| `src/Core/Audorix.KnockTwice.Application` | Use cases and provider ports |
+| `src/Core/Audorix.KnockTwice.Contracts` | Public DTOs and event envelopes |
+| `src/Infrastructure/Audorix.KnockTwice.Infrastructure` | EF mappings and initial adapters |
+| `src/Infrastructure/Audorix.KnockTwice.Persistence.Sqlite` | SQLite configuration and migrations |
+| `src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql` | PostgreSQL configuration and migrations |
 | Logical module folders | Identity, Users, Organizations, Contacts, Conversations, Messaging, Presence, Notifications, Attachments, Widgets |
-| Optional later adapter projects | `Audorix.ChatX.Realtime.SignalR`, `Audorix.ChatX.Storage.Local`, `Audorix.ChatX.Storage.S3` |
-| Shared localization resources | Initially in the host/application; extract `Audorix.ChatX.Localization` only when reused |
+| Optional later adapter projects | `Audorix.KnockTwice.Realtime.SignalR`, `Audorix.KnockTwice.Storage.Local`, `Audorix.KnockTwice.Storage.S3` |
+| Shared localization resources | Initially in the host/application; extract `Audorix.KnockTwice.Localization` only when reused |
 
 The initial implementation should not create unnecessary assemblies. Closely related modules may initially live within the same project, provided their logical boundaries remain clear.
 

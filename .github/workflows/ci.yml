@@ -44,14 +44,14 @@ jobs:
         with:
           global-json-file: global.json
       - name: Restore
-        run: dotnet restore Audorix.ChatX.slnx
+        run: dotnet restore Audorix.KnockTwice.slnx
       - name: Build
-        run: dotnet build Audorix.ChatX.slnx --no-restore --configuration Release
+        run: dotnet build Audorix.KnockTwice.slnx --no-restore --configuration Release
       - name: Test
         shell: bash
         run: |
           set -o pipefail
-          dotnet test --solution Audorix.ChatX.slnx --no-build --configuration Release 2>&1 | tee test-output.log
+          dotnet test --solution Audorix.KnockTwice.slnx --no-build --configuration Release 2>&1 | tee test-output.log
       # Failing tests as annotations on the run page, readable without opening (or signing in to) the log.
       - name: Report failing tests
         if: failure()

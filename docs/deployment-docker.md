@@ -1,6 +1,6 @@
 # Deploying with Docker
 
-This guide runs Audorix.ChatX on one server with Docker Compose, PostgreSQL and HTTPS. For local
+This guide runs Knock Twice on one server with Docker Compose, PostgreSQL and HTTPS. For local
 development profiles (SQLite or PostgreSQL, Mailpit, Swagger) see
 [development/docker.md](development/docker.md).
 

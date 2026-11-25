@@ -1,8 +1,8 @@
 # Database migrations
 
-Audorix.ChatX supports **SQLite** and **PostgreSQL** through Entity Framework Core. Each provider
-has its own migration set, in `src/Infrastructure/Audorix.ChatX.Persistence.Sqlite/Migrations` and
-`src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql/Migrations`. Both are generated from the
+Knock Twice supports **SQLite** and **PostgreSQL** through Entity Framework Core. Each provider
+has its own migration set, in `src/Infrastructure/Audorix.KnockTwice.Persistence.Sqlite/Migrations` and
+`src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql/Migrations`. Both are generated from the
 same model and always change together.
 
 ## For operators
@@ -19,7 +19,7 @@ same model and always change together.
 
 ```sh
 dotnet Audorix.ChatX.Api.dll migrate                     # published binaries, from the publish folder
-dotnet run --project src/Api/Audorix.ChatX.Api -- migrate  # from source
+dotnet run --project src/Api/Audorix.KnockTwice.Api -- migrate  # from source
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production run --rm migrate
 ```
 
@@ -43,12 +43,12 @@ checkout of the release:
 ```sh
 dotnet tool restore
 dotnet ef migrations script --idempotent \
-  --project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql \
-  --startup-project src/Infrastructure/Audorix.ChatX.Persistence.PostgreSql \
+  --project src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql \
+  --startup-project src/Infrastructure/Audorix.KnockTwice.Persistence.PostgreSql \
   --output chatx-postgresql.sql
 ```
 
-Use `Audorix.ChatX.Persistence.Sqlite` for the SQLite equivalent.
+Use `Audorix.KnockTwice.Persistence.Sqlite` for the SQLite equivalent.
 
 **Backups**
 
@@ -60,8 +60,8 @@ Downgrades are not supported: restore the backup taken before the upgrade instea
 
 ## For developers
 
-Change the model (entities in `src/Core/Audorix.ChatX.Domain`, mappings in
-`src/Infrastructure/Audorix.ChatX.Infrastructure/Persistence/Configurations`), then generate the
+Change the model (entities in `src/Core/Audorix.KnockTwice.Domain`, mappings in
+`src/Infrastructure/Audorix.KnockTwice.Infrastructure/Persistence/Configurations`), then generate the
 migration for **both** providers at once (no database needed):
 
 ```powershell

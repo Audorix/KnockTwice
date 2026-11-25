@@ -4,7 +4,7 @@ import type { ConversationEntryResponse, PrivateMessageResponse, ReactionChanged
 export type { ReactionChangedEvent };
 
 /**
- * Client for the `/hubs/chat` SignalR contract (see Audorix.ChatX.Contracts.V1.Realtime).
+ * Client for the `/hubs/chat` SignalR contract (see Audorix.KnockTwice.Contracts.V1.Realtime).
  * It owns reconnection: SignalR's automatic retries first, then a slower manual retry loop.
  * After every (re)connect it rejoins the conversations the UI asked for and reloads the
  * presence snapshot, so a reconnect replaces state instead of adding to it.

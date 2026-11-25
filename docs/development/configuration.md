@@ -89,7 +89,7 @@ The setup wizard creates the first installation administrator. Further administr
 assigned from the command line after they have registered:
 
 ```powershell
-dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- grant-role admin@example.org InstallationAdministrator
+dotnet run --project src/Api/Audorix.KnockTwice.Api --launch-profile chatx -- grant-role admin@example.org InstallationAdministrator
 ```
 
 ## `Email`
@@ -97,7 +97,7 @@ dotnet run --project src/Api/Audorix.ChatX.Api --launch-profile chatx -- grant-r
 | Key | Default | Notes |
 | --- | --- | --- |
 | `Email:Provider` | `Smtp` | `Smtp` or `Postmark`. |
-| `Email:FromAddress` / `Email:FromName` | `no-reply@chatx.localhost` / `Audorix.ChatX` | Use an address your provider is allowed to send from. |
+| `Email:FromAddress` / `Email:FromName` | `no-reply@chatx.localhost` / `Knock Twice` | Use an address your provider is allowed to send from. |
 | `Email:Smtp:Host` / `Port` | `localhost` / `1025` | Defaults target a local development server such as Mailpit. |
 | `Email:Smtp:Security` | `None` | `None`, `StartTls`, `StartTlsWhenAvailable`, `SslOnConnect`, `Auto`. Use TLS in production. |
 | `Email:Smtp:Username` / `Password` | empty | Set both or neither. **Secret.** |

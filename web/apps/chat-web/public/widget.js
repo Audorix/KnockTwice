@@ -1,6 +1,6 @@
 /*!
- * Audorix.ChatX website widget loader (MIT). Embeds the chat in an iframe served by your
- * Audorix.ChatX installation; this script only creates, positions and resizes that frame.
+ * Knock Twice website widget loader (MIT). Embeds the chat in an iframe served by your
+ * Knock Twice installation; this script only creates, positions and resizes that frame.
  *
  *   <script src="https://chat.example.org/widget.js" data-widget-id="WIDGET-ID" async></script>
  *
