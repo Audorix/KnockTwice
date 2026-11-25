@@ -34,8 +34,8 @@ what each one includes, its release gate, and how to send feedback.
 | **1** | [Company setup and access](ROADMAP.md#release-1-company-setup-and-access) | Set up a workspace, control access, and send formatted messages and code snippets. |
 | **2** | [Customer support desk](ROADMAP.md#release-2-customer-support-desk) | Turn website conversations into support cases a team can manage together. |
 | **3** | [Mobile and shared media](ROADMAP.md#release-3-mobile-and-shared-media) | Keep up with conversations on mobile and find or play shared media in context. |
-| **4** | [Partner collaboration and data control](ROADMAP.md#release-4-partner-collaboration-and-data-control) | Work with external partners, connect business systems, and move or recover conversation data. |
-| **5** | [AI-assisted support](ROADMAP.md#release-5-ai-assisted-support) | Give agents source-backed drafts and handoff summaries they can review. |
+| **4** | [Partner collaboration and data control](ROADMAP.md#release-4-partner-collaboration-and-data-control) | Work with external partners, connect company drives and business systems, and move or recover conversation data. |
+| **5** | [AI for conversations and business teams](ROADMAP.md#release-5-ai-for-conversations-and-business-teams) | Translate messages, turn recordings into searchable notes, and give teams specialized assistants, including a support agent that can work with tickets. |
 
 Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/KnockTwice/issues).
 
