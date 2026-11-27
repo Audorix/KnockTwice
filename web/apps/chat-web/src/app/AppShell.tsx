@@ -106,11 +106,11 @@ export function AppShell() {
 
   if (user) {
     return (
-      <div className="cx-app">
+      <div className={`cx-app${pathname === '/support' ? ' is-support-app' : ''}`}>
         {skip}
         <AppNavigation />
         {/* Full-height chat layout for conversations and an open private chat (not the private chats list or invitation). */}
-        <main id="main" ref={main} className={`cx-app-main${pathname === '/conversations' || (pathname === '/private' && query.get('id')) ? ' is-chat' : ''}`} tabIndex={-1}>
+        <main id="main" ref={main} className={`cx-app-main${pathname === '/conversations' || (pathname === '/private' && query.get('id')) ? ' is-chat' : ''}${pathname === '/support' ? ' is-support' : ''}`} tabIndex={-1}>
           <Suspense fallback={<p className="cx-muted p-3">{t('auth.working')}</p>}>
             <Page />
           </Suspense>

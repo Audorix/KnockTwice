@@ -6,7 +6,7 @@ Knock Twice by Audorix is a self-hosted messaging platform for team conversation
 
 | Release | Focus | What it makes possible |
 | :-- | :-- | :-- |
-| **1** | [Company setup and access](#release-1-company-setup-and-access) | Set up a workspace, control access, and send formatted messages and code snippets. |
+| **1** | [Company setup and access](#release-1-company-setup-and-access) | Set up a workspace, control access, send formatted messages and code snippets, and manage support chats in a flexible desktop layout. |
 | **2** | [Customer support desk](#release-2-customer-support-desk) | Turn website conversations into support cases a team can manage together. |
 | **3** | [Mobile and shared media](#release-3-mobile-and-shared-media) | Keep up with conversations on mobile and find or play shared media in context. |
 | **4** | [Partner collaboration and data control](#release-4-partner-collaboration-and-data-control) | Work with external partners, connect company drives and business systems, and move or recover conversation data. |
@@ -20,6 +20,7 @@ Make Knock Twice easier to set up and give teams the tools to write clear busine
 - **Organization setup.** Guide owners through branding, the first workspace, role assignment, and invitations. Add verified domains and optional organization SSO. Automatic enrollment requires an explicit administrator choice.
 - **Granular permissions.** Add scoped roles and groups at installation, organization, and workspace levels. Cover private-chat use; support access and case handling; organization membership and management; channel creation and administration; and installation administration for users, roles, permissions, groups, settings, and providers. For example, an organization can restrict private chat to an approved group. Add effective-access reviews, guest and invitation expiry, and auditable changes to permissions.
 - **Role-gated message translation (added to Release 1).** Let administrators configure approved AI translation providers and choose the active provider for translation. Users with the `messages.translate` permission can translate an incoming message to a selected language, or opt in to automatic translation of support messages. Keep the original available and disclose that message text is sent to the configured provider. Denied or unassigned users cannot invoke translation.
+- **Desktop support chat layout (added to Release 1).** Let agents choose a two-chat or four-chat desktop view, maximize any open chat across the workspace, and restore the previous multi-chat layout with its existing pane assignments. Keep the maximize/restore control available on each chat and remember the layout per user and organization. This layout capability is part of Release 1; the broader customer support desk remains planned in Release 2.
 - **Multi-node SignalR delivery (added to Release 1).** Support multiple API nodes over shared PostgreSQL and Redis. Keep the Redis SignalR backplane separate from cache and queue provider selection, require one shared Redis endpoint and environment-specific channel prefix, and fail readiness rather than silently switching to local delivery. Configure WebSocket upgrades and cookie affinity for negotiation, WebSocket, and fallback requests. Restore authorized conversation subscriptions after reconnect and use durable history/change APIs to catch up. Prove cross-node channel and direct-conversation delivery in both directions, a no-backplane negative control, and node-loss reconnect/catch-up through one public endpoint. Report process-local features and worker coordination separately.
 - **Avatar choices.** Add locally generated DiceBear avatars to the profile editor, alongside uploaded pictures and initials. Select styles with clear licensing and attribution.
 - **Storage provider foundation.** Support Local, S3-compatible storage (including Cloudflare R2), and Azure Blob Storage through one attachment storage interface. Let administrators select an approved destination, verify its connection, and see what operations it supports. Keep a provider reference on existing attachments so a change of default leaves them readable. Move existing data through an explicit, verified migration.
@@ -28,6 +29,8 @@ Make Knock Twice easier to set up and give teams the tools to write clear busine
 - **Install, upgrade, and recover.** Document and verify a clean install, an upgrade from the previous release, rollback or recovery from a failed upgrade, and restoration of messages together with their attachments.
 
 **Editor release check:** Verify that pasting, sending, editing, and reopening a formatted message preserves its structure. Copying a sent code block should reproduce the original snippet, including indentation and line breaks.
+
+**Support layout release check:** Open two and four assigned chats, maximize each chat in turn, and restore the prior layout. Confirm the other pane assignments remain available after restore, the selected layout is remembered per user and organization, and the control works when the inbox is expanded or the workspace switches to its stacked layout.
 
 **Migration release check:** Test Local → cloud → Local, a provider-to-provider move, interruption and resume, and rollback after a new upload. Failed or unsupported items remain readable at the source and appear in the migration report.
 
@@ -62,6 +65,10 @@ harness. The Redis backplane, shared presence/rate limits, client reconnect-time
 Redis readiness check already exist from Phase 21; the two-node deployment proof is still pending
 because the Docker daemon is unavailable in the current environment. Release 1 stays open until
 these gates are closed.
+
+The desktop support chat layout is included in Release 1. The current implementation adds a
+per-chat maximize/restore control to the two- and four-chat workspace, preserves the pane assignments
+when a chat is maximized, and remembers the maximized chat per user and organization.
 
 Widget setup and support-queue work in Phases 25-29 was advanced earlier in response to the owner's
 direct Release 2 requests. That work is a deliberate sequencing exception; it does not mark Release 1

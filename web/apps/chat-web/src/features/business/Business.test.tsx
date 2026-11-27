@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
-import { authConfig, json, mockFetch } from '../../test/fetchRoutes';
+import { authConfig, json, mockFetch, type Route } from '../../test/fetchRoutes';
 import { AuthProvider } from '../auth/AuthContext';
 import { ChannelsPage } from './ChannelsPage';
 import { SupportPage, supportOrganizations } from './SupportPage';
@@ -304,6 +304,101 @@ describe('business communication', () => {
     // Only agents and administrators work an inbox.
     expect(supportOrganizations([{ ...acme, supportAgent: false } as never, { ...acme, id: 'o-2', supportAgent: false, myPermissions: ['organization.manage'] } as never])
       .map((o) => o.id)).toEqual(['o-2']);
+  });
+
+  it('keeps the preferred desktop chat layout and drafts through stacked fallback and resize', async () => {
+    window.history.replaceState(null, '', '/support');
+    localStorage.clear();
+    let workspaceWidth = 1450;
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: () => ({ matches: true, addListener: () => undefined, removeListener: () => undefined, addEventListener: () => undefined, removeEventListener: () => undefined }) });
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      if (this.classList?.contains('cx-support-chat-workspace')) return { x: 0, y: 0, width: workspaceWidth, height: 820, top: 0, left: 0, right: workspaceWidth, bottom: 820, toJSON: () => ({}) } as DOMRect;
+      return originalRect.call(this);
+    };
+
+    const ana = { id: 'u-ana', displayName: 'Ana', avatar: { initials: 'A' } };
+    const names = ['Diego Fernández', 'Noah Díaz', 'Emma Martin', 'Rafael Rossi'];
+    const ids = ['desk-1', 'desk-2', 'desk-3', 'desk-4'];
+    const routedActions: string[] = [];
+    const items = names.map((name, index) => ({
+      conversation: {
+        conversationId: ids[index], visitorName: name, widgetId: 'wg-1', widgetName: 'Website chat', status: 'open',
+        assignedTo: ana, participating: true, unreadCount: 0, createdAtUtc: '2026-11-27T10:00:00Z', lastActivityAtUtc: '2026-11-27T10:01:00Z', subject: `Question from ${name}`,
+      },
+      title: `Question from ${name}`,
+      lastMessage: { text: `Message from ${name}`, fromCustomer: true, sentAtUtc: '2026-11-27T10:01:00Z' },
+    }));
+    const page = (list = items) => json(200, { items: list, total: list.length, counts: { open: 4, pending: 3, closed: 0, all: 7, unassignedOpen: 2 } });
+    const history = { items: [{ id: 'event-1', sequence: 1, kind: 'message', actor: ana, subject: null, text: null, body: 'How can I help?', createdAtUtc: '2026-11-27T10:00:00Z', attachments: [] }], nextCursor: null, hasMore: false };
+    const routes: Record<string, Route> = {
+      ...signedIn,
+      'GET /api/v1/organizations': () => json(200, [acme]),
+      'GET /api/v1/organizations/o-1/members': () => json(200, { members: [{ user: ana, role: 'member', joinedAtUtc: '2026-11-23T10:00:00Z', supportAgent: true }], pendingInvitations: null }),
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20&mine=true&assignment=assigned': () => page(),
+      'GET /api/v1/organizations/o-1/support/inbox?status=all&skip=0&take=100&mine=true&assignment=assigned&sort=newest': () => page(),
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=1&mine=true&assignment=assigned&sort=newest': () => page(),
+      'GET /api/v1/organizations/o-1/support/inbox?status=all&skip=0&take=1&sort=newest': () => page(),
+      'GET /api/v1/attachments/limits': () => json(200, { maxFileSize: 10485760, maxPerMessage: 10, allowedExtensions: ['pdf', 'png'] }),
+    };
+    for (const id of ids) {
+      routes[`GET /api/v1/support/conversations/${id}/history`] = () => json(200, history);
+      routes[`GET /api/v1/support/conversations/${id}/notes`] = () => json(200, []);
+    }
+    routes['POST /api/v1/support/conversations/desk-2/notes'] = (init) => {
+      routedActions.push(`note:${JSON.parse(String(init?.body)).body as string}`);
+      return json(201, { id: 'note-2', conversationId: 'desk-2', author: ana, body: 'Note routed to Noah', createdAtUtc: '2026-11-27T10:05:00Z' });
+    };
+    routes['POST /api/v1/conversations/desk-2/messages'] = (init) => {
+      routedActions.push(`reply:${JSON.parse(String(init?.body)).body as string}`);
+      return json(201, { id: 'reply-2', sequence: 3, kind: 'message', actor: ana, subject: null, text: null, body: 'Reply routed to Noah', createdAtUtc: '2026-11-27T10:06:00Z', attachments: [] });
+    };
+    mockFetch(routes);
+    const user = userEvent.setup();
+    try {
+      render(<AuthProvider><SupportPage /></AuthProvider>);
+      await vi.waitFor(() => expect(document.querySelectorAll('.cx-support-chat-pane.is-visible')).toHaveLength(4));
+      expect(screen.getByRole('button', { name: 'Show 4 chats', pressed: true })).toBeInTheDocument();
+      expect(screen.getByText('2', { selector: '.cx-support-queue-count' })).toBeInTheDocument();
+      const reply = screen.getByLabelText('Reply to Diego');
+      await user.type(reply, 'Keep this draft while the layout changes');
+
+      workspaceWidth = 1000;
+      await user.click(screen.getByRole('button', { name: 'Expand inbox' }));
+      await vi.waitFor(() => expect(screen.getByText('Showing 2 stacked')).toBeInTheDocument());
+      expect(document.querySelectorAll('.cx-support-chat-pane.is-visible')).toHaveLength(2);
+      expect(screen.getByLabelText('Reply to Diego')).toHaveValue('Keep this draft while the layout changes');
+      const noahPane = document.querySelectorAll('.cx-support-chat-pane.is-visible')[1] as HTMLElement;
+      await user.click(within(noahPane).getByRole('tab', { name: 'Internal note' }));
+      await user.type(within(noahPane).getByLabelText('Note for your team'), 'Note routed to Noah');
+      await user.click(within(noahPane).getByRole('button', { name: 'Add note' }));
+      await vi.waitFor(() => expect(routedActions).toContain('note:Note routed to Noah'));
+      await user.click(within(noahPane).getByRole('tab', { name: 'Reply' }));
+      await user.type(within(noahPane).getByLabelText('Reply to Noah'), 'Reply routed to Noah');
+      await user.click(within(noahPane).getByRole('button', { name: 'Send reply' }));
+      await vi.waitFor(() => expect(routedActions).toContain('reply:Reply routed to Noah'));
+      expect(screen.getByLabelText('Reply to Diego')).toHaveValue('Keep this draft while the layout changes');
+
+      workspaceWidth = 1200;
+      window.dispatchEvent(new Event('resize'));
+      await vi.waitFor(() => expect(document.querySelectorAll('.cx-support-chat-pane.is-visible')).toHaveLength(4));
+      expect(screen.queryByText('Showing 2 stacked')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Show 2 chats' }));
+      await vi.waitFor(() => expect(document.querySelectorAll('.cx-support-chat-pane.is-visible')).toHaveLength(2));
+      workspaceWidth = 1000;
+      window.dispatchEvent(new Event('resize'));
+      expect(await screen.findByText('Showing 2 stacked')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Show 2 chats', pressed: true })).toBeInTheDocument();
+      workspaceWidth = 1200;
+      window.dispatchEvent(new Event('resize'));
+      await vi.waitFor(() => expect(screen.queryByText('Showing 2 stacked')).not.toBeInTheDocument());
+      expect(screen.getByLabelText('Reply to Diego')).toHaveValue('Keep this draft while the layout changes');
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
   });
 
   it('changes organization-specific settings', async () => {
