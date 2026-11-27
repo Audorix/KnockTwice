@@ -11,8 +11,8 @@ development profiles (SQLite or PostgreSQL, Mailpit, Swagger) see
 | Service | Role | Exposed |
 | --- | --- | --- |
 | `postgres` | PostgreSQL 18, data in the `chatx_postgres-data` volume | no |
-| `migrate` | Applies database migrations once, then exits; the API starts only after it succeeded | no |
-| `api` | ASP.NET Core API in `Production` (no Swagger), data (settings file, attachments) in `chatx_api-data` | no |
+| `migrate` | Explicit one-off migration command for upgrades; uses the saved settings file | no |
+| `api` | ASP.NET Core API in `Production` (no Swagger), data (settings file, attachments) in `chatx_api-data`; runs the first-install wizard when no settings exist | no |
 | `web` | nginx with the web app; forwards `/api`, `/hubs`, `/health` to the API; serves the website-chat loader and embed page | `127.0.0.1:8080` |
 
 The web port is bound to localhost on purpose: put a TLS reverse proxy on the host in front of it.
@@ -32,10 +32,18 @@ git clone https://github.com/Audorix/KnockTwice.git
 cd KnockTwice
 cp docker/.env.production.example docker/.env.production
 chmod 600 docker/.env.production
+mkdir -p docker/secrets
+umask 077
+openssl rand -base64 32 > docker/secrets/postgres_password
 ```
 
-Set `CHATX_POSTGRES_PASSWORD` in `docker/.env.production` to a long random value without `;`
-(for example `openssl rand -base64 32 | tr -d ';/+='`).
+The PostgreSQL container reads its bootstrap password from the ignored, host-side secret file
+`docker/secrets/postgres_password`. Keep this file private and include it in the protected backup
+and recovery procedure. The password is used only when PostgreSQL initializes an empty data
+volume; changing the file later does not change the PostgreSQL role password. The database
+password is not included in the API image or Compose environment. The setup wizard asks for the
+database connection; use host `postgres`, port `5432`, database `chatx`, username `chatx`, and the
+password from this file.
 
 ## 2. Start
 
@@ -100,7 +108,8 @@ Open `https://chat.example.org`. The web app shows the setup wizard. Find the se
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production logs api | grep -i "setup code"
 ```
 
-The database step is locked (it comes from the compose file). Enter:
+The database step is editable in this default interactive profile. Enter the PostgreSQL values
+above, then use **Test connection**. Enter:
 
 - **Email:** your SMTP server or a Postmark server token. Use *Send test email*.
 - **Administrator:** your name, email and a strong password.
@@ -109,8 +118,10 @@ The database step is locked (it comes from the compose file). Enter:
   - set the web address to `https://chat.example.org`;
   - enter Cloudflare Turnstile keys, or switch human verification off.
 
-*Install* writes `/app/data/chatx.settings.json` in the `chatx_api-data` volume and restarts the
-API. Sign in. Further administrators: see [installation.md](installation.md#administrators).
+*Install* applies the initial migrations, creates the first administrator, writes
+`/app/data/chatx.settings.json` in the `chatx_api-data` volume with owner-only permissions, and
+restarts the API. The wizard-managed database connection is stored there. Sign in. Further
+administrators: see [installation.md](installation.md#administrators).
 
 ## Operating it
 
@@ -130,6 +141,17 @@ docker compose -f docker/compose.production.yaml --env-file docker/.env.producti
 ```
 
 Read the release notes (`CHANGELOG.md`) first and back up before upgrading.
+
+**Upgrading an older Compose install.** Earlier production Compose files supplied the database
+connection only through environment variables, so it may not exist in `chatx.settings.json`. Before
+upgrading, keep the existing PostgreSQL password and select either the environment-key or
+secret-file configuration below for both `api` and `migrate`. For secret-file mode, write the full
+connection string with the existing password to `docker/secrets/database_connection_string` and
+use the override for every build, migration, and startup command. For the new bootstrap secret file,
+use the existing database password when reusing an existing PostgreSQL volume; `POSTGRES_PASSWORD_FILE`
+does not change the password in a database that has already been initialized. Once the application
+is running from the new image, future deployments can continue using that external configuration
+or perform a planned move to wizard-managed settings.
 
 **Backups.** Back up both volumes together: the database and the API data (settings file with
 provider secrets, and attachment files).
@@ -171,6 +193,68 @@ services:
 and add `-f docker/compose.override.production.yaml` to every command. Object storage
 (`Storage__Provider=S3`, `Storage__S3__*`) and malware scanning (`Scanning__Provider=ClamAv`) are
 configured the same way.
+
+### Database connection from an environment key
+
+For unattended installs, set both `Database__Provider` and `Database__ConnectionString` on the
+`api` and `migrate` services in a private Compose override. The same connection string can be
+provided through a protected environment file as `CHATX_DATABASE_CONNECTION_STRING` and expanded
+in that override. The wizard then shows the database as locked. Environment values are visible to
+Docker administrators through container inspection, so use the secret-file option below when that
+exposure is not acceptable.
+
+```yaml
+services:
+  api:
+    environment:
+      Database__Provider: PostgreSql
+      Database__ConnectionString: ${CHATX_DATABASE_CONNECTION_STRING:?Set in the protected env file}
+  migrate:
+    environment:
+      Database__Provider: PostgreSql
+      Database__ConnectionString: ${CHATX_DATABASE_CONNECTION_STRING:?Set in the protected env file}
+```
+
+### Database connection from a secret file
+
+Create a host-side file containing only the PostgreSQL connection string, protect it, and keep it
+outside version control:
+
+```sh
+umask 077
+cat > docker/secrets/database_connection_string <<'EOF'
+Host=postgres;Port=5432;Database=chatx;Username=chatx;Password=replace-with-the-database-password;SSL Mode=Prefer
+EOF
+```
+
+Add a private Compose override (also ignored by Git) that mounts the file into both the API and
+migration service and selects it through a non-secret path setting:
+
+```yaml
+services:
+  api:
+    environment:
+      Database__Provider: PostgreSql
+      Database__ConnectionStringFile: /run/secrets/database_connection_string
+    secrets: [database_connection_string]
+  migrate:
+    environment:
+      Database__Provider: PostgreSql
+      Database__ConnectionStringFile: /run/secrets/database_connection_string
+    secrets: [database_connection_string]
+
+secrets:
+  database_connection_string:
+    file: ./secrets/database_connection_string
+```
+
+The file is mounted read-only. The API reads it at startup, and the wizard treats the database as
+locked. The direct environment key `Database__ConnectionString` takes precedence if both methods
+are configured. File-backed Compose secrets are not encrypted at rest on the host: restrict file
+permissions, protect the host disk and backups. To rotate a database password, change the PostgreSQL
+role password and update the active connection source (the wizard-written settings file, secret
+file, or environment key) before restarting the API. Also update `postgres_password` for future
+empty-volume initialization.
 
 ## Limits of this setup
 

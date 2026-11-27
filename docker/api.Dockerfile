@@ -7,7 +7,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore first so dependency layers are cached independently of source edits.
-COPY global.json Directory.Build.props Directory.Packages.props ./
+COPY .editorconfig global.json Directory.Build.props Directory.Packages.props ./
 COPY src/Core/Audorix.KnockTwice.Domain/Audorix.KnockTwice.Domain.csproj src/Core/Audorix.KnockTwice.Domain/
 COPY src/Core/Audorix.KnockTwice.Application/Audorix.KnockTwice.Application.csproj src/Core/Audorix.KnockTwice.Application/
 COPY src/Core/Audorix.KnockTwice.Contracts/Audorix.KnockTwice.Contracts.csproj src/Core/Audorix.KnockTwice.Contracts/

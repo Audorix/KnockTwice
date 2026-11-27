@@ -1,4 +1,4 @@
-# Production-oriented profile: PostgreSQL, migrations as a one-off job, the API reachable only
+# Production-oriented profile: PostgreSQL, first-run setup wizard, the API reachable only
 # through the bundled nginx, and the web port bound to localhost for a TLS reverse proxy on the
 # host (Caddy, nginx, Traefik, a cloud load balancer…). See docs/deployment-docker.md.
 #
@@ -10,15 +10,13 @@ x-api-image: &api-image
   build:
     context: ..
     dockerfile: docker/api.Dockerfile
-  image: ${CHATX_API_IMAGE:-audorix/chatx-api:1.0.0}
+  image: ${CHATX_API_IMAGE:-audorix/chatx-api:1.1.0}
 
 x-api-environment: &api-environment
   ASPNETCORE_ENVIRONMENT: Production
-  # The setup wizard (first start) writes email, captcha and the web address here.
+  # The setup wizard writes the database, email, captcha and public web address here.
   Setup__SettingsPath: /app/data/chatx.settings.json
   Storage__Local__Path: /app/data/attachments
-  Database__Provider: PostgreSql
-  Database__ConnectionString: Host=postgres;Port=5432;Database=chatx;Username=chatx;Password=${CHATX_POSTGRES_PASSWORD:?Set CHATX_POSTGRES_PASSWORD}
   # Only nginx (on the fixed network below) talks to the API, so its forwarded headers can be
   # believed; the TLS proxy on the host reaches nginx through the network gateway (also in range).
   Network__TrustedProxies__0: 172.30.0.0/24
@@ -29,7 +27,8 @@ services:
     environment:
       POSTGRES_DB: chatx
       POSTGRES_USER: chatx
-      POSTGRES_PASSWORD: ${CHATX_POSTGRES_PASSWORD:?Set CHATX_POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
@@ -40,12 +39,13 @@ services:
     networks: [chatx]
     restart: unless-stopped
 
-  # Applies pending migrations, then exits. Re-run before starting a new version:
-  #   docker compose -f docker/compose.production.yaml --env-file docker/.env.production run --rm migrate
+  # Run explicitly for upgrades. The setup wizard performs the initial migration itself.
   migrate:
     <<: *api-image
     command: ["migrate"]
     environment: *api-environment
+    volumes:
+      - api-data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,8 +58,8 @@ services:
     volumes:
       - api-data:/app/data
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     networks: [chatx]
     # Not published: reachable only through the web service.
     restart: unless-stopped
@@ -68,7 +68,7 @@ services:
     build:
       context: ..
       dockerfile: docker/web.Dockerfile
-    image: ${CHATX_WEB_IMAGE:-audorix/chatx-web:1.0.0}
+    image: ${CHATX_WEB_IMAGE:-audorix/chatx-web:1.1.0}
     ports:
       # Localhost only: terminate TLS in front of it and forward to this port.
       - "127.0.0.1:${CHATX_WEB_PORT:-8080}:8080"
@@ -93,3 +93,7 @@ networks:
 volumes:
   postgres-data:
   api-data:
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password

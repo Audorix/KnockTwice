@@ -101,6 +101,14 @@ the setup wizard. It asks for the **setup code**, which proves you operate the s
 (it contains your database and email passwords: keep the folder private and backed up) and switches
 to normal mode. Nothing is written before *Install*.
 
+In the default interactive install, the wizard owns the database connection and stores it in this
+owner-only settings file. Docker unattended deployments can instead set `Database:Provider` and
+`Database:ConnectionString` through environment configuration, or set
+`Database:ConnectionStringFile` to a read-only secret file containing the connection string. Either
+external source locks the database fields in the wizard. Direct `Database:ConnectionString`
+configuration takes precedence over the secret-file value; both take precedence over the settings
+file. See [Deploying with Docker](deployment-docker.md) for examples.
+
 **Unattended installs** can skip the wizard.
 
 1. Configure everything in `appsettings.Production.json` next to the DLL, or through environment

@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Configuration.Memory;
 using Microsoft.Extensions.Configuration.Json;
 
 namespace Audorix.KnockTwice.Api.Setup;
@@ -62,6 +63,66 @@ internal static class ChatXSettingsFile
 
         var source = new JsonConfigurationSource { Path = path, Optional = true, ReloadOnChange = false };
         source.ResolveFileProvider();
+        var sources = ((IConfigurationBuilder)builder.Configuration).Sources;
+        var lastFile = -1;
+        for (var i = 0; i < sources.Count; i++)
+        {
+            if (sources[i] is FileConfigurationSource)
+            {
+                lastFile = i;
+            }
+        }
+
+        sources.Insert(lastFile + 1, source);
+    }
+
+    /// <summary>
+    /// Loads an optional connection-string secret file after the setup settings file and before
+    /// environment variables and command-line arguments. This lets an explicit environment key
+    /// override a mounted secret file while keeping the secret itself out of container metadata.
+    /// </summary>
+    public static void AddDatabaseConnectionSecretFile(this WebApplicationBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        const string pathKey = "Database:ConnectionStringFile";
+        var configuredPath = builder.Configuration[pathKey];
+        if (string.IsNullOrWhiteSpace(configuredPath))
+        {
+            return;
+        }
+
+        string path;
+        string connectionString;
+        try
+        {
+            path = Path.GetFullPath(configuredPath.Trim(), builder.Environment.ContentRootPath);
+            connectionString = File.ReadAllText(path).Trim();
+        }
+        catch (IOException)
+        {
+            throw new InvalidOperationException($"{pathKey} is configured but its file cannot be read.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException($"{pathKey} is configured but its file cannot be read.");
+        }
+        catch (ArgumentException)
+        {
+            throw new InvalidOperationException($"{pathKey} is configured but its file cannot be read.");
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException($"{pathKey} is configured but its file is empty.");
+        }
+
+        var source = new MemoryConfigurationSource
+        {
+            InitialData = new Dictionary<string, string?>
+            {
+                ["Database:ConnectionString"] = connectionString,
+            },
+        };
         var sources = ((IConfigurationBuilder)builder.Configuration).Sources;
         var lastFile = -1;
         for (var i = 0; i < sources.Count; i++)

@@ -2,8 +2,9 @@
 
 Settings use standard ASP.NET Core configuration: `appsettings.json`, then
 `appsettings.{Environment}.json`, then user secrets (Development), then **the settings file
-written by the setup wizard**, then environment variables (`Section__Key`), then command-line
-arguments. Environment variables and arguments therefore always override what the wizard wrote.
+written by the setup wizard**, then the optional database connection string file, then environment
+variables (`Section__Key`), then command-line arguments. Environment variables and arguments
+therefore override both the wizard file and the connection string file.
 **Secrets belong in environment variables, user secrets, a secret store or the wizard's settings
 file (which is outside version control) — never in committed files.**
 
@@ -34,6 +35,7 @@ administrator before it writes anything. It refuses a database that already has 
 | `Database:Provider` | yes | `Sqlite`, `PostgreSql` (case-insensitive) | No default and no fallback. Normally written by the setup wizard. |
 | `Database:MigrateOnStartup` | no | `true` / `false` (default `false`; `true` in `appsettings.Development.json`) | Applies pending migrations before the API serves requests. Without it the API logs an error naming the pending migrations and readiness stays "not ready" until `migrate` runs. Keep it off in production and run `migrate` as an explicit deployment step. |
 | `Database:ConnectionString` | yes | provider connection string | SQLite: must name a file (`Data Source=...`); in-memory is rejected. A relative path is resolved against the API content root. PostgreSQL: must include `Host` and `Database`. |
+| `Database:ConnectionStringFile` | no | path to a UTF-8 file containing the connection string | Optional secret-file source for Docker or other managed deployments. The file is read at process startup. It is loaded above the setup settings file and below `Database:ConnectionString` supplied by environment variables or command-line arguments. When either external source is configured, the setup wizard locks the database fields. |
 
 Examples:
 

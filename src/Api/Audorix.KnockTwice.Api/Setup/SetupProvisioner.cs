@@ -63,7 +63,8 @@ internal sealed class SetupProvisioner(
 
     public bool DatabaseLocked =>
         ChatXSettingsFile.IsProvidedAboveSettingsFile(hostConfiguration, "Database:Provider")
-        || ChatXSettingsFile.IsProvidedAboveSettingsFile(hostConfiguration, "Database:ConnectionString");
+        || ChatXSettingsFile.IsProvidedAboveSettingsFile(hostConfiguration, "Database:ConnectionString")
+        || ChatXSettingsFile.IsProvidedAboveSettingsFile(hostConfiguration, "Database:ConnectionStringFile");
 
     public SetupConfigurationResponse GetConfiguration()
     {
@@ -296,7 +297,7 @@ internal sealed class SetupProvisioner(
     {
         if (DatabaseLocked)
         {
-            // Environment variables or the command line decide; the wizard writes nothing.
+            // Host configuration (environment key or mounted secret file) decides; the wizard writes nothing.
             return [];
         }
 

@@ -16,6 +16,7 @@ internal static class ChatXProgram
         {
             var builder = WebApplication.CreateBuilder(args);
             builder.AddChatXSettingsFile();
+            builder.AddDatabaseConnectionSecretFile();
 
             if (ChatXSettingsFile.IsSetupRequired(builder.Configuration) && !ChatXHost.IsCommand(args))
             {
