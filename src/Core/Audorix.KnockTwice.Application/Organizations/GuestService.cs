@@ -34,7 +34,7 @@ public sealed class GuestService(
     public async Task<GuestInvitation> InviteAsync(Guid userId, Guid organizationId, Guid channelId, string? email, CancellationToken cancellationToken)
     {
         var (organization, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         if (!organization.GuestsEnabled)
         {
             throw new FeatureDisabledException("guests_disabled");
@@ -64,7 +64,7 @@ public sealed class GuestService(
     public async Task<IReadOnlyList<GuestInvitationView>> ListInvitationsAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow();
         var invitations = (await store.ListPendingGuestInvitationsAsync(organizationId, cancellationToken).ConfigureAwait(false)).Where(i => i.IsOpen(now)).ToList();
         var inviters = await directory.GetSummariesAsync(invitations.Select(i => i.InvitedByUserId).Distinct().ToList(), cancellationToken).ConfigureAwait(false);
@@ -81,7 +81,7 @@ public sealed class GuestService(
     public async Task RevokeInvitationAsync(Guid userId, Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var invitation = await store.FindGuestInvitationAsync(invitationId, cancellationToken).ConfigureAwait(false);
         if (invitation is null || invitation.OrganizationId != organizationId || !invitation.IsOpen(time.GetUtcNow()))
         {
@@ -162,7 +162,7 @@ public sealed class GuestService(
     public async Task<IReadOnlyList<GuestView>> ListGuestsAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var guests = await store.ListActiveGuestsAsync(organizationId, cancellationToken).ConfigureAwait(false);
         var users = await directory.GetSummariesAsync(guests.Select(g => g.UserId).ToList(), cancellationToken).ConfigureAwait(false);
         var views = new List<GuestView>();
@@ -187,9 +187,9 @@ public sealed class GuestService(
     public async Task RemoveGuestAsync(Guid userId, Guid organizationId, Guid guestUserId, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var guest = await store.FindGuestAsync(organizationId, guestUserId, cancellationToken).ConfigureAwait(false);
-        if (guest is not { IsActive: true })
+        if (guest is null || !guest.IsActiveAt(time.GetUtcNow()))
         {
             throw new ResourceNotFoundException("guest_not_found");
         }

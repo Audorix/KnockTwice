@@ -18,7 +18,9 @@ Make Knock Twice easier to set up and give teams the tools to write clear busine
 
 - **Rich text and code editor (business priority).** Add a formatting toolbar to the chat composer for bold, italics, links, lists, and quotes. Support inline code and a dedicated code block editor with language selection, syntax highlighting, preserved indentation and line breaks, and a copy button on sent snippets. Use it for procedures, incident updates, logs, and code review discussions. Render snippets as text and keep existing messages readable.
 - **Organization setup.** Guide owners through branding, the first workspace, role assignment, and invitations. Add verified domains and optional organization SSO. Automatic enrollment requires an explicit administrator choice.
-- **Granular permissions.** Add scoped roles and groups at installation, organization, and workspace levels. For example, an organization can restrict private chat to an approved group. Add effective-access reviews, guest and invitation expiry, and auditable changes to permissions.
+- **Granular permissions.** Add scoped roles and groups at installation, organization, and workspace levels. Cover private-chat use; support access and case handling; organization membership and management; channel creation and administration; and installation administration for users, roles, permissions, groups, settings, and providers. For example, an organization can restrict private chat to an approved group. Add effective-access reviews, guest and invitation expiry, and auditable changes to permissions.
+- **Role-gated message translation (added to Release 1).** Let administrators configure approved AI translation providers and choose the active provider for translation. Users with the `messages.translate` permission can translate an incoming message to a selected language, or opt in to automatic translation of support messages. Keep the original available and disclose that message text is sent to the configured provider. Denied or unassigned users cannot invoke translation.
+- **Multi-node SignalR delivery (added to Release 1).** Support multiple API nodes over shared PostgreSQL and Redis. Keep the Redis SignalR backplane separate from cache and queue provider selection, require one shared Redis endpoint and environment-specific channel prefix, and fail readiness rather than silently switching to local delivery. Configure WebSocket upgrades and cookie affinity for negotiation, WebSocket, and fallback requests. Restore authorized conversation subscriptions after reconnect and use durable history/change APIs to catch up. Prove cross-node channel and direct-conversation delivery in both directions, a no-backplane negative control, and node-loss reconnect/catch-up through one public endpoint. Report process-local features and worker coordination separately.
 - **Avatar choices.** Add locally generated DiceBear avatars to the profile editor, alongside uploaded pictures and initials. Select styles with clear licensing and attribution.
 - **Storage provider foundation.** Support Local, S3-compatible storage (including Cloudflare R2), and Azure Blob Storage through one attachment storage interface. Let administrators select an approved destination, verify its connection, and see what operations it supports. Keep a provider reference on existing attachments so a change of default leaves them readable. Move existing data through an explicit, verified migration.
 - **Bidirectional storage migration.** Add an administrator wizard for copying managed chat attachments between Local, supported S3-compatible destinations (including Cloudflare R2), and Azure Blob Storage, including cloud-to-local and cloud-to-cloud moves. A dry run checks access, available space or quotas where reported, and file limits, and lists the files, bytes, and blockers. Run the copy as a background job with progress, pause, resume, and safe retries. Keep file and message IDs, access rules, and retention state intact.
@@ -29,14 +31,102 @@ Make Knock Twice easier to set up and give teams the tools to write clear busine
 
 **Migration release check:** Test Local → cloud → Local, a provider-to-provider move, interruption and resume, and rollback after a new upload. Failed or unsupported items remain readable at the source and appear in the migration report.
 
+**Multi-node release check:** Run the real API on two nodes with shared PostgreSQL and Redis behind a load balancer. Confirm clients are affined to different nodes and negotiation/connection requests stay on their assigned nodes. Verify channel and direct-conversation events in both directions before history fetch, verify delivery fails with the backplane disabled, then enable it and repeat. Stop one node and verify reconnect, authorized group rejoin, durable catch-up, and subsequent live delivery.
+
 **Pilot gate:** Core permissions, one supported storage provider, and a proven recovery path are enough to start the support pilot. DiceBear, optional SSO, and additional storage providers can ship independently.
+
+### Implementation sequence and current status
+
+Release 1 is still open. The rich-text/code-editor slice is implemented (Phase 19), and locally
+generated avatars are available (Phase 44). The owner/admin setup checklist guides people to
+branding, the default workspace, and team invitations/roles (Phase 30); verified domains and
+optional organization SSO are implemented (Phases 31-34). Group-based scoped permissions now cover
+private chats, support, organization management, workspace channels, and installation administration
+(Phases 36-42). Guest access expiry and the existing invitation expiry are visible in management
+(Phase 43). Local, S3-compatible, and Azure Blob attachment storage are configured through the admin
+provider page (Phase 45). Phase 46 adds effective-access reviews for installation, organization,
+and workspace contexts in each admin user's details, including inherited group-to-role paths,
+permission decisions, Deny precedence, and existing policy outcomes. Phase 47 adds a non-migrating
+storage preflight with inventory totals, per-file source checks, and a destination access probe.
+Phase 48 adds persistent attachment-copy jobs with per-file SHA-256 and size verification, progress,
+pause/resume, and retry after transient failures. Phase 49 adds role-gated, provider-backed message
+translation with saved original/translated text. Phase 50 verifies the copied inventory, pauses new
+attachment uploads while references and the default provider change, and supports a reverse copy for
+rollback. Phase 51 verifies a clean SQLite install and a full database-plus-attachment restore, and
+confirms that both provider migration snapshots match the current model. A Release build and the
+seven-check SQLite restore drill pass. A previous-version upgrade, failed-upgrade recovery, and
+PostgreSQL restore drill still need a release environment. The rich-text acceptance check and a live
+Azure connection test also remain to be verified. Phase 52 adds the multi-node SignalR acceptance
+scope, an HAProxy-affined PostgreSQL/Redis staging profile, and an external real-SignalR integration
+harness. The Redis backplane, shared presence/rate limits, client reconnect-time group rejoin, and
+Redis readiness check already exist from Phase 21; the two-node deployment proof is still pending
+because the Docker daemon is unavailable in the current environment. Release 1 stays open until
+these gates are closed.
+
+Widget setup and support-queue work in Phases 25-29 was advanced earlier in response to the owner's
+direct Release 2 requests. That work is a deliberate sequencing exception; it does not mark Release 1
+complete. Work resumed on Release 1 with organization setup (Phase 30), verified domain ownership
+(Phase 31), and an explicit automatic-enrollment control (Phase 32). Phase 33 added owner/admin
+management of organization-scoped OIDC configuration and protected client secrets at rest. Phase
+34 adds OIDC sign-in, verified identity matching, explicit domain-based enrollment, session
+creation, and an admin settings panel with a shareable sign-in URL. Organization SSO now works as
+an opt-in sign-in method; it does not yet force every member to use SSO. Phases 36-37 deliver the
+installation-scope foundation: users belong to groups, groups receive roles, and each role
+permission is Allow, Deny, or unassigned. Deny overrides grants from other roles, including built-in
+roles. Existing direct custom-role assignments are migrated into groups. Phase 38 adds
+organization-scoped roles and groups and applies `private_chats.use` to organization-context chats.
+Phase 39 implements organization-scoped support access, case reading, and case management through
+group-assigned roles. Unconfigured organizations preserve legacy support behavior; configured
+decisions use effective Allow/Deny grants, with Deny taking precedence. Phase 40 implements
+organization discovery, settings, member/invitation administration, role/group management, and
+workspace administration through the same group-based model. Unconfigured keys preserve current
+organization behavior. Phase 41 implements workspace-scoped `channels.create` and
+`channels.manage` permissions, with a separate workspace roles/groups menu and group assignment.
+Existing channel policy remains in force until a workspace key is configured; afterward, Allow is
+required and Deny overrides other channel-manager paths. Phase 42 implements distinct installation
+permissions for roles, permissions, groups, providers, and settings. Existing built-in and custom
+legacy access remains effective until each corresponding granular key is configured; once configured,
+the granular Allow/Deny assignment governs that capability. Phase 43 gives accepted guests a 90-day
+access window, retains the existing 14-day invitation expiry, and shows both deadlines in the guest
+management view. Phase 29 test execution remains a queue
+verification follow-up; it does not authorize more Release 2 feature work ahead of Release 1.
+Phase 44 adds six locally generated DiceBear styles to profile settings. The style and seed sync
+through the profile API, while SVG rendering happens in the browser; uploaded photos and initials
+remain available. The selected styles are CC0 1.0.
+Phase 45 adds Azure Blob Storage to the Local and S3-compatible attachment provider choices.
+Administrators can configure its private container, test connection by writing, reading, and deleting
+a probe, and see that the provider supports uploads, downloads, and deletion. Each message attachment
+records its provider; changing the default through administration pins legacy records to the active
+provider before saving the new default. This stage does not copy existing bytes. The next storage
+stages are verified cutover and rollback.
+Phase 47 begins storage migration with `POST /api/v1/admin/storage-migrations/dry-run`. It lists
+up to 2,000 eligible files, totals the full inventory, checks source readability, and probes the
+destination with a temporary write/read/delete object. It reports provider capacity as unknown
+when the backend exposes no quota API. It changes no attachment references or active provider.
+Phase 48 lets an administrator start a persistent copy job after a clear preflight. Jobs copy the
+same object key to Local, S3-compatible, or Azure Blob storage, verify destination bytes against the
+attachment's stored size and SHA-256, expose progress, and support pause/resume. Failed files retry
+with capped exponential backoff and become visible terminal failures after five attempts. A retry
+overwrites the deterministic object key, making repeated copies idempotent. Attachment provider
+references and the active provider remain unchanged until the separate cutover stage.
+Phase 46 adds admin effective-access review contexts for installation, organization, and workspace.
+Each review includes the selected scope and inherited scopes, group membership paths, and the
+effective permission result. Review contexts are limited to organizations and workspaces where the
+user has active membership. Existing scope policies remain visible until their permission key is
+configured; Deny still overrides Allow.
+Phase 49 adds role-gated, on-demand message translation. Users granted `messages.translate` through
+group-assigned roles can select a target language and view the translation beside the unchanged
+original. Administrators can configure multiple named translation provider profiles (OpenAI-compatible
+or Ollama), test them, and select one active provider. The user sees a disclosure before sending
+message text to that provider. Authorized support agents can also opt in to automatic translation of
+incoming support messages in their selected language.
 
 ## Release 2: Customer support desk
 
 Get a company from installing the website widget to handling its first support case.
 
 - **Widget setup.** Give owners a preview, a copyable install snippet, a domain check, and a test conversation they can follow from the website to the agent inbox.
-- **Routing and queues.** Assign new conversations to eligible available agents with capacity. Queue visitors when agents are busy, and let them leave a message and reply address when the team is offline. Give each visitor a case reference.
+- **Routing and queues.** Assign new conversations to eligible available agents with capacity. Queue visitors when agents are busy, and let them leave a message and reply address when the team is offline. Give each visitor a case reference. Keep routing work behind a provider contract: the database is the default provider, Redis is an optional provider now, and Azure Service Bus or RabbitMQ can be added later. The database remains the source of truth for cases whichever transport is selected.
 - **Agent console.** Let an agent switch among several assigned conversations, claim a queued case, transfer ownership, and resolve it. Show unread activity and distinguish queued, active, and resolved cases.
 - **Case management.** Add priorities, tags, internal notes, saved replies, business hours, and first-response targets. Give supervisors a view of queue age and agent load. Keep internal notes visible only to authorized staff.
 - **Customer portal and email.** Let verified visitors resume eligible cases and see their public history. Pilot email intake and threaded replies once widget routing is stable.

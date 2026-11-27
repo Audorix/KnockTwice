@@ -99,8 +99,12 @@ Initial implementations:
 
 - Local filesystem.
 - S3-compatible object storage.
+- Azure Blob Storage.
 
 File metadata is stored in the database. Actual file content is stored through the configured storage provider.
+Message attachments keep the provider name alongside their storage key so a new default does not change
+how older records are read. A provider change is not a data migration; moving bytes and switching references
+requires the later verified migration workflow.
 
 ## ADR-008: Multi-tenancy
 
@@ -509,7 +513,7 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 **Decision:**
 
 - *Default unchanged.* Without `ScaleOut:Redis` the API is a single server exactly as before (`LocalClusterPresence`, `LocalRateCounter`).
-- *With `ScaleOut:Redis`* (a StackExchange.Redis connection string; keys and channels under `ScaleOut:Prefix`, `chatx`):
+- *With `ScaleOut:Redis`* (a StackExchange.Redis connection string; keys and channels under the required, environment-specific `ScaleOut:Prefix` shared by every node in that environment):
   - SignalR uses the Redis backplane, so events reach users and conversation groups on every instance.
   - Presence: each instance keeps its connections locally and records "this instance has user X online" in a Redis sorted set per user (members are instances, scores are expiry times), renewed every 20 s and expiring after 60 s, so a crashed instance's entries vanish. "Online" (notifications, `@here`, presence snapshots) means online on any instance; online/offline changes are announced only when the first instance gains or the last loses the person.
   - Rate limits: sign-in limits and website-visitor limits count in Redis fixed windows shared by every instance; if Redis is unavailable they fail open (the readiness check reports Redis).
@@ -518,7 +522,7 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 - *Session purge:* `Retention:ClosedSessionDays` (30, live setting) deletes sessions that expired or were signed out that long ago, with those browsers' push subscriptions, in the retention job.
 - *CI:* `.github/workflows/ci.yml` builds and tests the .NET solution (SQLite and a PostgreSQL service) and type-checks, tests and builds the web app on every push and pull request.
 
-**Consequences:** Running several instances needs Redis and a load balancer with WebSocket support (sticky sessions are not required for the backplane, but long-polling clients need them). The Redis code is exercised in tests through an in-memory stand-in, not a real Redis.
+**Consequences:** Running several instances needs Redis and a load balancer with WebSocket support and cookie affinity for negotiation and fallback requests. Redis backplane delivery is not a substitute for load-balancer affinity when the client negotiates transports. The Redis code is exercised in tests through an in-memory stand-in, not a real Redis; see Phase 52 for the real-dependency acceptance setup.
 
 ### ADR-036: Reconnect catch-up, capacity targets and the web bundle budget
 
@@ -564,6 +568,24 @@ The nineteen source ADRs above preserve the supplied draft's direction. The foll
 - *Batched push.* The push worker handles a batch of queued messages together: each conversation and its participants are read once, mentions for the whole batch in one query, presence, subscriptions and authors once per batch.
 
 **Consequences:** A send in a busy group now waits rather than retries; the eight-try loop remains only for the rare race on the same client message id. See the [Phase 24 record](releases/phase-24-throughput.md) for the measurements.
+
+### ADR-039: Pluggable support routing queue providers
+
+**Status:** Accepted - 2026-11-25, by the project owner: provide database and Redis queue providers now, default to the database, and leave Azure Service Bus and RabbitMQ for later.
+
+**Context:** Release 2 needs to route new website conversations to eligible agents and hold work while agents are busy or offline. Installations should not need Redis to use support, while larger deployments may want broker-based distribution.
+
+**Decision:**
+
+- Support conversation history and case state remain in the configured relational database regardless of queue provider.
+- Define an application-owned provider contract for routing work. The initial choices are `Database` and `Redis`, configured by `SupportQueue:Provider`; missing configuration means `Database`.
+- Installation administrators manage the provider in **Admin → Providers**. The choice and Redis connection are stored in the installation settings file and apply after restart; the connection is write-only in the API. Redis can be tested from the candidate configuration before saving.
+- The database provider uses durable queued work with leases and retries. It supports the configured SQLite and PostgreSQL profiles.
+- The Redis provider uses Redis Streams and consumer groups. A database outbox records routing work in the same transaction as the case/message update, then dispatches it to Redis. Redis work is acknowledged after successful processing; the stable work ID makes redelivery safe.
+- A broker outage must not lose accepted visitor messages or cases. Retain failed routing work for retry and expose provider health and queue lag.
+- Azure Service Bus and RabbitMQ are future adapters to the same contract; they are not initial dependencies.
+
+**Consequences:** The database remains required and authoritative. Redis adds an optional operational dependency when selected; it improves cross-instance work distribution but does not change case storage or routing rules. The outbox adds database writes and requires cleanup/retention rules for completed work.
 
 ## Decision register requiring product input
 

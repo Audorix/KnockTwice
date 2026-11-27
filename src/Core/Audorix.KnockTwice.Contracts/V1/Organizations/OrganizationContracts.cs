@@ -25,10 +25,22 @@ public static class WorkspaceRoles
 public sealed record OrganizationResponse(
     Guid Id, string Name, string MyRole, DateTimeOffset CreatedAtUtc, IReadOnlyList<string> MyPermissions,
     bool SupportAgent = false, bool GuestsEnabled = true, string ChannelCreation = "members",
-    string? PhotoUrl = null, string? BannerUrl = null);
+    string? PhotoUrl = null, string? BannerUrl = null, bool PrivateChatsRequireSharedTeam = false);
 
 /// <summary>Organization-specific configuration (Phase 11). Null fields stay unchanged.</summary>
-public sealed record UpdateOrganizationSettingsRequest(bool? GuestsEnabled, string? ChannelCreation);
+public sealed record UpdateOrganizationSettingsRequest(bool? GuestsEnabled, string? ChannelCreation, bool? PrivateChatsRequireSharedTeam = null);
+
+public sealed record AddOrganizationDomainRequest(string? Domain);
+
+public sealed record OrganizationDomainResponse(Guid Id, string Domain, string TxtRecordName, string TxtRecordValue, bool Verified, DateTimeOffset CreatedAtUtc, DateTimeOffset? VerifiedAtUtc);
+
+public sealed record SetAutomaticEnrollmentRequest(bool Enabled);
+
+public sealed record AutomaticEnrollmentResponse(bool Enabled);
+
+public sealed record ConfigureOrganizationSsoRequest(string? Issuer, string? ClientId, string? ClientSecret);
+
+public sealed record OrganizationSsoResponse(bool Configured, string? Issuer, string? ClientId, bool ClientSecretConfigured);
 
 public sealed record SetSupportAgentRequest(bool SupportAgent);
 

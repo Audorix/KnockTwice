@@ -1,0 +1,127 @@
+# Disposable two-node SignalR scale-out staging profile. Run with docker/.env.scaleout.
+# The public endpoint is HAProxy; API traffic is cookie-affined across api-a and api-b.
+name: chatx-scaleout
+
+x-api-image: &api-image
+  build:
+    context: ..
+    dockerfile: docker/api.Dockerfile
+  image: ${CHATX_SCALEOUT_API_IMAGE:-audorix/chatx-api:scaleout-staging}
+
+x-api-environment: &api-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  Setup__Completed: "true"
+  Setup__SettingsPath: /app/data/chatx.settings.json
+  App__PublicBaseUrl: http://localhost:${CHATX_SCALEOUT_PORT:-8080}
+  Database__Provider: PostgreSql
+  Database__ConnectionString: Host=postgres;Port=5432;Database=chatx_scaleout;Username=chatx;Password=${CHATX_SCALEOUT_POSTGRES_PASSWORD:?Set CHATX_SCALEOUT_POSTGRES_PASSWORD}
+  Database__MigrateOnStartup: "false"
+  ScaleOut__Redis: ${CHATX_SCALEOUT_REDIS-redis:6379,abortConnect=false}
+  ScaleOut__Prefix: ${CHATX_SCALEOUT_PREFIX:?Set a unique CHATX_SCALEOUT_PREFIX for this environment}
+  Identity__RequireConfirmedEmail: "false"
+  Identity__AutoConfirmEmail: "true"
+  Captcha__Provider: None
+  PrivateChats__Enabled: "false"
+  Network__TrustedProxies__0: 172.31.0.0/24
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: chatx_scaleout
+      POSTGRES_USER: chatx
+      POSTGRES_PASSWORD: ${CHATX_SCALEOUT_POSTGRES_PASSWORD:?Set CHATX_SCALEOUT_POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatx -d chatx_scaleout"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - scaleout-postgres:/var/lib/postgresql
+    networks: [scaleout]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - scaleout-redis:/data
+    networks: [scaleout]
+
+  migrate:
+    <<: *api-image
+    command: ["migrate"]
+    environment: *api-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [scaleout]
+    restart: "no"
+
+  api-a:
+    <<: *api-image
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [scaleout]
+    restart: unless-stopped
+
+  api-b:
+    <<: *api-image
+    environment: *api-environment
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [scaleout]
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/web.Dockerfile
+    image: ${CHATX_SCALEOUT_WEB_IMAGE:-audorix/chatx-web:scaleout-staging}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [scaleout]
+
+  haproxy:
+    image: haproxy:3.2-alpine
+    ports:
+      - "${CHATX_SCALEOUT_PORT:-8080}:8080"
+    volumes:
+      - ./haproxy/scaleout.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      api-a:
+        condition: service_started
+      api-b:
+        condition: service_started
+      web:
+        condition: service_started
+    networks:
+      scaleout:
+        aliases: [api]
+    restart: unless-stopped
+
+networks:
+  scaleout:
+    ipam:
+      config:
+        - subnet: 172.31.0.0/24
+
+volumes:
+  scaleout-postgres:
+  scaleout-redis:

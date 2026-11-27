@@ -1,4 +1,5 @@
 using Audorix.KnockTwice.Application.Attachments;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Common;
 using Audorix.KnockTwice.Application.Contacts;
 using Audorix.KnockTwice.Application.Messaging;
@@ -30,6 +31,7 @@ public sealed class PrivateChatService(
     SessionService sessions,
     IContactStore contacts,
     IOrganizationStore organizations,
+    IScopedAccessStore scopedAccess,
     IUserDirectory directory,
     IMalwareScanner scanner,
     TimeProvider time,
@@ -42,7 +44,7 @@ public sealed class PrivateChatService(
     // ---- Lifecycle ---------------------------------------------------------------------------
 
     /// <summary>Invites another person to a private chat bound to the caller's current session.</summary>
-    public async Task<(PrivateChatView View, bool Created)> StartAsync(Guid userId, Guid sessionId, Guid otherUserId, CancellationToken cancellationToken)
+    public async Task<(PrivateChatView View, bool Created)> StartAsync(Guid userId, Guid sessionId, Guid otherUserId, Guid? organizationId, CancellationToken cancellationToken)
     {
         RequireEnabled();
         if (otherUserId == userId)
@@ -50,7 +52,8 @@ public sealed class PrivateChatService(
             throw new RequestValidationException("userId", "cannot_target_self");
         }
 
-        if (!await MayTalkAsync(userId, otherUserId, cancellationToken).ConfigureAwait(false))
+        if (!await MayTalkAsync(userId, otherUserId, cancellationToken).ConfigureAwait(false)
+            || organizationId is { } orgId && !await MayTalkInOrganizationAsync(userId, otherUserId, orgId, cancellationToken).ConfigureAwait(false))
         {
             throw new ResourceNotFoundException("user_not_found");
         }
@@ -60,7 +63,7 @@ public sealed class PrivateChatService(
         if (running.FirstOrDefault(c => c.Involves(userId) && c.Involves(otherUserId)) is { } existing)
         {
             // One private chat per pair at a time; the initiator's own session gets it back.
-            return existing.InitiatorUserId == userId && existing.InitiatorSessionId == sessionId
+            return existing.InitiatorUserId == userId && existing.InitiatorSessionId == sessionId && existing.OrganizationId == organizationId
                 ? (await ViewAsync(existing, userId, cancellationToken).ConfigureAwait(false), false)
                 : throw new ConflictException("private_chat_exists");
         }
@@ -71,7 +74,7 @@ public sealed class PrivateChatService(
         }
 
         var now = time.GetUtcNow();
-        var chat = new PrivateChat(Guid.CreateVersion7(now), userId, sessionId, otherUserId, now, now + options.InvitationTimeout);
+        var chat = new PrivateChat(Guid.CreateVersion7(now), userId, sessionId, otherUserId, organizationId, now, now + options.InvitationTimeout);
         registry.Add(chat);
         await PublishAsync(chat, new PrivateChatChanged(chat.Id, "invited", null), cancellationToken).ConfigureAwait(false);
         return (await ViewAsync(chat, userId, cancellationToken).ConfigureAwait(false), true);
@@ -86,11 +89,7 @@ public sealed class PrivateChatService(
             throw new ForbiddenException();
         }
 
-        if (!await MayTalkAsync(chat.InitiatorUserId, chat.InviteeUserId, cancellationToken).ConfigureAwait(false))
-        {
-            await EndAsync(chat, PrivateChatEndReasons.Unavailable, cancellationToken).ConfigureAwait(false);
-            throw new ResourceNotFoundException(NotFound);
-        }
+        await RequireCurrentAccessAsync(chat, cancellationToken).ConfigureAwait(false);
 
         lock (chat.Gate)
         {
@@ -202,6 +201,12 @@ public sealed class PrivateChatService(
         var views = new List<PrivateChatView>();
         foreach (var chat in registry.All().Where(c => c.Status != PrivateChatStatus.Ended && CanSee(c, userId, sessionId)).OrderByDescending(c => c.CreatedAtUtc))
         {
+            if (!await MayContinueAsync(chat, cancellationToken).ConfigureAwait(false))
+            {
+                await EndAsync(chat, PrivateChatEndReasons.Unavailable, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
             views.Add(await ViewAsync(chat, userId, cancellationToken).ConfigureAwait(false));
         }
 
@@ -211,6 +216,12 @@ public sealed class PrivateChatService(
     public async Task<PrivateChatDetailView> GetAsync(Guid userId, Guid sessionId, Guid chatId, CancellationToken cancellationToken)
     {
         var chat = Require(chatId, userId, sessionId);
+        if (!await MayContinueAsync(chat, cancellationToken).ConfigureAwait(false))
+        {
+            await EndAsync(chat, PrivateChatEndReasons.Unavailable, cancellationToken).ConfigureAwait(false);
+            throw new ResourceNotFoundException(NotFound);
+        }
+
         List<PrivateMessage> messages;
         lock (chat.Gate)
         {
@@ -230,11 +241,7 @@ public sealed class PrivateChatService(
         Guid userId, Guid sessionId, Guid chatId, string? clientMessageId, string? body, IReadOnlyList<Guid>? attachmentIds, CancellationToken cancellationToken)
     {
         var chat = RequireActive(chatId, userId, sessionId);
-        if (!await MayTalkAsync(chat.InitiatorUserId, chat.InviteeUserId, cancellationToken).ConfigureAwait(false))
-        {
-            await EndAsync(chat, PrivateChatEndReasons.Unavailable, cancellationToken).ConfigureAwait(false);
-            throw new ResourceNotFoundException(NotFound);
-        }
+        await RequireCurrentAccessAsync(chat, cancellationToken).ConfigureAwait(false);
 
         var key = clientMessageId?.Trim() ?? string.Empty;
         if (key.Length is 0 or > ConversationEvent.ClientMessageIdMaxLength || key.Any(char.IsControl))
@@ -330,6 +337,7 @@ public sealed class PrivateChatService(
         }
 
         var chat = RequireActive(chatId, userId, sessionId);
+        await RequireCurrentAccessAsync(chat, cancellationToken).ConfigureAwait(false);
         var options = settings.Value;
         var name = Attachment.NormalizeFileName(fileName);
         var type = FileTypes.RequireAllowed(name, attachmentSettings.Value.EffectiveExtensions);
@@ -405,9 +413,10 @@ public sealed class PrivateChatService(
     }
 
     /// <summary>A copy of a file sent in the chat (or the caller's own unsent upload).</summary>
-    public PrivateFile OpenFile(Guid userId, Guid sessionId, Guid chatId, Guid fileId)
+    public async Task<PrivateFile> OpenFileAsync(Guid userId, Guid sessionId, Guid chatId, Guid fileId, CancellationToken cancellationToken)
     {
         var chat = Require(chatId, userId, sessionId);
+        await RequireCurrentAccessAsync(chat, cancellationToken).ConfigureAwait(false);
         lock (chat.Gate)
         {
             if (chat.Status != PrivateChatStatus.Active
@@ -469,6 +478,62 @@ public sealed class PrivateChatService(
         }
 
         return (await organizations.ListActiveMembershipsAsync(otherUserId, cancellationToken).ConfigureAwait(false)).Any(m => mine.Contains(m.Organization.Id));
+    }
+
+    private async Task<bool> MayContinueAsync(PrivateChat chat, CancellationToken cancellationToken) =>
+        await MayTalkAsync(chat.InitiatorUserId, chat.InviteeUserId, cancellationToken).ConfigureAwait(false)
+        && (chat.OrganizationId is not { } organizationId
+            || await MayTalkInOrganizationAsync(chat.InitiatorUserId, chat.InviteeUserId, organizationId, cancellationToken).ConfigureAwait(false));
+
+    private async Task RequireCurrentAccessAsync(PrivateChat chat, CancellationToken cancellationToken)
+    {
+        if (await MayContinueAsync(chat, cancellationToken).ConfigureAwait(false)) return;
+        await EndAsync(chat, PrivateChatEndReasons.Unavailable, cancellationToken).ConfigureAwait(false);
+        throw new ResourceNotFoundException(NotFound);
+    }
+
+    private async Task<bool> MayTalkInOrganizationAsync(Guid userId, Guid otherUserId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        var organization = await organizations.FindOrganizationAsync(organizationId, cancellationToken).ConfigureAwait(false);
+        var mine = await organizations.FindMemberAsync(organizationId, userId, cancellationToken).ConfigureAwait(false);
+        var other = await organizations.FindMemberAsync(organizationId, otherUserId, cancellationToken).ConfigureAwait(false);
+        if (organization is null || mine is not { IsActive: true } || other is not { IsActive: true })
+        {
+            return false;
+        }
+
+        const string permissionKey = "private_chats.use";
+        if (await scopedAccess.IsPermissionConfiguredAsync(organizationId, permissionKey, cancellationToken).ConfigureAwait(false))
+        {
+            var minePermissions = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+            var otherPermissions = await scopedAccess.GetOrganizationPermissionsAsync(otherUserId, organizationId, cancellationToken).ConfigureAwait(false);
+            if (minePermissions.Denied.Contains(permissionKey, StringComparer.Ordinal)
+                || otherPermissions.Denied.Contains(permissionKey, StringComparer.Ordinal)
+                || !minePermissions.Allowed.Contains(permissionKey, StringComparer.Ordinal)
+                || !otherPermissions.Allowed.Contains(permissionKey, StringComparer.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        if (!organization.PrivateChatsRequireSharedTeam)
+        {
+            return true;
+        }
+
+        foreach (var workspace in await organizations.ListWorkspacesAsync(organizationId, cancellationToken).ConfigureAwait(false))
+        {
+            foreach (var team in await organizations.ListTeamsAsync(workspace.Id, cancellationToken).ConfigureAwait(false))
+            {
+                if (await organizations.FindTeamMemberAsync(team.Id, userId, cancellationToken).ConfigureAwait(false) is not null
+                    && await organizations.FindTeamMemberAsync(team.Id, otherUserId, cancellationToken).ConfigureAwait(false) is not null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private async Task EndAsync(PrivateChat chat, string reason, CancellationToken cancellationToken)

@@ -146,7 +146,7 @@ public sealed class WidgetService(
     private async Task RequireManagerAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.Manage);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.manage", OrganizationPermission.Manage, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<Widget> RequireWidgetAsync(Guid userId, Guid organizationId, Guid widgetId, CancellationToken cancellationToken)

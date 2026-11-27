@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { UserSummary, WidgetLanguage, WidgetPosition, WidgetResponse } from '../../shared/api/contracts';
 import { useConfirm } from '../../shared/components/ConfirmDialog';
 import { Field, FormAlert } from '../../shared/components/Field';
+import { NavIcon } from '../../shared/components/NavIcon';
 import { errorMessage } from '../auth/errors';
 import * as api from './widgetsApi';
 
@@ -230,6 +231,41 @@ function WidgetEditor({
           </select>
         </div>
       </div>
+
+      <section className="cx-widget-preview-section" aria-labelledby="widget-preview-title">
+        <div className="cx-widget-preview-heading">
+          <h3 id="widget-preview-title" className="h6 mb-0">{t('widgets.preview')}</h3>
+          <span className="cx-muted small">{t('widgets.previewHint')}</span>
+        </div>
+        <div className="cx-widget-preview-stage" data-position={form.position}
+          style={{ '--cx-widget-preview-accent': form.accentColor } as CSSProperties}>
+          <div className="cx-widget-preview-sitebar" aria-hidden="true">
+            <span className="cx-widget-preview-dots"><i /><i /><i /></span>
+            <span>example.com</span>
+          </div>
+          <div className="cx-widget-preview-page" aria-hidden="true">
+            <div className="cx-widget-preview-page-title" />
+            <div className="cx-widget-preview-page-line" />
+            <div className="cx-widget-preview-page-line short" />
+            <div className="cx-widget-preview-page-card" />
+          </div>
+          <div className="cx-widget-preview-chat">
+            <header className="cx-widget-preview-chat-header">
+              <span className="cx-widget-preview-mark"><NavIcon name="message" size={17} /></span>
+              <span className="cx-widget-preview-chat-title">{form.title || form.name}</span>
+              <span className="cx-widget-preview-close" aria-hidden="true"><NavIcon name="close" size={16} /></span>
+            </header>
+            <div className="cx-widget-preview-chat-body">
+              <p className="cx-widget-preview-welcome">{form.welcomeMessage.trim() || t('widgets.previewWelcome')}</p>
+              <div className="cx-widget-preview-sample">{t('widgets.previewMessage')}</div>
+            </div>
+            <div className="cx-widget-preview-input" aria-hidden="true">
+              <span>{t('widgets.previewInput')}</span>
+              <span className="cx-widget-preview-send"><NavIcon name="send" size={15} /></span>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="mb-3">
         <label htmlFor="widget-origins" className="form-label">{t('widgets.origins')}</label>

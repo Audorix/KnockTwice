@@ -118,7 +118,8 @@ internal static class BusinessEndpoints
         var guests = v1.MapGroup("/organizations/{organizationId:guid}/guests").RequireAuthorization().WithTags("Guests");
         guests.MapGet(string.Empty, async (Guid organizationId, HttpContext http, GuestService service, CancellationToken ct) =>
             TypedResults.Ok((await service.ListGuestsAsync(http.User.RequireUserId(), organizationId, ct)).Select(g => new GuestResponse(
-                ToUser(g.User), g.Guest.JoinedAtUtc, g.Channels.Select(c => new GuestChannelResponse(c.Id, c.Title ?? string.Empty)).ToList())).ToList()))
+                ToUser(g.User), g.Guest.JoinedAtUtc, g.Guest.AccessExpiresAtUtc,
+                g.Channels.Select(c => new GuestChannelResponse(c.Id, c.Title ?? string.Empty)).ToList())).ToList()))
             .WithSummary("Active guests and their channels (owners and administrators).");
         guests.MapDelete("/{userId:guid}", async (Guid organizationId, Guid userId, HttpContext http, GuestService service, CancellationToken ct) =>
         {
@@ -190,7 +191,7 @@ internal static class BusinessEndpoints
             return TypedResults.Ok(new SupportInboxPageResponse(
                 page.Items.Select(i => ToResponse(i, names)).ToList(),
                 page.Total,
-                new SupportInboxCountsResponse(page.Counts.Open, page.Counts.Pending, page.Counts.Closed, page.Counts.All)));
+                new SupportInboxCountsResponse(page.Counts.Open, page.Counts.Pending, page.Counts.Closed, page.Counts.All, page.Counts.UnassignedOpen)));
         }).WithSummary("One page of the support inbox: status (open/pending/closed/all), mine=true, assignment (anyone/assigned/unassigned), q (customer name or subject), sort (oldest: longest waiting first, or newest), skip and take (1-100). Includes totals per status and each conversation's newest message.");
 
         var conversation = v1.MapGroup("/support/conversations/{conversationId:guid}").RequireAuthorization().WithTags("Support");

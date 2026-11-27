@@ -63,6 +63,8 @@ public static class AuditActions
     public const string SettingsChanged = "admin.settings.changed";
     public const string ProviderChanged = "admin.provider.changed";
     public const string ProviderTested = "admin.provider.tested";
+    public const string StorageMigrationCutover = "admin.storage_migration.cutover";
+    public const string StorageMigrationRollback = "admin.storage_migration.rollback";
     public const string UserDisabled = "admin.user.disabled";
     public const string UserEnabled = "admin.user.enabled";
     public const string UserSessionsRevoked = "admin.user.sessions_revoked";
@@ -73,6 +75,8 @@ public static class AuditActions
     public const string OrganizationRenamed = "admin.organization.renamed";
     public const string OrganizationMemberRoleChanged = "admin.organization.member_role_changed";
     public const string OrganizationMemberRemoved = "admin.organization.member_removed";
+    public const string OrganizationSsoConfigured = "admin.organization.sso_configured";
+    public const string OrganizationSsoConfigurationRemoved = "admin.organization.sso_configuration_removed";
     public const string DemoDataPopulated = "admin.demo_data.populated";
     public const string DemoDataCleared = "admin.demo_data.cleared";
 
@@ -85,6 +89,17 @@ public static class AuditActions
 
     // Phase 14: search.
     public const string SearchRebuilt = "admin.search.rebuilt";
+
+    public const string AccessRoleCreated = "admin.access_role.created";
+    public const string AccessRoleUpdated = "admin.access_role.updated";
+    public const string AccessRoleDeleted = "admin.access_role.deleted";
+    public const string AccessRoleAssigned = "admin.access_role.assigned";
+    public const string AccessRoleUnassigned = "admin.access_role.unassigned";
+    public const string AccessGroupCreated = "admin.access_group.created";
+    public const string AccessGroupUpdated = "admin.access_group.updated";
+    public const string AccessGroupDeleted = "admin.access_group.deleted";
+    public const string AccessGroupMemberAdded = "admin.access_group.member_added";
+    public const string AccessGroupMemberRemoved = "admin.access_group.member_removed";
 }
 
 /// <summary>

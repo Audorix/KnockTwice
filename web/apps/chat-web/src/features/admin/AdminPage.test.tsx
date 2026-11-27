@@ -9,6 +9,7 @@ import { AdminPage } from './AdminPage';
 
 const allPermissions = [
   'installation.read', 'installation.manage', 'installation.demo_data', 'users.read', 'users.manage', 'organizations.read', 'organizations.manage', 'audit.read',
+  'roles.read', 'roles.manage', 'permissions.read', 'permissions.manage', 'groups.read', 'groups.manage', 'providers.read', 'providers.manage', 'settings.read', 'settings.manage',
 ];
 const me = (permissions: string[], roles: string[]) => ({
   id: 'u-admin', displayName: 'Admin', avatar: { initials: 'A' }, email: 'admin@example.org', emailConfirmed: true, hasPassword: true,
@@ -44,17 +45,27 @@ describe('AdminPage', () => {
       'GET /api/v1/users/me': () => json(200, me(allPermissions, ['InstallationAdministrator'])),
       'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
       'GET /api/v1/admin/users?filter=all&skip=0&take=8': () => json(200, { items: [ana(false)], total: 1 }),
-      'GET /api/v1/admin/users?filter=disabled&role=Auditor&skip=0&take=8': () => {
+      'GET /api/v1/admin/users?filter=disabled&skip=0&take=8': () => {
         calls.push('filtered');
         return json(200, { items: [], total: 0 });
       },
+      'GET /api/v1/admin/users/u-ana/access-review?scope=installation': () => json(200, {
+        userId: 'u-ana', scope: 'installation', organizationId: null, workspaceId: null,
+        groups: [{ id: 'g-review', name: 'Directory Reviewers', scope: 'installation', roles: ['User directory reader'] }],
+        permissions: [{ key: 'users.read', outcome: 'allowed', source: 'group_allow', decisions: ['Directory Reviewers / User directory reader: allow'] }],
+      }),
+      'GET /api/v1/admin/users/u-ana/access-review-contexts': () => json(200, [
+        { scope: 'installation', organizationId: null, workspaceId: null, name: 'Installation' },
+        { scope: 'organization', organizationId: 'org-a', workspaceId: null, name: 'Acme' },
+      ]),
+      'GET /api/v1/admin/users/u-ana/access-review?scope=organization&organizationId=org-a': () => json(200, {
+        userId: 'u-ana', scope: 'organization', organizationId: 'org-a', workspaceId: null,
+        groups: [{ id: 'g-org', name: 'Organization Reviewers', scope: 'organization', roles: ['Member Support'] }],
+        permissions: [{ key: 'support.access', outcome: 'allowed', source: 'group_allow', decisions: ['organization / Organization Reviewers / Member Support: allow'] }],
+      }),
       'POST /api/v1/admin/users/u-ana/disable': () => {
         calls.push('disable');
         return json(200, ana(true));
-      },
-      'POST /api/v1/admin/users/u-ana/roles': (init) => {
-        calls.push(`grant ${String(init?.body)}`);
-        return json(200, { ...ana(true), roles: ['Auditor'] });
       },
     });
     const user = userEvent.setup();
@@ -67,7 +78,6 @@ describe('AdminPage', () => {
     const row = (await screen.findByText('ana@example.org')).closest('tr')!;
     expect(screen.getByRole('heading', { name: 'Users 1' })).toBeInTheDocument();
     expect(within(row).getByText('Enabled')).toBeInTheDocument();
-    expect(within(row).getByText('User')).toBeInTheDocument();
     expect(within(row).getByTitle('2 active sessions')).toHaveTextContent('2');
     expect(screen.getByText('Showing 1–1 of 1 user')).toBeInTheDocument();
 
@@ -86,22 +96,25 @@ describe('AdminPage', () => {
     await user.keyboard('{Escape}');
     expect(calls).toEqual(['disable']);
 
-    // Manage opens the details panel, where roles are switches.
+    // Users are not assigned roles from their details panel.
     await user.click(within(row).getByRole('button', { name: 'Manage Ana' }));
     const panel = screen.getByRole('dialog', { name: 'Details of Ana' });
-    await user.click(within(panel).getByRole('switch', { name: 'Auditor' }));
-    expect(calls).toContain('grant {"role":"Auditor"}');
-    expect(await within(row).findByText('Auditor')).toBeInTheDocument();
+    expect(within(panel).queryByRole('switch')).not.toBeInTheDocument();
+    await user.click(within(panel).getByRole('button', { name: 'Review effective access' }));
+    expect(await within(panel).findByText('Directory Reviewers')).toBeInTheDocument();
+    expect(within(panel).getByText('Directory Reviewers / User directory reader: allow')).toBeInTheDocument();
+    await user.selectOptions(within(panel).getByRole('combobox', { name: 'Review scope' }), 'organization:org-a:');
+    expect(await within(panel).findByText('Organization Reviewers')).toBeInTheDocument();
+    expect(within(panel).getByText('organization / Organization Reviewers / Member Support: allow')).toBeInTheDocument();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
-    // Status and role are separate filters.
+    // User filtering covers account status; permission assignments are managed through groups.
     await user.selectOptions(screen.getByRole('combobox', { name: 'Status' }), 'disabled');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Role' }), 'Auditor');
     expect(await screen.findByText('Nothing found.')).toBeInTheDocument();
     expect(calls).toContain('filtered');
     // Every section the administrator may use is offered.
-    expect(screen.getAllByRole('link').map((l) => l.textContent)).toEqual(['Overview', 'Users', 'Organizations', 'Roles', 'Settings', 'Providers', 'Audit log']);
+    expect(screen.getAllByRole('link').slice(0, 8).map((l) => l.textContent)).toEqual(['Overview', 'Users', 'Organizations', 'Roles', 'Groups', 'Settings', 'Providers', 'Audit log']);
   });
 
   it('saves live settings and shows locked ones as read-only', async () => {
@@ -152,6 +165,7 @@ describe('AdminPage', () => {
   it('shows providers as cards and configures the selected one, with a test beside it', async () => {
     window.history.replaceState(null, '', '/admin?tab=providers');
     const tested: unknown[] = [];
+    const savedQueue: unknown[] = [];
     mockFetch({
       'GET /api/v1/auth/config': () => json(200, authConfig),
       'GET /api/v1/users/me': () => json(200, me(allPermissions, ['InstallationAdministrator'])),
@@ -171,11 +185,55 @@ describe('AdminPage', () => {
           ],
         },
         { name: 'scanning', restartRequired: false, fields: [{ key: 'Scanning:Provider', kind: 'choice', value: 'None', hasValue: true, source: 'default', locked: false, choices: ['None', 'ClamAv'] }] },
+        { name: 'queue', restartRequired: false, fields: [
+          { key: 'SupportQueue:Provider', kind: 'choice', value: 'Database', hasValue: true, source: 'appsettings', locked: false, choices: ['Database', 'Redis'] },
+          { key: 'SupportQueue:Redis:ConnectionString', kind: 'secret', value: null, hasValue: false, source: 'default', locked: false, choices: null },
+          { key: 'SupportQueue:Redis:StreamPrefix', kind: 'text', value: 'knocktwice-support', hasValue: true, source: 'appsettings', locked: false, choices: null },
+        ] },
+        { name: 'storage', restartRequired: true, fields: [
+          { key: 'Storage:Provider', kind: 'choice', value: 'Local', hasValue: true, source: 'appsettings', locked: false, choices: ['Local', 'S3', 'AzureBlob'] },
+          { key: 'Storage:Local:Path', kind: 'text', value: 'App_Data/attachments', hasValue: true, source: 'appsettings', locked: false, choices: null },
+          { key: 'Storage:AzureBlob:ConnectionString', kind: 'secret', value: null, hasValue: false, source: 'default', locked: false, choices: null },
+          { key: 'Storage:AzureBlob:Container', kind: 'text', value: 'chatx-files', hasValue: true, source: 'appsettings', locked: false, choices: null },
+          { key: 'Storage:AzureBlob:Prefix', kind: 'text', value: 'attachments', hasValue: true, source: 'appsettings', locked: false, choices: null },
+        ] },
       ]),
       'GET /api/v1/admin/search': () => json(200, { provider: 'Database', enabled: true, pending: 0 }),
       'POST /api/v1/admin/providers/email/test': (init) => {
         tested.push(JSON.parse(String(init?.body)));
         return json(200, { outcome: 'sent' });
+      },
+      'PUT /api/v1/admin/providers/queue': (init) => {
+        const body = JSON.parse(String(init?.body)) as { values: Record<string, unknown> };
+        savedQueue.push(body.values);
+        return json(200, { name: 'queue', restartRequired: true, fields: [
+          { key: 'SupportQueue:Provider', kind: 'choice', value: 'Redis', hasValue: true, source: 'file', locked: false, choices: ['Database', 'Redis'] },
+          { key: 'SupportQueue:Redis:ConnectionString', kind: 'secret', value: null, hasValue: true, source: 'file', locked: false, choices: null },
+          { key: 'SupportQueue:Redis:StreamPrefix', kind: 'text', value: 'knocktwice-support', hasValue: true, source: 'file', locked: false, choices: null },
+        ] });
+      },
+      'PUT /api/v1/admin/providers/storage': (init) => {
+        const body = JSON.parse(String(init?.body)) as { values: Record<string, unknown> };
+        savedQueue.push(body.values);
+        return json(200, { name: 'storage', restartRequired: true, fields: [
+          { key: 'Storage:Provider', kind: 'choice', value: 'AzureBlob', hasValue: true, source: 'file', locked: false, choices: ['Local', 'S3', 'AzureBlob'] },
+          { key: 'Storage:AzureBlob:ConnectionString', kind: 'secret', value: null, hasValue: true, source: 'file', locked: false, choices: null },
+          { key: 'Storage:AzureBlob:Container', kind: 'text', value: 'chatx-files', hasValue: true, source: 'file', locked: false, choices: null },
+          { key: 'Storage:AzureBlob:Prefix', kind: 'text', value: 'attachments', hasValue: true, source: 'file', locked: false, choices: null },
+        ] });
+      },
+      'POST /api/v1/admin/providers/queue/test': (init) => {
+        tested.push(JSON.parse(String(init?.body)));
+        return json(200, { outcome: 'ok' });
+      },
+      'POST /api/v1/admin/storage-migrations/dry-run': (init) => {
+        tested.push(JSON.parse(String(init?.body)));
+        return json(200, {
+          sourceProvider: 'Local', destinationProvider: 'S3', totalFiles: 3, totalBytes: 1200,
+          files: [{ id: 'file-1', fileName: 'brief.pdf', size: 1200, status: 'Ready', blockers: [] }],
+          filesTruncated: false, destinationReachable: true, capacityAssessment: 'unknown', blockers: [],
+          warnings: ['Provider capacity or quota is not exposed by the storage interface; destination capacity was not measured.'],
+        });
       },
     });
     const user = userEvent.setup();
@@ -204,6 +262,32 @@ describe('AdminPage', () => {
     // The warning leads to the scanning configuration.
     await user.click(screen.getByRole('button', { name: /Review scanning/ }));
     expect(screen.getByRole('heading', { name: 'Malware scanning configuration' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Configure Support routing queue' }));
+    expect(screen.getByRole('heading', { name: 'Support routing queue configuration' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Queue provider')).toHaveValue('Database');
+    await user.selectOptions(screen.getByLabelText('Queue provider'), 'Redis');
+    await user.type(screen.getByLabelText('Redis connection string'), 'localhost:6379');
+    await user.click(screen.getByRole('button', { name: 'Save configuration' }));
+    expect(savedQueue).toEqual([{ 'SupportQueue:Provider': 'Redis', 'SupportQueue:Redis:ConnectionString': 'localhost:6379' }]);
+    expect(await screen.findAllByText('Restart required')).not.toHaveLength(0);
+
+    await user.click(screen.getByRole('button', { name: 'Configure File storage' }));
+    expect(screen.getByRole('heading', { name: /File storage configuration/ })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /File storage configuration/ })).toHaveTextContent('Supports upload, download and deletion');
+    await user.selectOptions(screen.getByLabelText('Provider'), 'AzureBlob');
+    expect(screen.getByLabelText('Azure Storage connection string')).toBeInTheDocument();
+    expect(screen.getByLabelText('Azure Blob container')).toHaveValue('chatx-files');
+    await user.type(screen.getByLabelText('Azure Storage connection string'), 'UseDevelopmentStorage=true');
+    await user.click(screen.getByRole('button', { name: 'Save configuration' }));
+    expect(savedQueue[1]).toEqual({
+      'Storage:Provider': 'AzureBlob',
+      'Storage:AzureBlob:ConnectionString': 'UseDevelopmentStorage=true',
+    });
+    await user.click(screen.getByRole('button', { name: 'Run dry run' }));
+    expect(await screen.findByText('3 files · 1.2 KB')).toBeInTheDocument();
+    expect(screen.getByText('brief.pdf')).toBeInTheDocument();
+    expect(tested.at(-1)).toEqual({ sourceProvider: 'Local', destinationProvider: 'S3' });
   });
 
   it('pages, searches, filters and expands the audit log', async () => {
@@ -310,7 +394,7 @@ describe('AdminPage', () => {
     window.history.replaceState(null, '', '/admin');
     mockFetch({
       'GET /api/v1/auth/config': () => json(200, authConfig),
-      'GET /api/v1/users/me': () => json(200, me(['installation.read'], ['Operator'])),
+      'GET /api/v1/users/me': () => json(200, me(['installation.read', 'settings.read'], ['Operator'])),
       'GET /api/v1/admin/overview': () => json(200, {
         installationId: null, version: '0.1.0', environment: 'Production', users: 3, disabledUsers: 1, organizations: 1,
         databaseProvider: 'PostgreSql', storageProvider: 'Local', scanningEnabled: true, registrationMode: 'closed', restartRequiredFor: [],
@@ -349,7 +433,8 @@ describe('AdminPage', () => {
     await user.keyboard('{Escape}');
     await user.click(within(row).getByRole('button', { name: 'Manage Ana' }));
     const panel = screen.getByRole('dialog', { name: 'Details of Ana' });
-    expect(within(panel).getByRole('switch', { name: 'Auditor' })).toBeDisabled();
+    expect(within(panel).queryByRole('switch')).not.toBeInTheDocument();
+    expect(within(panel).queryByText('Installation roles')).not.toBeInTheDocument();
     expect(within(panel).queryByRole('button', { name: 'Delete account' })).not.toBeInTheDocument();
     expect(screen.getByText('Read only')).toBeInTheDocument();
   });
@@ -390,14 +475,28 @@ describe('AdminPage', () => {
 
   it('compares the installation roles and says that none grants conversation access', async () => {
     window.history.replaceState(null, '', '/admin?tab=roles');
-    mockFetch({
+    const submittedRoles: unknown[] = [];
+    const fetchSpy = mockFetch({
       'GET /api/v1/auth/config': () => json(200, authConfig),
       'GET /api/v1/users/me': () => json(200, me(allPermissions, ['InstallationAdministrator'])),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
       'GET /api/v1/admin/roles': () => json(200, [
         { name: 'InstallationAdministrator', permissions: allPermissions, members: 1 },
         { name: 'Auditor', permissions: ['installation.read', 'users.read', 'organizations.read', 'audit.read'], members: 0 },
       ]),
+      'GET /api/v1/admin/permissions/catalog': () => json(200, [
+        { key: 'private_chats.use', area: 'privateChats', scope: 'organization', state: 'planned', description: 'Use private chats where the organization grants access.' },
+        { key: 'users.read', area: 'installation', scope: 'installation', state: 'implemented', description: 'Search and view user accounts.' },
+      ]),
+      'GET /api/v1/admin/access-control/roles': () => json(200, [{ id: 'role-1', name: 'Directory reader', description: 'Can read users', scope: 'installation', permissions: [{ key: 'users.read', effect: 'allow' }], groups: 1 }]),
+      'GET /api/v1/admin/access-control/groups': () => json(200, [{ id: 'group-1', name: 'Reviewers', description: '', memberIds: [], roleIds: ['role-1'] }]),
+      'GET /api/v1/admin/users?filter=enabled&skip=0&take=100': () => json(200, { items: [ana(false)], total: 1 }),
+      'POST /api/v1/admin/access-control/roles': (init) => {
+        submittedRoles.push(JSON.parse(String(init?.body)));
+        return json(201, { id: 'role-2', name: 'Restricted', description: '', scope: 'installation', permissions: [{ key: 'users.read', effect: 'deny' }], groups: 0 });
+      },
     });
+    const user = userEvent.setup();
     render(
       <AuthProvider>
         <AdminPage />
@@ -406,13 +505,71 @@ describe('AdminPage', () => {
 
     expect(await screen.findByText('1 person')).toBeInTheDocument();
     expect(screen.getByText('0 people')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Manage assignments' })).toHaveAttribute('href', '/admin?tab=users');
+    expect(screen.getAllByRole('link', { name: 'Manage assignments' }).some(link => link.getAttribute('href') === '/admin?tab=groups')).toBe(true);
     const change = screen.getByRole('row', { name: /Change settings and providers/ });
     expect(within(change).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Allowed', 'Not granted']);
     const demo = screen.getByRole('row', { name: /Populate demo data/ });
     expect(within(demo).getByText('Development only')).toBeInTheDocument();
+    const catalogEntry = screen.getByRole('row', { name: /private_chats\.use/ });
+    expect(within(catalogEntry).getByText('Planned')).toBeInTheDocument();
+    expect(within(catalogEntry).getByText('Organization')).toBeInTheDocument();
     const conversations = screen.getByRole('row', { name: /Access conversations or message content/ });
     expect(within(conversations).getAllByRole('cell').map((c) => c.textContent)).toEqual(['Not granted', 'Not granted']);
     expect(screen.getByText('Administration does not grant conversation access')).toBeInTheDocument();
+    const accessHeading = screen.getByRole('heading', { name: 'Granular access management' });
+    const comparisonHeading = screen.getByRole('heading', { name: 'Permission comparison' });
+    expect(accessHeading).toBeInTheDocument();
+    expect(screen.getByText(/Users belong to groups; groups receive roles/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Assign role to user' })).not.toBeInTheDocument();
+    expect(accessHeading.compareDocumentPosition(comparisonHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect((await screen.findAllByText('Directory reader')).length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByRole('button', { name: 'Create role' })).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Decision for users.read' }), 'deny');
+    const roleName = screen.getByLabelText('Name', { selector: '#access-role-name' });
+    await user.type(roleName, 'Restricted');
+    expect(roleName).toHaveValue('Restricted');
+    await user.click(screen.getByRole('button', { name: 'Create role' }));
+    await vi.waitFor(() => expect(fetchSpy.mock.calls.map(([input, init]) => `${init?.method ?? 'GET'} ${String(input)}`)).toContain('POST /api/v1/admin/access-control/roles'));
+    await vi.waitFor(() => expect(submittedRoles).toEqual([{ name: 'Restricted', description: '', permissions: [{ key: 'users.read', effect: 'deny' }] }]));
+    await user.click(screen.getAllByRole('link', { name: 'Manage assignments' }).find(link => link.getAttribute('href') === '/admin?tab=groups')!);
+    expect(await screen.findByRole('heading', { name: 'Groups' })).toBeInTheDocument();
+    expect((await screen.findAllByText('Reviewers')).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('opens the separate groups menu for assignments and lets group creation include users', async () => {
+    window.history.replaceState(null, '', '/admin?tab=groups');
+    let group: { id: string; name: string; description: string; memberIds: string[]; roleIds: string[] } | null = null;
+    const calls: string[] = [];
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, me(allPermissions, ['InstallationAdministrator'])),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/admin/access-control/groups': () => json(200, group ? [group] : []),
+      'GET /api/v1/admin/access-control/roles': () => json(200, []),
+      'GET /api/v1/admin/users?filter=enabled&skip=0&take=100': () => json(200, { items: [ana(false)], total: 1 }),
+      'POST /api/v1/admin/access-control/groups': () => {
+        calls.push('create-group');
+        group = { id: 'group-2', name: 'Support operators', description: 'Support', memberIds: [], roleIds: [] };
+        return json(201, group);
+      },
+      'POST /api/v1/admin/access-control/groups/group-2/members/u-ana': () => {
+        calls.push('add-user-to-group');
+        group = { ...group!, memberIds: ['u-ana'] };
+        return json(200, group);
+      },
+    });
+    const user = userEvent.setup();
+    render(<AuthProvider><AdminPage /></AuthProvider>);
+
+    expect(await screen.findByText('No groups created yet.')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Administration sections' }).querySelector('a[href="/admin?tab=groups"]')).toHaveTextContent('Groups');
+    await user.type(screen.getByLabelText('Name', { selector: '#access-group-name' }), 'Support operators');
+    await user.type(screen.getByLabelText('Description', { selector: '#access-group-description' }), 'Support');
+    await user.selectOptions(screen.getByLabelText('Add users to this group'), 'u-ana');
+    await user.click(screen.getByRole('button', { name: 'Create group' }));
+
+    expect(await screen.findByRole('heading', { name: 'Support operators' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'Manage group Support operators' })).toHaveTextContent('ana@example.org');
+    expect(calls).toEqual(['create-group', 'add-user-to-group']);
   });
 });

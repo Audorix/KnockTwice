@@ -69,6 +69,58 @@ public sealed class OrganizationDomainTests
     }
 
     [Fact]
+    public void Verified_domains_normalize_idn_and_reject_addresses_and_urls()
+    {
+        var organizationId = Guid.NewGuid();
+        var domain = VerifiedOrganizationDomain.Create(Guid.NewGuid(), organizationId, "  BÜCHER.example. ", "token", Now);
+        Assert.Equal("xn--bcher-kva.example", domain.Domain);
+        Assert.False(domain.IsVerified);
+        domain.MarkVerified(Now.AddMinutes(1));
+        domain.MarkVerified(Now.AddMinutes(2));
+        Assert.True(domain.IsVerified);
+        Assert.Equal(Now.AddMinutes(1), domain.VerifiedAtUtc);
+        Assert.Equal("domain_invalid", Assert.Throws<DomainRuleException>(() =>
+            VerifiedOrganizationDomain.Create(Guid.NewGuid(), organizationId, "https://example.com", "token", Now)).Code);
+        Assert.Equal("domain_invalid", Assert.Throws<DomainRuleException>(() =>
+            VerifiedOrganizationDomain.Create(Guid.NewGuid(), organizationId, "127.0.0.1", "token", Now)).Code);
+    }
+
+    [Fact]
+    public void Automatic_enrollment_is_off_by_default_and_requires_verified_domain_opt_in()
+    {
+        var organization = Organization.Create(Guid.NewGuid(), "Acme", Guid.NewGuid(), Now);
+        Assert.False(organization.AutomaticEnrollmentEnabled);
+        Assert.Equal("automatic_enrollment_requires_verified_domain", Assert.Throws<DomainRuleException>(() =>
+            organization.ConfigureAutomaticEnrollment(true, hasVerifiedDomain: false, nowUtc: Now)).Code);
+
+        organization.ConfigureAutomaticEnrollment(true, hasVerifiedDomain: true, nowUtc: Now);
+        Assert.True(organization.AutomaticEnrollmentEnabled);
+        organization.ConfigureAutomaticEnrollment(false, hasVerifiedDomain: false, Now.AddMinutes(1));
+        Assert.False(organization.AutomaticEnrollmentEnabled);
+    }
+
+    [Fact]
+    public void Organization_sso_is_opt_in_requires_a_verified_domain_and_accepts_only_https_issuers()
+    {
+        var organization = Organization.Create(Guid.NewGuid(), "Acme", Guid.NewGuid(), Now);
+        Assert.False(organization.SsoConfigured);
+        Assert.Equal("organization_sso_requires_verified_domain", Assert.Throws<DomainRuleException>(() =>
+            organization.ConfigureSso("https://id.example", "client", "protected", false, Now)).Code);
+        Assert.Equal("organization_sso_issuer_invalid", Assert.Throws<DomainRuleException>(() =>
+            organization.ConfigureSso("http://id.example", "client", "protected", true, Now)).Code);
+        Assert.Equal("organization_sso_credentials_required", Assert.Throws<DomainRuleException>(() =>
+            organization.ConfigureSso("https://id.example", "", "", true, Now)).Code);
+
+        organization.ConfigureSso("https://id.example/", "client", "protected-secret", true, Now);
+        Assert.True(organization.SsoConfigured);
+        Assert.Equal("https://id.example", organization.SsoIssuer);
+        Assert.Equal("protected-secret", organization.ProtectedSsoClientSecret);
+        organization.ClearSsoConfiguration(Now.AddMinutes(1));
+        Assert.False(organization.SsoConfigured);
+        Assert.Null(organization.ProtectedSsoClientSecret);
+    }
+
+    [Fact]
     public void User_pairs_are_order_independent_and_reject_self()
     {
         var a = Guid.NewGuid();

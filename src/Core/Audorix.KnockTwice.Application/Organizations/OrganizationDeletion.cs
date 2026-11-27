@@ -38,6 +38,8 @@ public interface IOrganizationRemoval
 /// </summary>
 public sealed class OrganizationDeletionService(
     IOrganizationStore organizations,
+    OrganizationService organizationAccess,
+    IScopedAccessStore scopedAccess,
     IOrganizationRemoval removal,
     IAttachmentStorage storage,
     IAccountErasure erasure,
@@ -49,16 +51,14 @@ public sealed class OrganizationDeletionService(
     /// <summary>An owner deletes their organization; <paramref name="confirmName"/> must repeat its name.</summary>
     public async Task DeleteAsOwnerAsync(Guid userId, Guid organizationId, string? confirmName, CancellationToken cancellationToken)
     {
-        var membership = await organizations.FindMemberAsync(organizationId, userId, cancellationToken).ConfigureAwait(false);
-        var organization = membership is { IsActive: true }
-            ? await organizations.FindOrganizationAsync(organizationId, cancellationToken).ConfigureAwait(false)
-            : null;
-        if (organization is null)
-        {
-            throw new ResourceNotFoundException("organization_not_found");
-        }
+        var (organization, membership) = await organizationAccess.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
 
-        if (membership!.Role != OrganizationRole.Owner)
+        if (await scopedAccess.IsPermissionConfiguredAsync(organizationId, "organization.manage", cancellationToken).ConfigureAwait(false))
+        {
+            var effective = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+            if (!effective.Allowed.Contains("organization.manage", StringComparer.Ordinal)) throw new ForbiddenException();
+        }
+        else if (membership.Role != OrganizationRole.Owner)
         {
             throw new ForbiddenException();
         }

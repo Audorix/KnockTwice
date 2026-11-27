@@ -30,7 +30,8 @@ public sealed class AccountService(
     IOptionsSnapshot<AccountSettings> settings,
     IOptions<PublicUrlSettings> urls,
     IOptionsSnapshot<LocalizationSettings> localization,
-    IRegistrationInvitations invitations)
+    IRegistrationInvitations invitations,
+    Organizations.OrganizationDomainEnrollmentService domainEnrollment)
 {
     public const int EmailMaxLength = 254;
     public const int PasswordMaxLength = 128;
@@ -109,6 +110,10 @@ public sealed class AccountService(
         if (!autoConfirm)
         {
             await SendConfirmationAsync(id, address!, profile, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await domainEnrollment.EnrollIfEligibleAsync(id, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -221,6 +226,7 @@ public sealed class AccountService(
         {
             throw new InvalidTokenException();
         }
+        await domainEnrollment.EnrollIfEligibleAsync(userId, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ForgotPasswordAsync(string emailAddress, string? captchaToken, string? remoteIp, CancellationToken cancellationToken)
@@ -324,9 +330,10 @@ public sealed class AccountService(
         var profile = UserProfile.Create(id, displayName, ResolveLanguage(language), now);
         var result = await accounts.CreateAsync(new NewAccount(id, address, EmailConfirmed: true), profile, null, login, cancellationToken)
             .ConfigureAwait(false);
-        return result.Succeeded
-            ? ExternalProvisioningResult.Created(id)
-            : ExternalProvisioningResult.Failed(result.HasError("duplicate_email") ? "external_account_exists" : "external_sign_in_failed");
+        if (!result.Succeeded)
+            return ExternalProvisioningResult.Failed(result.HasError("duplicate_email") ? "external_account_exists" : "external_sign_in_failed");
+        await domainEnrollment.EnrollIfEligibleAsync(id, cancellationToken).ConfigureAwait(false);
+        return ExternalProvisioningResult.Created(id);
     }
 
     public static string EncodeToken(string token) => Base64Url.EncodeToString(Encoding.UTF8.GetBytes(token));

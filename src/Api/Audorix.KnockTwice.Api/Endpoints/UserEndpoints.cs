@@ -1,4 +1,5 @@
 using Audorix.KnockTwice.Api.Identity;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Identity;
 using Audorix.KnockTwice.Application.Installations;
 using Audorix.KnockTwice.Application.Sessions;
@@ -23,18 +24,27 @@ internal static class UserEndpoints
         me.MapPut("/preferences", UpdatePreferencesAsync).WithSummary("Updates user preferences (language, theme, desktop notifications); omitted fields stay unchanged.");
         me.MapPost("/password", ChangePasswordAsync).WithSummary("Changes the password and signs out other sessions.");
         // Profile photo and links (redesign 2026-11).
-        me.MapPost("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, CancellationToken ct) =>
+        me.MapPost("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken ct) =>
         {
             var userId = http.User.RequireUserId();
             await MultipartUpload.ReadFileAsync(http, ProfileMediaService.MaxPhotoBytes, (_, _, stream) => media.SetPhotoAsync(userId, stream, null, ct), ct);
-            return TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(userId, ct)));
+            var user = await profiles.GetCurrentAsync(userId, ct);
+            return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, ct)));
         }).WithSummary("Sets the profile photo (multipart/form-data, field 'file'): PNG, JPEG or WebP, up to 1 MB, already cropped (the app sends a square image).");
-        me.MapDelete("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, CancellationToken ct) =>
+        me.MapDelete("/photo", async (HttpContext http, ProfileMediaService media, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken ct) =>
         {
             var userId = http.User.RequireUserId();
             await media.RemovePhotoAsync(userId, ct);
-            return TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(userId, ct)));
+            var user = await profiles.GetCurrentAsync(userId, ct);
+            return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, ct)));
         }).WithSummary("Removes the profile photo; initials show again.");
+        me.MapPut("/avatar", async (UpdateAvatarRequest request, HttpContext http, ProfileMediaService media, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken ct) =>
+        {
+            var userId = http.User.RequireUserId();
+            await media.SetGeneratedAvatarAsync(userId, request.Style, request.Seed, ct);
+            var user = await profiles.GetCurrentAsync(userId, ct);
+            return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, ct)));
+        }).WithSummary("Selects a locally rendered CC0 avatar style and seed, or clears the generated avatar to use initials.");
         me.MapGet("/links", async (HttpContext http, ProfileMediaService media, CancellationToken ct) =>
             TypedResults.Ok((await media.ListOwnLinksAsync(http.User.RequireUserId(), ct)).Select(ToLink).ToList()))
             .WithSummary("Your profile links in order, with who sees each.");
@@ -143,32 +153,47 @@ internal static class UserEndpoints
     private static DemoDataCountsResponse ToCounts(Application.Demo.DemoDataCounts counts) =>
         new(counts.Users, counts.Organizations, counts.Contacts, counts.Conversations, counts.Messages, counts.Activity, counts.Support, counts.Photos);
 
-    public static CurrentUserResponse ToResponse(CurrentUser user) => new(
+    public static CurrentUserResponse ToResponse(CurrentUser user, Application.Administration.EffectivePermissionSet? scopedPermissions = null) => new(
         user.Account.Id,
         user.Account.Email,
         user.Account.EmailConfirmed,
         user.Profile.DisplayName,
-        new AvatarResponse(user.Profile.Initials, user.Profile.HasPhoto ? PhotoUrl(user.Profile.UserId, user.Profile.PhotoVersion) : null),
+        new AvatarResponse(user.Profile.Initials, user.Profile.HasPhoto ? PhotoUrl(user.Profile.UserId, user.Profile.PhotoVersion) : null,
+            user.Profile.GeneratedAvatarStyle, user.Profile.GeneratedAvatarSeed),
         new UserPreferencesResponse(user.Profile.UiLanguage, user.Profile.Theme, user.Profile.DesktopNotifications, user.Profile.NotificationPreviews,
             user.Profile.EmailNotifications, user.Profile.ShareEmailWithContacts),
         user.Account.HasPassword,
         user.Account.ExternalProviders.Select(p => ExternalProviders.FindByScheme(p)?.Name ?? p.ToLowerInvariant()).ToList(),
         user.Account.Roles,
-        Permissions.All.Where(p => Permissions.IsGrantedBy(user.Account.Roles, p)).ToList(),
+        Permissions.All.Where(permission => Permissions.IsEffectivelyGranted(
+            user.Account.Roles,
+            permission,
+            scopedPermissions?.Allowed ?? [],
+            scopedPermissions?.Denied ?? [],
+            scopedPermissions?.Configured ?? [])).ToList(),
         user.Profile.Handle);
 
-    private static async Task<Ok<CurrentUserResponse>> GetMeAsync(HttpContext context, UserProfileService profiles, CancellationToken cancellationToken) =>
-        TypedResults.Ok(ToResponse(await profiles.GetCurrentAsync(context.User.RequireUserId(), cancellationToken).ConfigureAwait(false)));
+    private static async Task<Ok<CurrentUserResponse>> GetMeAsync(HttpContext context, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken cancellationToken)
+    {
+        var userId = context.User.RequireUserId();
+        var user = await profiles.GetCurrentAsync(userId, cancellationToken).ConfigureAwait(false);
+        return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, cancellationToken).ConfigureAwait(false)));
+    }
 
     private static async Task<Ok<CurrentUserResponse>> UpdateProfileAsync(
-        UpdateProfileRequest request, HttpContext context, UserProfileService profiles, CancellationToken cancellationToken) =>
-        TypedResults.Ok(ToResponse(await profiles.UpdateProfileAsync(context.User.RequireUserId(), request.DisplayName ?? string.Empty, cancellationToken, request.Handle)
-            .ConfigureAwait(false)));
+        UpdateProfileRequest request, HttpContext context, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken cancellationToken)
+    {
+        var userId = context.User.RequireUserId();
+        var user = await profiles.UpdateProfileAsync(userId, request.DisplayName ?? string.Empty, cancellationToken, request.Handle).ConfigureAwait(false);
+        return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, cancellationToken).ConfigureAwait(false)));
+    }
 
     private static async Task<Ok<CurrentUserResponse>> UpdatePreferencesAsync(
-        UpdatePreferencesRequest request, HttpContext context, UserProfileService profiles, CancellationToken cancellationToken) =>
-        TypedResults.Ok(ToResponse(await profiles.UpdatePreferencesAsync(
-            context.User.RequireUserId(),
+        UpdatePreferencesRequest request, HttpContext context, UserProfileService profiles, IEffectivePermissionReader permissions, CancellationToken cancellationToken)
+    {
+        var userId = context.User.RequireUserId();
+        var user = await profiles.UpdatePreferencesAsync(
+            userId,
             // An empty request is still a (failed) language change, as before Phase 8.
             request is { Theme: null, DesktopNotifications: null, NotificationPreviews: null, EmailNotifications: null, ShareEmailWithContacts: null } ? request.UiLanguage ?? string.Empty : request.UiLanguage,
             cancellationToken,
@@ -176,7 +201,9 @@ internal static class UserEndpoints
             request.DesktopNotifications,
             request.NotificationPreviews,
             request.EmailNotifications,
-            request.ShareEmailWithContacts).ConfigureAwait(false)));
+            request.ShareEmailWithContacts).ConfigureAwait(false);
+        return TypedResults.Ok(ToResponse(user, await permissions.GetEffectivePermissionsAsync(userId, cancellationToken).ConfigureAwait(false)));
+    }
 
     private static async Task<NoContent> ChangePasswordAsync(
         ChangePasswordRequest request,

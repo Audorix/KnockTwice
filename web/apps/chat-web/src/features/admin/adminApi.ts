@@ -56,6 +56,52 @@ export interface AdminRole {
   members: number;
 }
 
+export interface AdminPermissionDefinition {
+  key: string;
+  area: string;
+  scope: 'installation' | 'organization' | 'workspace';
+  state: 'implemented' | 'planned';
+  description: string;
+}
+
+export interface AccessControlRole {
+  id: string;
+  name: string;
+  description: string;
+  scope: 'installation';
+  permissions: { key: string; effect: 'allow' | 'deny' }[];
+  groups: number;
+}
+
+export interface AccessControlGroup {
+  id: string;
+  name: string;
+  description: string;
+  memberIds: string[];
+  roleIds: string[];
+}
+
+export interface EffectiveAccessReview {
+  userId: string;
+  scope: 'installation' | 'organization' | 'workspace';
+  organizationId: string | null;
+  workspaceId: string | null;
+  groups: { id: string; name: string; scope: string; roles: string[] }[];
+  permissions: { key: string; outcome: 'allowed' | 'denied' | 'not_granted'; source: string; decisions: string[] }[];
+}
+export interface EffectiveAccessReviewContext { scope: 'installation' | 'organization' | 'workspace'; organizationId: string | null; workspaceId: string | null; name: string }
+export interface StorageMigrationDryRun {
+  sourceProvider: string; destinationProvider: string; totalFiles: number; totalBytes: number;
+  files: { id: string; fileName: string; size: number; status: string; blockers: string[] }[];
+  filesTruncated: boolean; destinationReachable: boolean; capacityAssessment: string; blockers: string[]; warnings: string[];
+}
+export interface StorageMigrationJob {
+  id: string; sourceProvider: string; destinationProvider: string;
+  state: 'Queued' | 'Running' | 'Paused' | 'Completed' | 'CompletedWithErrors' | 'CuttingOver' | 'AwaitingRestart' | 'CutoverComplete' | 'RollbackCuttingOver' | 'RollbackAwaitingRestart' | 'RolledBack';
+  totalFiles: number; copiedFiles: number; failedFiles: number; skippedFiles: number; pendingFiles: number;
+  createdAtUtc: string; updatedAtUtc: string; lastError: string | null;
+}
+
 export interface AuditEntry {
   id: string;
   occurredAtUtc: string;
@@ -96,9 +142,33 @@ export interface ProviderField {
 }
 
 export interface ProviderGroup {
-  name: 'email' | 'captcha' | 'storage' | 'scanning' | 'search';
+  name: 'email' | 'captcha' | 'storage' | 'scanning' | 'search' | 'queue' | 'ai';
   restartRequired: boolean;
   fields: ProviderField[];
+}
+
+export interface AiTranslationProviderProfile {
+  id: string;
+  name: string;
+  provider: 'OpenAICompatible' | 'Ollama' | string;
+  endpoint: string;
+  model: string;
+  hasApiKey: boolean;
+  maxOutputTokens: number;
+  timeoutSeconds: number;
+  active: boolean;
+  legacy: boolean;
+}
+
+export interface AiTranslationProviderProfileRequest {
+  name: string;
+  provider: 'OpenAICompatible' | 'Ollama';
+  endpoint: string;
+  model: string;
+  apiKey: string;
+  clearApiKey?: boolean;
+  maxOutputTokens: number;
+  timeoutSeconds: number;
 }
 
 export interface AdminOverview {
@@ -131,17 +201,36 @@ export const searchUsers = async (query: string, filter: string, skip: number, t
   (await getJson<Page<AdminUser>>(`/api/v1/admin/users${q({ q: query, filter, role: optional(role, 'all'), sort: optional(sort, 'nameAsc'), skip, take })}`)).body!;
 
 const user = (id: string) => `/api/v1/admin/users/${encodeURIComponent(id)}`;
+export const getEffectiveAccessReviewContexts = async (id: string) =>
+  (await getJson<EffectiveAccessReviewContext[]>(`${user(id)}/access-review-contexts`)).body ?? [];
+export const getEffectiveAccessReview = async (id: string, context: EffectiveAccessReviewContext) =>
+  (await getJson<EffectiveAccessReview>(`${user(id)}/access-review${q({ scope: context.scope, organizationId: context.organizationId, workspaceId: context.workspaceId })}`)).body!;
 export const disableUser = async (id: string) => (await sendJson<AdminUser>('POST', `${user(id)}/disable`))!;
 export const enableUser = async (id: string) => (await sendJson<AdminUser>('POST', `${user(id)}/enable`))!;
 export const revokeUserSessions = (id: string) => sendJson<{ revoked: number }>('POST', `${user(id)}/revoke-sessions`);
 export const confirmUserEmail = async (id: string) => (await sendJson<AdminUser>('POST', `${user(id)}/confirm-email`))!;
 export const resendConfirmation = (id: string) => sendJson('POST', `${user(id)}/resend-confirmation`);
-export const grantRole = async (id: string, role: string) => (await sendJson<AdminUser>('POST', `${user(id)}/roles`, { role }))!;
-export const revokeRole = async (id: string, role: string) => (await sendJson<AdminUser>('DELETE', `${user(id)}/roles/${encodeURIComponent(role)}`))!;
 /** Deletes the account (Phase 13): personal data erased, messages kept as "Deleted user". */
 export const deleteUser = (id: string) => sendJson('DELETE', user(id));
 
 export const getRoles = async () => (await getJson<AdminRole[]>('/api/v1/admin/roles')).body ?? [];
+export const getPermissionCatalog = async () => (await getJson<AdminPermissionDefinition[]>('/api/v1/admin/permissions/catalog')).body ?? [];
+export const getAccessRoles = async () => (await getJson<AccessControlRole[]>('/api/v1/admin/access-control/roles')).body ?? [];
+export const createAccessRole = async (role: { name: string; description: string; permissions: { key: string; effect: 'allow' | 'deny' }[] }) =>
+  (await sendJson<AccessControlRole>('POST', '/api/v1/admin/access-control/roles', role))!;
+export const updateAccessRole = async (id: string, role: { name: string; description: string; permissions: { key: string; effect: 'allow' | 'deny' }[] }) =>
+  (await sendJson<AccessControlRole>('PUT', `/api/v1/admin/access-control/roles/${encodeURIComponent(id)}`, role))!;
+export const getAccessGroups = async () => (await getJson<AccessControlGroup[]>('/api/v1/admin/access-control/groups')).body ?? [];
+export const createAccessGroup = async (group: { name: string; description: string }) =>
+  (await sendJson<AccessControlGroup>('POST', '/api/v1/admin/access-control/groups', group))!;
+export const addAccessGroupMember = async (groupId: string, userId: string) =>
+  (await sendJson<AccessControlGroup>('POST', `/api/v1/admin/access-control/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`))!;
+export const removeAccessGroupMember = async (groupId: string, userId: string) =>
+  (await sendJson<AccessControlGroup>('DELETE', `/api/v1/admin/access-control/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`))!;
+export const assignAccessRoleToGroup = async (roleId: string, groupId: string) =>
+  (await sendJson<AccessControlGroup>('POST', `/api/v1/admin/access-control/roles/${encodeURIComponent(roleId)}/groups/${encodeURIComponent(groupId)}`))!;
+export const removeAccessRoleFromGroup = async (roleId: string, groupId: string) =>
+  (await sendJson<AccessControlGroup>('DELETE', `/api/v1/admin/access-control/roles/${encodeURIComponent(roleId)}/groups/${encodeURIComponent(groupId)}`))!;
 
 export const searchOrganizations = async (query: string, skip: number, take = 25, sort = 'nameAsc') =>
   (await getJson<Page<AdminOrganization>>(`/api/v1/admin/organizations${q({ q: query, sort: optional(sort, 'nameAsc'), skip, take })}`)).body!;
@@ -162,6 +251,27 @@ export const saveProvider = async (group: string, values: Record<string, unknown
   (await sendJson<ProviderGroup>('PUT', `/api/v1/admin/providers/${encodeURIComponent(group)}`, { values }))!;
 export const testProvider = async (group: string, values: Record<string, unknown>) =>
   (await sendJson<{ outcome: string }>('POST', `/api/v1/admin/providers/${encodeURIComponent(group)}/test`, { values }))!;
+const aiTranslationProvidersPath = '/api/v1/admin/providers/ai/translation';
+export const getAiTranslationProviders = async () => (await getJson<AiTranslationProviderProfile[]>(aiTranslationProvidersPath)).body ?? [];
+export const createAiTranslationProvider = async (values: AiTranslationProviderProfileRequest) =>
+  (await sendJson<AiTranslationProviderProfile>('POST', aiTranslationProvidersPath, values))!;
+export const updateAiTranslationProvider = async (id: string, values: AiTranslationProviderProfileRequest) =>
+  (await sendJson<AiTranslationProviderProfile>('PUT', `${aiTranslationProvidersPath}/${encodeURIComponent(id)}`, values))!;
+export const activateAiTranslationProvider = (id: string) =>
+  sendJson('POST', `${aiTranslationProvidersPath}/${encodeURIComponent(id)}/activate`, {});
+export const deleteAiTranslationProvider = (id: string) =>
+  sendJson('DELETE', `${aiTranslationProvidersPath}/${encodeURIComponent(id)}`);
+export const testAiTranslationProvider = async (id: string) =>
+  (await sendJson<{ outcome: string }>('POST', `${aiTranslationProvidersPath}/${encodeURIComponent(id)}/test`, {}))!;
+export const dryRunStorageMigration = async (sourceProvider: string, destinationProvider: string) =>
+  (await sendJson<StorageMigrationDryRun>('POST', '/api/v1/admin/storage-migrations/dry-run', { sourceProvider, destinationProvider }))!;
+export const startStorageMigration = async (sourceProvider: string, destinationProvider: string) =>
+  (await sendJson<StorageMigrationJob>('POST', '/api/v1/admin/storage-migrations', { sourceProvider, destinationProvider }))!;
+export const getStorageMigrations = async () => (await getJson<StorageMigrationJob[]>('/api/v1/admin/storage-migrations')).body!;
+export const pauseStorageMigration = async (id: string) => (await sendJson<StorageMigrationJob>('POST', `/api/v1/admin/storage-migrations/${id}/pause`))!;
+export const resumeStorageMigration = async (id: string) => (await sendJson<StorageMigrationJob>('POST', `/api/v1/admin/storage-migrations/${id}/resume`))!;
+export const cutoverStorageMigration = async (id: string) => (await sendJson<{ jobId: string; state: string; activeProvider: string; referencesMoved: number; restartRequired: boolean }>('POST', `/api/v1/admin/storage-migrations/${id}/cutover`))!;
+export const rollbackStorageMigration = async (id: string, reverseCopyJobId: string) => (await sendJson<{ jobId: string; state: string; activeProvider: string; referencesMoved: number; restartRequired: boolean }>('POST', `/api/v1/admin/storage-migrations/${id}/rollback`, { reverseCopyJobId }))!;
 
 export const getSearchStatus = async () =>
   (await getJson<{ provider: string; enabled: boolean; pending: number }>('/api/v1/admin/search')).body!;

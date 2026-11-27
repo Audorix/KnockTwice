@@ -22,7 +22,7 @@ public sealed class WorkspaceService(IOrganizationStore store, OrganizationServi
         var mine = (await store.ListWorkspaceMembershipsAsync(organizationId, userId, cancellationToken).ConfigureAwait(false))
             .Where(m => m.IsActive)
             .ToDictionary(m => m.WorkspaceId, m => m.Role);
-        var seeAll = membership.Can(OrganizationPermission.ManageWorkspaces);
+        var seeAll = await organizations.HasPermissionAsync(userId, organizationId, membership, "organization.workspaces.manage", OrganizationPermission.ManageWorkspaces, cancellationToken).ConfigureAwait(false);
         return (await store.ListWorkspacesAsync(organizationId, cancellationToken).ConfigureAwait(false))
             .Where(w => seeAll || mine.ContainsKey(w.Id))
             .Select(w => new WorkspaceView(w, mine.TryGetValue(w.Id, out var role) ? role : null))
@@ -33,7 +33,7 @@ public sealed class WorkspaceService(IOrganizationStore store, OrganizationServi
     public async Task<WorkspaceView> CreateAsync(Guid userId, Guid organizationId, string? name, CancellationToken cancellationToken)
     {
         var (_, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.ManageWorkspaces);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.workspaces.manage", OrganizationPermission.ManageWorkspaces, cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow();
         var workspace = Workspace.Create(Guid.CreateVersion7(now), organizationId, name ?? string.Empty, now);
         store.Add(workspace);
@@ -168,7 +168,7 @@ public sealed class WorkspaceService(IOrganizationStore store, OrganizationServi
         var (_, organizationMembership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
         var workspace = await store.FindWorkspaceAsync(organizationId, workspaceId, cancellationToken).ConfigureAwait(false);
         var membership = workspace is null ? null : await store.FindWorkspaceMemberAsync(workspace.Id, userId, cancellationToken).ConfigureAwait(false);
-        var orgAdmin = organizationMembership.Can(OrganizationPermission.ManageWorkspaces);
+        var orgAdmin = await organizations.HasPermissionAsync(userId, organizationId, organizationMembership, "organization.workspaces.manage", OrganizationPermission.ManageWorkspaces, cancellationToken).ConfigureAwait(false);
         if (workspace is null || (membership is not { IsActive: true } && !orgAdmin))
         {
             throw new ResourceNotFoundException("workspace_not_found");

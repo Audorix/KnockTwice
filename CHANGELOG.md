@@ -8,6 +8,136 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions f
 
 ### Added
 
+- **Role-gated message translation.** Administrators can configure named OpenAI-compatible or
+  Ollama translation providers. Users granted `messages.translate` can translate messages on demand
+  or opt in to automatic support translation; saved translations keep an original-text snapshot
+  and never replace the source message.
+
+- **Verified storage cutover and rollback.** Completed copy jobs can verify that every current
+  attachment has a matching, readable destination copy before moving its provider reference. New
+  uploads pause during the switch and restart window. Rollback uses a completed reverse copy job,
+  rechecks the current inventory and hashes, and restores the prior provider. Uploads resume after
+  the application restarts on the selected provider.
+
+- **Verified attachment copy jobs.** After a clear storage preflight, administrators can start a
+  persistent background job that copies attachment bytes between Local, S3-compatible, and Azure
+  Blob storage. Jobs expose per-file progress and pause/resume controls, retry transient failures,
+  and verify copied size and SHA-256. They keep source bytes, attachment references, and the active
+  provider unchanged; cutover and rollback remain separate operations. SQLite and PostgreSQL add
+  durable job and file tables.
+
+- **Attachment migration preflight.** Administrators can run a non-migrating dry run for a source and
+  destination provider. It inventories ready and quarantined files, checks each source object,
+  verifies destination access using a disposable probe, and reports file blockers and total bytes.
+  Capacity is marked unknown when the storage provider exposes no quota API. No files or active
+  provider references are changed.
+
+- **Effective-access review.** The user details drawer now offers installation, organization, and
+  workspace contexts. Each review shows inherited group memberships, assigned roles, permission
+  outcomes, Deny precedence, and whether the existing scope policy supplies an unconfigured result.
+
+- **Azure Blob attachment storage foundation.** Admins can select Local, S3-compatible, or Azure Blob
+  Storage, configure a private container, and test writes, reads, and deletes with a disposable probe.
+  New message attachments record their storage provider. Before the admin saves a provider change,
+  legacy records are pinned to the currently active provider so they remain readable. SQLite and
+  PostgreSQL migrations add the nullable provider reference. Changing the default does not copy files.
+
+- **Locally generated profile avatars.** Profile settings now offer Identicon, Lorelei, Open Peeps,
+  Pixel Art, Shapes, and Thumbs alongside uploaded photos and initials. The browser renders each
+  SVG locally; the API stores only the selected style and stable variation seed so the same avatar
+  appears across devices. All six bundled styles use CC0 1.0. SQLite and PostgreSQL migrations add
+  the nullable style and seed fields.
+
+- **Guest access expiry.** Accepted organization guests receive a 90-day access window. Expired guests
+  stop appearing in active guest lists and lose conversation, message, and realtime access; a fresh
+  invitation renews access. Guest and organization invitations keep their 14-day lifetime, and the
+  guest management view shows each expiry date. SQLite and PostgreSQL migrations backfill existing
+  guest records with a new 90-day window.
+
+- **Installation administration permissions.** Separate `roles.*`, `permissions.*`, `groups.*`,
+  `providers.*`, and `settings.*` access at both the API and admin UI. Role changes and permission
+  grants have separate controls, while group management and role assignment use their own scopes.
+  Existing access falls back to the legacy policy until each granular permission is configured on
+  a group-assigned role; configured decisions then use group Allow/Deny with Deny taking precedence.
+
+- **Workspace channel permissions.** Workspace administrators with organization role-management
+  access can manage workspace roles and groups separately from organization access. Assign active
+  workspace members to groups and give those groups `channels.create` and `channels.manage`
+  decisions. Until a workspace permission is configured, the existing channel policy applies;
+  once configured, only an effective Allow grants access and Deny overrides channel participant or
+  workspace administrator status. Workspace permission grants do not carry into other workspaces.
+
+- **Scoped permission catalog foundation.** The administration Roles view and a protected API list
+  stable permission keys with installation, organization, or workspace scope. Current permissions
+  are marked available and future capability keys are marked planned; planned keys do not authorize
+  requests. `private_chats.use` and the organization support permission keys are implemented.
+
+- **Installation access control.** Administrators can create custom installation roles from active
+  installation permissions and assign them only to groups. Users receive those roles through group
+  membership. Each role permission is Allow, Deny, or unassigned; Deny overrides grants from other
+  roles. Existing direct custom-role assignments migrate into per-user groups. Effective grants and
+  denials apply on the next request, and access mutations are audited. Workspace-scoped assignments
+  remain pending.
+
+- **Organization-scoped roles and groups for private chats.** Owners can create roles and groups in
+  the organization's Access tab, assign `private_chats.use` with Allow or Deny, and add active
+  organization members to groups. Existing policy remains until a decision is attached to a group;
+  after configuration, unassigned members are denied and any Deny overrides Allow. Personal contact
+  chats remain independent. SQLite and PostgreSQL migrations add scoped organization/workspace IDs
+  to access roles and groups.
+
+- **Organization-scoped support permissions.** Owners can assign `support.access`,
+  `support.cases.read`, and `support.cases.manage` through roles attached to groups. Support inbox,
+  history, notes, assignment, joining, and case updates enforce those decisions. Existing support
+  behavior remains in effect until the organization configures the corresponding permission; Deny
+  takes precedence across roles.
+
+- **Organization management permissions.** Organization discovery, settings, member and invitation
+  management, access roles and groups, and workspace administration now enforce
+  `organization.discover`, `organization.manage`, `organization.members.manage`,
+  `organization.roles.manage`, and `organization.workspaces.manage` from group-assigned roles.
+  Each key preserves its existing policy until configured; Deny overrides Allow. Effective
+  permissions are returned to the organization UI so delegated managers see the controls they can
+  use.
+
+- **Organization-context private-chat access.** Organization owners and administrators can require
+  both participants to share a workspace team before starting a private chat from that organization.
+  The rule is checked again while the live chat is used and takes effect when membership changes.
+  Personal contact chats stay independent of organization policy.
+
+- **Organization SSO.** Owners and administrators can configure OIDC after verifying a company
+  domain, rotate the protected client secret, and copy the organization's sign-in URL. Members can
+  sign in through the provider when it returns a verified email matching that domain. Existing
+  accounts are linked by exact confirmed email; new accounts are created only when automatic
+  enrollment is explicitly enabled. This adds an SSO option and does not force members to use it.
+
+- **Explicit domain-based enrollment.** Organization owners and administrators can opt in after
+  domain verification. Only accounts with confirmed email addresses matching the verified domain
+  join, at the member role, with access to the first workspace. The setting is off by default.
+
+- **Verified organization domains.** Owners and administrators can prove domain ownership with a
+  DNS TXT record checked through the server's configured DNS resolvers. Automatic enrollment remains
+  off; domain verification alone never adds members.
+
+- **Guided organization setup.** Owners and administrators get a checklist for organization branding,
+  the first workspace, and inviting teammates with roles, linked to the existing organization controls.
+- **Support queue provider settings.** Installation administrators can select Database or Redis in
+  Providers. Database is the default; the Redis connection is masked and saved changes require a
+  server restart.
+- **Transactional support routing outbox.** Website support case creation and updates now persist a
+  stable routing event in the same database save. SQLite and PostgreSQL migrations add the outbox
+  table, leaving cases and conversation history authoritative in the database.
+- **Database and Redis support routing workers.** Database is ready by default; Redis Streams can be
+  selected for durable relay and consumer-group processing. Failed work is retried with backoff and
+  retained in the database outbox for recovery.
+- **Claim from the support queue.** Agents can take an open unassigned conversation directly from
+  its inbox row. The queue count and assignee refresh after the claim.
+- **Unassigned support queue.** The support inbox now shows a separate count for open conversations
+  without an assignee and provides a one-click filter to work that queue. The count respects the
+  caller's existing conversation visibility.
+- **Widget setup preview.** Organization administrators see the website chat update as they edit
+  its visitor-facing title, welcome message, accent colour and corner. The local preview does not
+  create a visitor session.
 - **Demo data loads with progress.** *Populate demo data* now starts the load in the background and
   shows a progress bar for each part (people, companies, contacts, groups and direct chats, channels,
   messages, activity items, support conversations and profile photos) and an overall percentage.

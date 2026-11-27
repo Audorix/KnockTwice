@@ -34,12 +34,13 @@ public sealed class Attachment
     public const int StorageKeyMaxLength = 200;
     public const int ContentTypeMaxLength = 100;
 
-    private Attachment(Guid id, Guid conversationId, Guid ownerUserId, string storageKey, string fileName, DateTimeOffset createdAtUtc)
+    private Attachment(Guid id, Guid conversationId, Guid ownerUserId, string storageKey, string fileName, DateTimeOffset createdAtUtc, string? storageProvider)
     {
         Id = id;
         ConversationId = conversationId;
         OwnerUserId = ownerUserId;
         StorageKey = storageKey;
+        StorageProvider = NormalizeStorageProvider(storageProvider);
         FileName = fileName;
         CreatedAtUtc = createdAtUtc;
         ContentType = "application/octet-stream";
@@ -54,6 +55,9 @@ public sealed class Attachment
 
     /// <summary>Generated, never derived from the user's file name.</summary>
     public string StorageKey { get; private set; }
+
+    /// <summary>Provider that owns the bytes. Null only for legacy records awaiting a safe provider switch backfill.</summary>
+    public string? StorageProvider { get; private set; }
 
     /// <summary>The sanitized original file name, shown to people and used for downloads.</summary>
     public string FileName { get; private set; }
@@ -87,14 +91,25 @@ public sealed class Attachment
 
     public bool IsLinked => MessageEntryId is not null;
 
-    public static Attachment Begin(Guid id, Guid conversationId, Guid ownerUserId, string storageKey, string fileName, DateTimeOffset nowUtc)
+    public static Attachment Begin(Guid id, Guid conversationId, Guid ownerUserId, string storageKey, string fileName, DateTimeOffset nowUtc, string? storageProvider = null)
     {
         if (string.IsNullOrWhiteSpace(storageKey) || storageKey.Length > StorageKeyMaxLength)
         {
             throw new DomainRuleException("value_invalid", "A storage key is required.");
         }
 
-        return new(Require.Id(id), Require.Id(conversationId), Require.Id(ownerUserId), storageKey, NormalizeFileName(fileName), Require.Utc(nowUtc));
+        return new(Require.Id(id), Require.Id(conversationId), Require.Id(ownerUserId), storageKey, NormalizeFileName(fileName), Require.Utc(nowUtc), storageProvider);
+    }
+
+    private static string? NormalizeStorageProvider(string? provider)
+    {
+        var normalized = provider?.Trim();
+        if (normalized is { Length: > 32 } || normalized?.Any(char.IsControl) == true)
+        {
+            throw new DomainRuleException("attachment_storage_provider_invalid", "The storage provider reference is invalid.");
+        }
+
+        return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
     /// <summary>The bytes are stored and passed validation; they wait for the scan.</summary>

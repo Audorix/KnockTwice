@@ -35,10 +35,53 @@ public sealed class Organization
     /// <summary>Who may create channels in the organization's workspaces.</summary>
     public ChannelCreationPolicy ChannelCreation { get; private set; } = ChannelCreationPolicy.Members;
 
-    public void Configure(bool? guestsEnabled, ChannelCreationPolicy? channelCreation, DateTimeOffset nowUtc)
+    /// <summary>When enabled, private chats started in this organization's context require a shared team.</summary>
+    public bool PrivateChatsRequireSharedTeam { get; private set; }
+
+    /// <summary>Verified-domain matching users may join this organization automatically. Always opt-in.</summary>
+    public bool AutomaticEnrollmentEnabled { get; private set; }
+
+    /// <summary>OpenID Connect settings are configured per organization; the client secret is protected before persistence.</summary>
+    public string? SsoIssuer { get; private set; }
+    public string? SsoClientId { get; private set; }
+    public string? ProtectedSsoClientSecret { get; private set; }
+    public bool SsoConfigured => !string.IsNullOrWhiteSpace(SsoIssuer) && !string.IsNullOrWhiteSpace(SsoClientId) && !string.IsNullOrWhiteSpace(ProtectedSsoClientSecret);
+
+    public void Configure(bool? guestsEnabled, ChannelCreationPolicy? channelCreation, bool? privateChatsRequireSharedTeam, DateTimeOffset nowUtc)
     {
         GuestsEnabled = guestsEnabled ?? GuestsEnabled;
         ChannelCreation = channelCreation is { } policy ? Require.Defined(policy) : ChannelCreation;
+        PrivateChatsRequireSharedTeam = privateChatsRequireSharedTeam ?? PrivateChatsRequireSharedTeam;
+        UpdatedAtUtc = Require.Utc(nowUtc);
+    }
+
+    public void ConfigureAutomaticEnrollment(bool enabled, bool hasVerifiedDomain, DateTimeOffset nowUtc)
+    {
+        if (enabled && !hasVerifiedDomain)
+            throw new DomainRuleException("automatic_enrollment_requires_verified_domain", "Automatic enrollment requires a verified domain.");
+        AutomaticEnrollmentEnabled = enabled;
+        UpdatedAtUtc = Require.Utc(nowUtc);
+    }
+
+    public void ConfigureSso(string? issuer, string? clientId, string? protectedClientSecret, bool hasVerifiedDomain, DateTimeOffset nowUtc)
+    {
+        if (!hasVerifiedDomain)
+            throw new DomainRuleException("organization_sso_requires_verified_domain", "Organization SSO requires a verified domain.");
+        if (string.IsNullOrWhiteSpace(issuer) || !Uri.TryCreate(issuer.Trim(), UriKind.Absolute, out var uri)
+            || uri.Scheme != Uri.UriSchemeHttps || string.IsNullOrWhiteSpace(uri.Host) || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+            throw new DomainRuleException("organization_sso_issuer_invalid", "The SSO issuer must be a valid HTTPS URL.");
+        if (string.IsNullOrWhiteSpace(clientId) || clientId.Trim().Length > 256 || string.IsNullOrWhiteSpace(protectedClientSecret))
+            throw new DomainRuleException("organization_sso_credentials_required", "An OIDC client ID and secret are required.");
+
+        SsoIssuer = string.IsNullOrWhiteSpace(issuer) ? null : issuer.Trim().TrimEnd('/');
+        SsoClientId = string.IsNullOrWhiteSpace(clientId) ? null : clientId.Trim();
+        ProtectedSsoClientSecret = protectedClientSecret;
+        UpdatedAtUtc = Require.Utc(nowUtc);
+    }
+
+    public void ClearSsoConfiguration(DateTimeOffset nowUtc)
+    {
+        (SsoIssuer, SsoClientId, ProtectedSsoClientSecret) = (null, null, null);
         UpdatedAtUtc = Require.Utc(nowUtc);
     }
 

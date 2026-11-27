@@ -27,12 +27,13 @@ export function PrivateChatPage() {
   const { query } = useLocation();
   const id = query.get('id');
   const withUser = query.get('with');
+  const organizationId = query.get('organizationId') ?? undefined;
   return (
     <RequireUser>
       {id ? (
         <PrivateChatRoom key={id} chatId={id} />
       ) : withUser ? (
-        <StartPrivateChat userId={withUser} name={query.get('name')} />
+        <StartPrivateChat userId={withUser} name={query.get('name')} {...(organizationId ? { organizationId } : {})} />
       ) : (
         <PrivateChatList />
       )}
@@ -303,7 +304,7 @@ function PrivateFrame({ title, subtitle, actions, children }: { title: string; s
   );
 }
 
-function StartPrivateChat({ userId, name }: { userId: string; name: string | null }) {
+function StartPrivateChat({ userId, name, organizationId }: { userId: string; name: string | null; organizationId?: string }) {
   const { t } = useTranslation();
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -313,7 +314,7 @@ function StartPrivateChat({ userId, name }: { userId: string; name: string | nul
     setBusy(true);
     setError(null);
     try {
-      const chat = await api.startPrivateChat(userId);
+      const chat = await api.startPrivateChat(userId, organizationId);
       navigate(`/private?id=${encodeURIComponent(chat.id)}`, { replace: true });
     } catch (err) {
       setError(err);

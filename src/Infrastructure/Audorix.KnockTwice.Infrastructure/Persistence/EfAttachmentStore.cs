@@ -52,5 +52,18 @@ internal sealed class EfAttachmentStore(ChatXDbContext db) : IAttachmentStore
             .Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
+    public async Task<IReadOnlyList<Attachment>> ListStorageMigrationCandidatesAsync(string sourceProvider, string legacyProvider, int skip, int take, CancellationToken cancellationToken) =>
+        await db.Attachments.AsNoTracking()
+            .Where(a => !a.ContentRemoved && (a.Status == AttachmentStatus.Ready || a.Status == AttachmentStatus.Quarantined)
+                && (a.StorageProvider == sourceProvider || (a.StorageProvider == null && legacyProvider == sourceProvider)))
+            .OrderBy(a => a.Id)
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) => db.SaveChangesAsync(cancellationToken);
+
+    public Task<int> AssignProviderToLegacyAttachmentsAsync(string provider, CancellationToken cancellationToken) =>
+        db.Attachments.Where(a => a.StorageProvider == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(a => a.StorageProvider, provider), cancellationToken);
 }

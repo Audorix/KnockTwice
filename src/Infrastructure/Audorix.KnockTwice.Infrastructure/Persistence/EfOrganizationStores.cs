@@ -30,9 +30,13 @@ internal static class SaveHelper
     }
 }
 
-internal sealed class EfOrganizationStore(ChatXDbContext db) : IOrganizationStore
+internal sealed class EfOrganizationStore(ChatXDbContext db, TimeProvider time) : IOrganizationStore
 {
     public void Add(Organization organization) => db.Organizations.Add(organization);
+
+    public void Add(VerifiedOrganizationDomain domain) => db.OrganizationDomains.Add(domain);
+
+    public void Remove(VerifiedOrganizationDomain domain) => db.OrganizationDomains.Remove(domain);
 
     public void Add(OrganizationMember member) => db.OrganizationMembers.Add(member);
 
@@ -44,6 +48,22 @@ internal sealed class EfOrganizationStore(ChatXDbContext db) : IOrganizationStor
 
     public Task<Organization?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken) =>
         db.Organizations.SingleOrDefaultAsync(o => o.Id == organizationId, cancellationToken);
+
+    public Task<VerifiedOrganizationDomain?> FindVerifiedDomainAsync(Guid organizationId, Guid domainId, CancellationToken cancellationToken) =>
+        db.OrganizationDomains.SingleOrDefaultAsync(d => d.OrganizationId == organizationId && d.Id == domainId, cancellationToken);
+
+    public Task<VerifiedOrganizationDomain?> FindDomainByNameAsync(string normalizedDomain, CancellationToken cancellationToken) =>
+        db.OrganizationDomains.SingleOrDefaultAsync(d => d.Domain == normalizedDomain, cancellationToken);
+
+    public async Task<IReadOnlyList<VerifiedOrganizationDomain>> ListVerifiedDomainsAsync(Guid organizationId, CancellationToken cancellationToken) =>
+        await db.OrganizationDomains.Where(d => d.OrganizationId == organizationId).OrderBy(d => d.Domain)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<IReadOnlyList<Organization>> ListAutomaticEnrollmentOrganizationsAsync(string emailDomain, CancellationToken cancellationToken) =>
+        await (from organization in db.Organizations
+               join domain in db.OrganizationDomains on organization.Id equals domain.OrganizationId
+               where organization.AutomaticEnrollmentEnabled && domain.Domain == emailDomain && domain.VerifiedAtUtc != null
+               select organization).ToListAsync(cancellationToken).ConfigureAwait(false);
 
     public Task<OrganizationMember?> FindMemberAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>
         db.OrganizationMembers.SingleOrDefaultAsync(m => m.OrganizationId == organizationId && m.UserId == userId, cancellationToken);
@@ -142,17 +162,23 @@ internal sealed class EfOrganizationStore(ChatXDbContext db) : IOrganizationStor
     public Task<OrganizationGuest?> FindGuestAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>
         db.OrganizationGuests.SingleOrDefaultAsync(g => g.OrganizationId == organizationId && g.UserId == userId, cancellationToken);
 
-    public async Task<IReadOnlyList<OrganizationGuest>> ListActiveGuestsAsync(Guid organizationId, CancellationToken cancellationToken) =>
-        await db.OrganizationGuests.Where(g => g.OrganizationId == organizationId && g.Status == MembershipStatus.Active)
+    public async Task<IReadOnlyList<OrganizationGuest>> ListActiveGuestsAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        return await db.OrganizationGuests.Where(g => g.OrganizationId == organizationId && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
-    public async Task<IReadOnlyList<Organization>> ListGuestOrganizationsAsync(Guid userId, CancellationToken cancellationToken) =>
-        await (
+    public async Task<IReadOnlyList<Organization>> ListGuestOrganizationsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        return await (
             from g in db.OrganizationGuests
-            where g.UserId == userId && g.Status == MembershipStatus.Active
+            where g.UserId == userId && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now
             join o in db.Organizations on g.OrganizationId equals o.Id
             where o.GuestsEnabled
             select o).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public Task<GuestInvitation?> FindGuestInvitationAsync(Guid invitationId, CancellationToken cancellationToken) =>
         db.GuestInvitations.SingleOrDefaultAsync(i => i.Id == invitationId, cancellationToken);
@@ -258,7 +284,8 @@ internal sealed class EfUserDirectory(ChatXDbContext db, IOptions<AccountSetting
 
         var ids = userIds.Distinct().ToList();
         var profiles = await db.UserProfiles.AsNoTracking().Where(p => ids.Contains(p.UserId)).ToListAsync(cancellationToken).ConfigureAwait(false);
-        return profiles.ToDictionary(p => p.UserId, p => new UserSummary(p.UserId, p.DisplayName, p.Initials, p.IsDeleted, p.HasPhoto && !p.IsDeleted ? p.PhotoVersion : 0));
+        return profiles.ToDictionary(p => p.UserId, p => new UserSummary(p.UserId, p.DisplayName, p.Initials, p.IsDeleted, p.HasPhoto && !p.IsDeleted ? p.PhotoVersion : 0,
+            p.IsDeleted ? null : p.GeneratedAvatarStyle, p.IsDeleted ? null : p.GeneratedAvatarSeed));
     }
 
     public async Task<Guid?> FindConfirmedUserIdByEmailAsync(string email, CancellationToken cancellationToken)
@@ -299,7 +326,8 @@ internal sealed class EfUserDirectory(ChatXDbContext db, IOptions<AccountSetting
             .OrderBy(p => p.DisplayName)
             .Take(limit)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
-        return profiles.Select(p => new UserSummary(p.UserId, p.DisplayName, p.Initials, PhotoVersion: p.HasPhoto ? p.PhotoVersion : 0)).ToList();
+        return profiles.Select(p => new UserSummary(p.UserId, p.DisplayName, p.Initials, PhotoVersion: p.HasPhoto ? p.PhotoVersion : 0,
+            GeneratedAvatarStyle: p.GeneratedAvatarStyle, GeneratedAvatarSeed: p.GeneratedAvatarSeed)).ToList();
     }
 
     public Task<bool> SharesActiveOrganizationAsync(Guid userId, Guid otherUserId, CancellationToken cancellationToken) =>

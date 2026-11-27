@@ -28,6 +28,8 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
     public DbSet<Domain.Organizations.Organization> Organizations => Set<Domain.Organizations.Organization>();
 
+    public DbSet<Domain.Organizations.VerifiedOrganizationDomain> OrganizationDomains => Set<Domain.Organizations.VerifiedOrganizationDomain>();
+
     public DbSet<Domain.Organizations.OrganizationMember> OrganizationMembers => Set<Domain.Organizations.OrganizationMember>();
 
     public DbSet<Domain.Organizations.OrganizationInvitation> OrganizationInvitations => Set<Domain.Organizations.OrganizationInvitation>();
@@ -54,9 +56,19 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
     public DbSet<Domain.Conversations.Conversation> Conversations => Set<Domain.Conversations.Conversation>();
 
+    public DbSet<SupportRoutingOutboxItem> SupportRoutingOutbox => Set<SupportRoutingOutboxItem>();
+
+    public DbSet<AttachmentStorageMigrationJob> AttachmentStorageMigrationJobs => Set<AttachmentStorageMigrationJob>();
+
+    public DbSet<AttachmentStorageMigrationFile> AttachmentStorageMigrationFiles => Set<AttachmentStorageMigrationFile>();
+
+
+
     public DbSet<Domain.Conversations.ConversationParticipant> ConversationParticipants => Set<Domain.Conversations.ConversationParticipant>();
 
     public DbSet<Domain.Conversations.ConversationEvent> ConversationEvents => Set<Domain.Conversations.ConversationEvent>();
+
+    public DbSet<StoredMessageTranslation> MessageTranslations => Set<StoredMessageTranslation>();
 
     public DbSet<Domain.Conversations.SupportNote> SupportNotes => Set<Domain.Conversations.SupportNote>();
 
@@ -67,6 +79,16 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
     public DbSet<Domain.Administration.AuditEntry> AuditEntries => Set<Domain.Administration.AuditEntry>();
 
     public DbSet<Domain.Administration.InstallationSetting> InstallationSettings => Set<Domain.Administration.InstallationSetting>();
+
+    public DbSet<Domain.Authorization.AccessRole> AccessRoles => Set<Domain.Authorization.AccessRole>();
+
+    public DbSet<Domain.Authorization.AccessRoleGrant> AccessRolePermissions => Set<Domain.Authorization.AccessRoleGrant>();
+
+    public DbSet<Domain.Authorization.AccessGroup> AccessGroups => Set<Domain.Authorization.AccessGroup>();
+
+    public DbSet<Domain.Authorization.AccessGroupMember> AccessGroupMembers => Set<Domain.Authorization.AccessGroupMember>();
+
+    public DbSet<Domain.Authorization.AccessRoleGroupAssignment> AccessRoleGroupAssignments => Set<Domain.Authorization.AccessRoleGroupAssignment>();
 
     public DbSet<Domain.Widgets.Widget> Widgets => Set<Domain.Widgets.Widget>();
 
@@ -135,8 +157,33 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
     {
         var queued = new List<Search.SearchQueueItem>();
         var pushes = new List<Notifications.PushQueueItem>();
+        var supportRouting = new List<SupportRoutingOutboxItem>();
         var changes = new Dictionary<Guid, ChangeLogItem>();
         var now = DateTimeOffset.UtcNow;
+
+        // Route work is an outbox event in the same save/transaction as a support case change.
+        // Demo imports and unrelated conversations do not create routing work.
+        foreach (var entry in ChangeTracker.Entries<Domain.Conversations.Conversation>())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified)
+                || entry.Entity.Type != Domain.Conversations.ConversationType.Website
+                || entry.Entity.OrganizationId is not { } organizationId)
+            {
+                continue;
+            }
+
+            supportRouting.Add(new SupportRoutingOutboxItem
+            {
+                Id = Guid.CreateVersion7(now),
+                OrganizationId = organizationId,
+                ConversationId = entry.Entity.Id,
+                EventType = entry.State == EntityState.Added ? "case.created" : "case.changed",
+                EnqueuedAtUtc = now,
+                EnqueuedAtTicks = now.UtcTicks,
+                AvailableAtUtc = now,
+                AvailableAtTicks = now.UtcTicks,
+            });
+        }
 
         // Change log (Phase 22): every new or changed history entry, and entries whose reactions
         // changed, so reconnecting clients can catch up. Old history (demo data) is not logged.
@@ -196,6 +243,7 @@ public sealed class ChatXDbContext(DbContextOptions<ChatXDbContext> options)
 
         SearchQueue.AddRange(queued);
         PushQueue.AddRange(pushes);
+        SupportRoutingOutbox.AddRange(supportRouting);
         ChangeLog.AddRange(changes.Values);
     }
 

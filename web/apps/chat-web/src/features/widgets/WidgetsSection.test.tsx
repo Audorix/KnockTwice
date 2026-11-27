@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
@@ -56,5 +56,34 @@ describe('WidgetsSection', () => {
 
     await user.click(screen.getByRole('button', { name: 'I have stored it' }));
     expect(screen.queryByLabelText('Signing secret')).not.toBeInTheDocument();
+  });
+
+  it('previews title, welcome, colour and corner as settings change without starting a visitor session', async () => {
+    mockFetch({
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      [`GET /api/v1/organizations/${org}/widgets`]: () => json(200, [widget]),
+    });
+    const user = userEvent.setup();
+    render(<WidgetsSection organizationId={org} members={[ana]} />);
+    await user.click(await screen.findByRole('button', { name: 'Configure' }));
+
+    const editor = screen.getByRole('form', { name: 'Settings of Shop' });
+    const preview = within(editor).getByRole('region', { name: 'Live preview' });
+    expect(within(preview).getByText('Shop')).toBeInTheDocument();
+    expect(within(preview).getByText('Hi! How can we help?')).toBeInTheDocument();
+    expect(within(editor).getByText(/does not create a visitor session/i)).toBeInTheDocument();
+
+    await user.clear(within(editor).getByLabelText('Title visitors see'));
+    await user.type(within(editor).getByLabelText('Title visitors see'), 'Customer care');
+    await user.clear(within(editor).getByLabelText('Welcome message (optional)'));
+    await user.type(within(editor).getByLabelText('Welcome message (optional)'), 'Tell us what you need.');
+    await user.selectOptions(within(editor).getByLabelText('Corner'), 'left');
+    fireEvent.change(within(editor).getByLabelText('Colour'), { target: { value: '#bb2211' } });
+
+    expect(within(preview).getByText('Customer care')).toBeInTheDocument();
+    expect(within(preview).getByText('Tell us what you need.')).toBeInTheDocument();
+    const stage = within(preview).getByText('example.com').closest('.cx-widget-preview-stage');
+    expect(stage).toHaveAttribute('data-position', 'left');
+    expect(stage).toHaveStyle({ '--cx-widget-preview-accent': '#bb2211' });
   });
 });

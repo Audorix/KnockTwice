@@ -39,6 +39,45 @@ public sealed class IdentityDomainTests
     }
 
     [Fact]
+    public void Profile_saves_generated_avatar_and_photo_replaces_it()
+    {
+        var profile = UserProfile.Create(Guid.NewGuid(), "Ada Lovelace", "en", Now);
+        profile.SelectGeneratedAvatar(" Lorelei ", "ada-seed", Now.AddMinutes(1));
+
+        Assert.Equal("lorelei", profile.GeneratedAvatarStyle);
+        Assert.Equal("ada-seed", profile.GeneratedAvatarSeed);
+        Assert.False(profile.HasPhoto);
+
+        profile.SetPhoto("photos/new", "image/png", Now.AddMinutes(2));
+        Assert.Null(profile.GeneratedAvatarStyle);
+        Assert.Null(profile.GeneratedAvatarSeed);
+        Assert.True(profile.HasPhoto);
+    }
+
+    [Fact]
+    public void Profile_generated_avatar_can_be_cleared_to_initials()
+    {
+        var profile = UserProfile.Create(Guid.NewGuid(), "Ada Lovelace", "en", Now);
+        profile.SelectGeneratedAvatar("identicon", "stable-seed", Now.AddMinutes(1));
+
+        Assert.Null(profile.SelectGeneratedAvatar(null, null, Now.AddMinutes(2)));
+        Assert.Null(profile.GeneratedAvatarStyle);
+        Assert.Null(profile.GeneratedAvatarSeed);
+        Assert.Equal("AL", profile.Initials);
+    }
+
+    [Theory]
+    [InlineData("unknown", "seed", "avatar_style_invalid")]
+    [InlineData("lorelei", null, "avatar_seed_invalid")]
+    [InlineData(null, "seed", "avatar_seed_invalid")]
+    public void Profile_rejects_invalid_generated_avatar(string? style, string? seed, string code)
+    {
+        var profile = UserProfile.Create(Guid.NewGuid(), "Ada Lovelace", "en", Now);
+
+        Assert.Equal(code, Assert.Throws<DomainRuleException>(() => profile.SelectGeneratedAvatar(style, seed, Now)).Code);
+    }
+
+    [Fact]
     public void Session_is_active_until_expiry_and_sliding_touch_extends_it()
     {
         var session = UserSession.Start(Guid.NewGuid(), Guid.NewGuid(), "Firefox on Linux", persistent: false, Now, TimeSpan.FromHours(1));

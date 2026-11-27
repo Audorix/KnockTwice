@@ -28,15 +28,22 @@ public sealed record AttachmentContent(Attachment Attachment, Stream Content);
 /// </summary>
 public sealed class AttachmentService(
     IAttachmentStore attachments,
-    IAttachmentStorage storage,
+    IAttachmentStorageProviderRegistry storageProviders,
     IMalwareScanner scanner,
     IConversationStore conversationStore,
     ConversationService conversations,
     IContactStore contacts,
     TimeProvider time,
-    IOptionsSnapshot<AttachmentSettings> settings)
+    IOptionsSnapshot<AttachmentSettings> settings,
+    IStorageMigrationGate? migrationGate = null)
 {
     private const string NotFound = "attachment_not_found";
+
+    private async Task RequireStorageWritesOpenAsync(CancellationToken cancellationToken)
+    {
+        if (migrationGate is not null && await migrationGate.IsClosedAsync(cancellationToken).ConfigureAwait(false))
+            throw new ConflictException("storage_migration_cutover_in_progress");
+    }
 
     /// <summary>A random key with no relation to the user's file name: <c>yyyy/MM/{32 hex}</c>.</summary>
     public static string NewStorageKey(DateTimeOffset nowUtc) =>
@@ -55,6 +62,7 @@ public sealed class AttachmentService(
         {
             throw new FeatureDisabledException("attachments_disabled");
         }
+        await RequireStorageWritesOpenAsync(cancellationToken).ConfigureAwait(false);
 
         var (conversation, _) = await conversations.RequireAccessAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
         await RequireNotBlockedAsync(userId, conversation, cancellationToken).ConfigureAwait(false);
@@ -81,16 +89,24 @@ public sealed class AttachmentService(
         }
 
         // 1. Commit the intent, so a crash after writing the bytes leaves something to clean up.
+        await RequireStorageWritesOpenAsync(cancellationToken).ConfigureAwait(false);
         var now = time.GetUtcNow();
-        var attachment = Attachment.Begin(Guid.CreateVersion7(now), conversationId, userId, NewStorageKey(now), name, now);
+        var provider = storageProviders.DefaultProvider;
+        var attachment = Attachment.Begin(Guid.CreateVersion7(now), conversationId, userId, NewStorageKey(now), name, now, provider);
         attachments.Add(attachment);
         await attachments.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        if (migrationGate is not null && await migrationGate.IsClosedAsync(cancellationToken).ConfigureAwait(false))
+        {
+            attachment.Delete(time.GetUtcNow());
+            await attachments.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
+            throw new ConflictException("storage_migration_cutover_in_progress");
+        }
 
         // 2. Write the bytes under the generated key.
         try
         {
             buffer.Stream.Position = 0;
-            await storage.PutAsync(attachment.StorageKey, buffer.Stream, buffer.Length, type.ContentType, cancellationToken).ConfigureAwait(false);
+            await storageProviders.Resolve(provider).PutAsync(attachment.StorageKey, buffer.Stream, buffer.Length, type.ContentType, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -137,7 +153,7 @@ public sealed class AttachmentService(
         var attachment = await attachments.FindAsync(attachmentId, cancellationToken).ConfigureAwait(false)
             ?? throw new ResourceNotFoundException(NotFound);
         await RequireReadableAsync(userId, attachment, cancellationToken).ConfigureAwait(false);
-        var stream = await storage.OpenReadAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
+        var stream = await StorageFor(attachment).OpenReadAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
 
         // A missing object must not look like an available file.
         return stream is null ? throw new ResourceNotFoundException(NotFound) : new AttachmentContent(attachment, stream);
@@ -204,6 +220,7 @@ public sealed class AttachmentService(
         {
             throw new FeatureDisabledException("attachments_disabled");
         }
+        await RequireStorageWritesOpenAsync(cancellationToken).ConfigureAwait(false);
 
         if (options.UserQuota > 0
             && await attachments.SumStoredSizeAsync(userId, cancellationToken).ConfigureAwait(false) + originals.Sum(a => a.Size) > options.UserQuota)
@@ -214,17 +231,25 @@ public sealed class AttachmentService(
         var copies = new List<Guid>();
         foreach (var original in originals.OrderBy(a => a.CreatedAtUtc).ThenBy(a => a.Id))
         {
+            await RequireStorageWritesOpenAsync(cancellationToken).ConfigureAwait(false);
             var now = time.GetUtcNow();
-            var copy = Attachment.Begin(Guid.CreateVersion7(now), targetConversationId, userId, NewStorageKey(now), original.FileName, now);
+            var provider = storageProviders.DefaultProvider;
+            var copy = Attachment.Begin(Guid.CreateVersion7(now), targetConversationId, userId, NewStorageKey(now), original.FileName, now, provider);
             attachments.Add(copy);
             await attachments.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            if (migrationGate is not null && await migrationGate.IsClosedAsync(cancellationToken).ConfigureAwait(false))
+            {
+                copy.Delete(time.GetUtcNow());
+                await attachments.SaveChangesAsync(CancellationToken.None).ConfigureAwait(false);
+                throw new ConflictException("storage_migration_cutover_in_progress");
+            }
             try
             {
-                var source = await storage.OpenReadAsync(original.StorageKey, cancellationToken).ConfigureAwait(false)
+                var source = await StorageFor(original).OpenReadAsync(original.StorageKey, cancellationToken).ConfigureAwait(false)
                     ?? throw new ResourceNotFoundException(NotFound);
                 await using (source.ConfigureAwait(false))
                 {
-                    await storage.PutAsync(copy.StorageKey, source, original.Size, original.ContentType, cancellationToken).ConfigureAwait(false);
+                    await StorageFor(copy).PutAsync(copy.StorageKey, source, original.Size, original.ContentType, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -413,7 +438,7 @@ public sealed class AttachmentService(
     {
         try
         {
-            var stream = await storage.OpenReadAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
+            var stream = await StorageFor(attachment).OpenReadAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
             if (stream is null || stream.CanSeek)
             {
                 return stream;
@@ -440,7 +465,7 @@ public sealed class AttachmentService(
     {
         try
         {
-            await storage.DeleteAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
+            await StorageFor(attachment).DeleteAsync(attachment.StorageKey, cancellationToken).ConfigureAwait(false);
             attachment.ContentWasRemoved();
             return true;
         }
@@ -449,6 +474,8 @@ public sealed class AttachmentService(
             return false; // Retried by the cleanup job.
         }
     }
+
+    private IAttachmentStorage StorageFor(Attachment attachment) => storageProviders.Resolve(attachment.StorageProvider);
 
     /// <summary>
     /// Others' attachments: ready, linked to a message that is not deleted and inside the caller's

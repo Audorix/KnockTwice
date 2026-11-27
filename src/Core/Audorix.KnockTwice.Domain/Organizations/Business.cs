@@ -127,6 +127,8 @@ public sealed class ChannelTeam
 /// </summary>
 public sealed class OrganizationGuest
 {
+    public static readonly TimeSpan AccessLifetime = TimeSpan.FromDays(90);
+
     private OrganizationGuest(Guid id, Guid organizationId, Guid userId, Guid invitedByUserId, DateTimeOffset joinedAtUtc)
     {
         Id = id;
@@ -135,6 +137,7 @@ public sealed class OrganizationGuest
         InvitedByUserId = invitedByUserId;
         Status = MembershipStatus.Active;
         JoinedAtUtc = joinedAtUtc;
+        AccessExpiresAtUtc = joinedAtUtc + AccessLifetime;
     }
 
     public Guid Id { get; private set; }
@@ -149,24 +152,30 @@ public sealed class OrganizationGuest
 
     public DateTimeOffset JoinedAtUtc { get; private set; }
 
+    public DateTimeOffset AccessExpiresAtUtc { get; private set; }
+
     public DateTimeOffset? RevokedAtUtc { get; private set; }
 
     public bool IsActive => Status == MembershipStatus.Active;
+
+    public bool IsActiveAt(DateTimeOffset nowUtc) => IsActive && Require.Utc(nowUtc) < AccessExpiresAtUtc;
 
     public static OrganizationGuest Join(Guid id, Guid organizationId, Guid userId, Guid invitedByUserId, DateTimeOffset nowUtc) =>
         new(Require.Id(id), Require.Id(organizationId), Require.Id(userId), Require.Id(invitedByUserId), Require.Utc(nowUtc));
 
     public void Reactivate(Guid invitedByUserId, DateTimeOffset nowUtc)
     {
-        if (IsActive)
+        var now = Require.Utc(nowUtc);
+        var wasActive = IsActiveAt(now);
+        if (!wasActive)
         {
-            return;
+            Status = MembershipStatus.Active;
+            JoinedAtUtc = now;
+            RevokedAtUtc = null;
         }
 
-        Status = MembershipStatus.Active;
         InvitedByUserId = Require.Id(invitedByUserId);
-        JoinedAtUtc = Require.Utc(nowUtc);
-        RevokedAtUtc = null;
+        AccessExpiresAtUtc = now + AccessLifetime;
     }
 
     public void Revoke(DateTimeOffset nowUtc)

@@ -18,21 +18,22 @@ import { ApiError } from '../../shared/api/httpClient';
 import * as api from './adminApi';
 
 /**
- * Installation administration (Phase 9): overview, users, organizations, roles, live settings,
+ * Installation administration: overview, users, organizations, roles, groups, live settings,
  * providers and the audit log. Tabs and actions follow the signed-in user's permissions; the
  * server checks every call again.
  */
 
-const tabs = ['overview', 'users', 'organizations', 'roles', 'settings', 'providers', 'audit'] as const;
+const tabs = ['overview', 'users', 'organizations', 'roles', 'groups', 'settings', 'providers', 'audit'] as const;
 type Tab = (typeof tabs)[number];
 
 const tabPermission: Record<Tab, string> = {
   overview: 'installation.read',
   users: 'users.read',
   organizations: 'organizations.read',
-  roles: 'users.read',
-  settings: 'installation.read',
-  providers: 'installation.read',
+  roles: 'roles.read',
+  groups: 'groups.read',
+  settings: 'settings.read',
+  providers: 'providers.read',
   audit: 'audit.read',
 };
 
@@ -91,11 +92,12 @@ function Administration() {
         ))}
       </nav>
       {tab === 'overview' && <Overview available={available} />}
-      {tab === 'users' && <Users canManage={can('users.manage')} currentUserId={user!.id} />}
+      {tab === 'users' && <Users canManage={can('users.manage')} canReadPermissions={can('permissions.read')} currentUserId={user!.id} />}
       {tab === 'organizations' && <Organizations canManage={can('organizations.manage')} />}
-      {tab === 'roles' && <RolesView canManage={can('users.manage')} />}
-      {tab === 'settings' && <Settings canManage={can('installation.manage')} />}
-      {tab === 'providers' && <Providers canManage={can('installation.manage')} />}
+      {tab === 'roles' && <RolesView canManage={can('roles.manage') && can('permissions.manage') && can('permissions.read')} canAssignGroups={can('groups.manage') && can('roles.manage')} canReadPermissions={can('permissions.read')} />}
+      {tab === 'groups' && <GroupsView canManage={can('groups.manage')} canAssignRoles={can('roles.manage')} initialRoleId={query.get('role') ?? ''} />}
+      {tab === 'settings' && <Settings canManage={can('settings.manage')} />}
+      {tab === 'providers' && <Providers canManage={can('providers.manage')} />}
       {tab === 'audit' && <Audit />}
     </div>
   );
@@ -338,18 +340,17 @@ function PageFooter({ skip, take, total, noun, onSkip, onTake }: {
   );
 }
 
-function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId: string }) {
+function Users({ canManage, canReadPermissions, currentUserId }: { canManage: boolean; canReadPermissions: boolean; currentUserId: string }) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState('');
   const [status, setStatus] = useState('all');
-  const [role, setRole] = useState('all');
   const [sort, setSort] = useState('nameAsc');
   const [skip, setSkip] = useState(0);
   const [take, setTake] = useState<number>(pageSizes[0]);
   const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const { data, setData, error, setError } = useLoad(() => api.searchUsers(submitted, status, skip, take, role, sort), [submitted, status, skip, take, role, sort]);
+  const { data, setData, error, setError } = useLoad(() => api.searchUsers(submitted, status, skip, take, 'all', sort), [submitted, status, skip, take, sort]);
   const [confirm, confirmDialog] = useConfirm();
 
   const replace = (updated: api.AdminUser) => setData((page) => page && { ...page, items: page.items.map((u) => (u.id === updated.id ? updated : u)) });
@@ -378,7 +379,6 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
     }, t('admin.users.signedOut', { name: u.displayName })),
     confirm: (u) => void act(() => api.confirmUserEmail(u.id)),
     resend: (u) => void act(() => api.resendConfirmation(u.id), t('admin.users.resent')),
-    toggleRole: (u, name) => void act(() => (u.roles.includes(name) ? api.revokeRole(u.id, name) : api.grantRole(u.id, name))),
     remove: (u) => void confirm({
       title: t('confirm.deleteUser.title', { name: u.displayName }),
       text: t('confirm.deleteUser.text'),
@@ -415,10 +415,6 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
         <select id="admin-user-status" className="form-select" value={status} onChange={(e) => filterBy(setStatus)(e.target.value)}>
           {['all', 'enabled', 'disabled', 'unconfirmed'].map((f) => <option key={f} value={f}>{t(`admin.users.status.${f}`)}</option>)}
         </select>
-        <label className="visually-hidden" htmlFor="admin-user-role">{t('admin.users.roleLabel')}</label>
-        <select id="admin-user-role" className="form-select" value={role} onChange={(e) => filterBy(setRole)(e.target.value)}>
-          {['all', 'InstallationAdministrator', 'Auditor', 'none'].map((r) => <option key={r} value={r}>{t(`admin.users.roleFilter.${r}`)}</option>)}
-        </select>
         <button type="submit" className="btn btn-primary">{t('admin.search')}</button>
       </form>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
@@ -442,7 +438,6 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
                 <tr>
                   <th scope="col">{t('admin.users.columns.user')}</th>
                   <th scope="col">{t('admin.users.columns.status')}</th>
-                  <th scope="col">{t('admin.users.columns.role')}</th>
                   <th scope="col">{t('admin.users.lastSignIn')}</th>
                   <th scope="col">{t('admin.users.columns.sessions')}</th>
                   <th scope="col">{t('admin.users.columns.organizations')}</th>
@@ -462,7 +457,6 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
                       </span>
                     </td>
                     <td data-label={t('admin.users.columns.status')}><UserStatus user={u} /></td>
-                    <td data-label={t('admin.users.columns.role')}><RolePills roles={u.roles} /></td>
                     <td data-label={t('admin.users.lastSignIn')} className="cx-muted">
                       {u.lastSignInAtUtc ? formatDateTime(u.lastSignInAtUtc, i18n.language) : t('admin.never')}
                     </td>
@@ -488,7 +482,7 @@ function Users({ canManage, currentUserId }: { canManage: boolean; currentUserId
         <NavIcon name="info" size={18} />
         {t('admin.users.footnote')}
       </p>
-      {shown && <UserPanel user={shown} canManage={canManage} self={shown.id === currentUserId} actions={actions} onClose={() => setSelected(null)} />}
+      {shown && <UserPanel user={shown} canManage={canManage} canReadPermissions={canReadPermissions} self={shown.id === currentUserId} actions={actions} onClose={() => setSelected(null)} />}
     </section>
   );
 }
@@ -499,16 +493,12 @@ interface UserActions {
   signOut: (u: api.AdminUser) => void;
   confirm: (u: api.AdminUser) => void;
   resend: (u: api.AdminUser) => void;
-  toggleRole: (u: api.AdminUser, role: string) => void;
   remove: (u: api.AdminUser) => void;
 }
-
-const installationRoles = ['InstallationAdministrator', 'Auditor'] as const;
 
 function userMenu(u: api.AdminUser, canManage: boolean, currentUserId: string, t: TFunction, on: UserActions, open: () => void): RowMenuItem[] {
   const items: RowMenuItem[] = [{ icon: 'eye', label: t('admin.users.viewDetails'), onSelect: open }];
   if (!canManage) return items;
-  items.push({ icon: 'layers', label: t('admin.users.manageRoles'), onSelect: open });
   if (u.activeSessions > 0) items.push({ icon: 'leave', label: t('admin.users.signOut'), onSelect: () => on.signOut(u) });
   if (!u.emailConfirmed) items.push({ icon: 'check', label: t('admin.users.confirm'), onSelect: () => on.confirm(u) });
   if (u.disabled) items.push({ icon: 'check', label: t('admin.users.enableAccount'), onSelect: () => on.enable(u), separated: true });
@@ -528,19 +518,31 @@ function UserStatus({ user }: { user: api.AdminUser }) {
   );
 }
 
-function RolePills({ roles }: { roles: string[] }) {
-  const { t } = useTranslation();
-  if (roles.length === 0) return <span className="cx-admin-pill">{t('admin.users.plainUser')}</span>;
-  return (
-    <span className="cx-tags">
-      {roles.map((r) => <span key={r} className="cx-admin-pill is-accent">{t(`admin.roles.names.${r}`)}</span>)}
-    </span>
-  );
-}
-
-/** A user's details, roles and actions in a side panel. */
-function UserPanel({ user, canManage, self, actions, onClose }: { user: api.AdminUser; canManage: boolean; self: boolean; actions: UserActions; onClose: () => void }) {
+/** A user's details and account actions in a side panel. */
+function UserPanel({ user, canManage, canReadPermissions, self, actions, onClose }: { user: api.AdminUser; canManage: boolean; canReadPermissions: boolean; self: boolean; actions: UserActions; onClose: () => void }) {
   const { t, i18n } = useTranslation();
+  const [review, setReview] = useState<api.EffectiveAccessReview | null>(null);
+  const [reviewContexts, setReviewContexts] = useState<api.EffectiveAccessReviewContext[]>([]);
+  const [reviewContext, setReviewContext] = useState<api.EffectiveAccessReviewContext | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState(false);
+  const loadReview = async (context?: api.EffectiveAccessReviewContext) => {
+    if (reviewOpen && !context) { setReviewOpen(false); return; }
+    setReviewOpen(true);
+    setReviewLoading(true);
+    setReviewError(false);
+    try {
+      const contexts = reviewContexts.length ? reviewContexts : await api.getEffectiveAccessReviewContexts(user.id);
+      setReviewContexts(contexts);
+      const selected = context ?? reviewContext ?? contexts[0];
+      if (!selected) throw new Error('No review context is available.');
+      setReviewContext(selected);
+      setReview(await api.getEffectiveAccessReview(user.id, selected));
+    }
+    catch { setReviewError(true); }
+    finally { setReviewLoading(false); }
+  };
   return (
     <Drawer title={user.displayName} label={t('admin.users.detailsFor', { name: user.displayName })} onClose={onClose}>
       <div className="cx-drawer-identity">
@@ -559,16 +561,38 @@ function UserPanel({ user, canManage, self, actions, onClose }: { user: api.Admi
         <dt>{t('admin.users.columns.organizations')}</dt>
         <dd>{user.organizations}</dd>
       </dl>
-      <fieldset className="cx-admin-roles-edit">
-        <legend className="cx-section-title">{t('admin.users.installationRoles')}</legend>
-        {installationRoles.map((r) => (
-          <div key={r} className="form-check form-switch">
-            <input id={`role-${user.id}-${r}`} className="form-check-input" type="checkbox" role="switch" checked={user.roles.includes(r)} disabled={!canManage}
-              onChange={() => actions.toggleRole(user, r)} />
-            <label className="form-check-label" htmlFor={`role-${user.id}-${r}`}>{t(`admin.roles.names.${r}`)}</label>
-          </div>
-        ))}
-      </fieldset>
+      {canReadPermissions && <section className="cx-admin-access-review" aria-label={t('admin.users.accessReview.title')}>
+        <button type="button" className="btn btn-outline-secondary" aria-expanded={reviewOpen} onClick={() => void loadReview()}>
+          {reviewOpen ? t('admin.users.accessReview.hide') : t('admin.users.accessReview.show')}
+        </button>
+        {reviewOpen && <div className="cx-admin-access-review-content" aria-live="polite">
+          {reviewLoading && <p className="cx-muted">{t('admin.users.accessReview.loading')}</p>}
+          {reviewError && <p role="alert" className="cx-admin-error">{t('admin.users.accessReview.error')}</p>}
+          {reviewContexts.length > 1 && <label className="cx-field-label">{t('admin.users.accessReview.context')}
+            <select className="form-select" value={reviewContext ? `${reviewContext.scope}:${reviewContext.organizationId ?? ''}:${reviewContext.workspaceId ?? ''}` : ''}
+              onChange={event => {
+                const selected = reviewContexts.find(context => `${context.scope}:${context.organizationId ?? ''}:${context.workspaceId ?? ''}` === event.target.value);
+                if (selected) void loadReview(selected);
+              }}>
+              {reviewContexts.map(context => <option key={`${context.scope}:${context.organizationId ?? ''}:${context.workspaceId ?? ''}`} value={`${context.scope}:${context.organizationId ?? ''}:${context.workspaceId ?? ''}`}>{context.name}</option>)}
+            </select>
+          </label>}
+          {review && <>
+            <h3>{t('admin.users.accessReview.groups')}</h3>
+            {review.groups.length === 0 ? <p className="cx-muted">{t('admin.users.accessReview.noGroups')}</p> : <ul>
+              {review.groups.map(group => <li key={group.id}><strong>{group.name}</strong> <span className="cx-muted">({group.scope})</span> - {group.roles.length ? group.roles.join(', ') : t('admin.users.accessReview.noRoles')}</li>)}
+            </ul>}
+            <h3>{t('admin.users.accessReview.permissions')}</h3>
+            <ul className="cx-admin-access-permissions">
+              {review.permissions.map(permission => <li key={permission.key}>
+                <span><code>{permission.key}</code></span>
+                <span className={`cx-admin-pill ${permission.outcome === 'allowed' ? 'is-success' : permission.outcome === 'denied' ? 'is-danger' : 'is-muted'}`}>{t(`admin.users.accessReview.outcomes.${permission.outcome}`)}</span>
+                <small>{permission.decisions.join('; ') || t(`admin.users.accessReview.sources.${permission.source}`)}</small>
+              </li>)}
+            </ul>
+          </>}
+        </div>}
+      </section>}
       {canManage && (
         <div className="cx-drawer-actions">
           {user.activeSessions > 0 && <button type="button" className="btn btn-outline-secondary" onClick={() => actions.signOut(user)}>{t('admin.users.signOut')}</button>}
@@ -832,9 +856,10 @@ const permissionOrder = [
   'installation.read', 'installation.manage', 'users.read', 'users.manage', 'organizations.read', 'organizations.manage', 'audit.read', 'installation.demo_data',
 ] as const;
 
-function RolesView({ canManage }: { canManage: boolean }) {
+function RolesView({ canManage, canAssignGroups, canReadPermissions }: { canManage: boolean; canAssignGroups: boolean; canReadPermissions: boolean }) {
   const { t } = useTranslation();
   const { data, error } = useLoad(api.getRoles, []);
+  const { data: catalog, error: catalogError } = useLoad(() => canReadPermissions ? api.getPermissionCatalog() : Promise.resolve([]), [canReadPermissions]);
   const roleIcon: Record<string, NavIconName> = { InstallationAdministrator: 'shield', Auditor: 'eye' };
   return (
     <section className="cx-card cx-admin-panel" aria-labelledby="admin-roles-title">
@@ -842,8 +867,8 @@ function RolesView({ canManage }: { canManage: boolean }) {
         id="admin-roles-title"
         title={t('admin.roles.title')}
         subtitle={t('admin.roles.subtitle')}
-        actions={canManage && (
-          <Link to="/admin?tab=users" className="btn btn-primary cx-icon-button">
+        actions={canAssignGroups && (
+          <Link to="/admin?tab=groups" className="btn btn-primary cx-icon-button">
             <NavIcon name="people" size={18} />
             {t('admin.roles.manageAssignments')}
           </Link>
@@ -853,6 +878,8 @@ function RolesView({ canManage }: { canManage: boolean }) {
         <NavIcon name="info" size={18} />
         {t('admin.roles.intro')}
       </p>
+      <AccessControlManager canManage={canManage} canAssignGroups={canAssignGroups} catalog={catalog ?? []} />
+      {catalogError !== null && <FormAlert tone="danger">{errorMessage(catalogError, t)}</FormAlert>}
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {!data ? (
         error === null && <Loading />
@@ -909,7 +936,218 @@ function RolesView({ canManage }: { canManage: boolean }) {
               <span className="cx-muted">{t('admin.roles.noConversationsText')}</span>
             </span>
           </div>
+          {catalog && (
+            <>
+              <h3 className="cx-admin-subheading">{t('admin.permissionCatalog.title')}</h3>
+              <p className="cx-admin-footnote cx-muted">{t('admin.permissionCatalog.intro')}</p>
+              <div className="cx-admin-matrix-wrap">
+                <table className="cx-admin-matrix">
+                  <thead><tr>
+                    <th scope="col">{t('admin.permissionCatalog.area')}</th>
+                    <th scope="col">{t('admin.permissionCatalog.key')}</th>
+                    <th scope="col">{t('admin.permissionCatalog.scope')}</th>
+                    <th scope="col">{t('admin.permissionCatalog.state')}</th>
+                  </tr></thead>
+                  <tbody>{catalog.map((permission) => (
+                    <tr key={permission.key}>
+                      <th scope="row">{t(`admin.permissionCatalog.areas.${permission.area}`)}</th>
+                      <td><code>{permission.key}</code></td>
+                      <td>{t(`admin.permissionCatalog.scopes.${permission.scope}`)}</td>
+                      <td><span className={`cx-admin-pill ${permission.state === 'implemented' ? 'is-outline' : ''}`}>
+                        {t(`admin.permissionCatalog.states.${permission.state}`)}
+                      </span></td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            </>
+          )}
         </>
+      )}
+    </section>
+  );
+}
+
+function AccessControlManager({ canManage, canAssignGroups, catalog }: { canManage: boolean; canAssignGroups: boolean; catalog: api.AdminPermissionDefinition[] }) {
+  const { t } = useTranslation();
+  const roles = useLoad(api.getAccessRoles, []);
+  const [roleName, setRoleName] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [permissionEffects, setPermissionEffects] = useState<Record<string, 'allow' | 'deny'>>({});
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const available = catalog.filter(item => item.scope === 'installation' && item.state === 'implemented');
+
+  const run = async (operation: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await operation();
+      roles.reload();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const createRole = (event: FormEvent) => {
+    event.preventDefault();
+    void run(async () => {
+      const request = { name: roleName, description: roleDescription, permissions: Object.entries(permissionEffects).map(([key, effect]) => ({ key, effect })) };
+      if (editingRoleId) await api.updateAccessRole(editingRoleId, request);
+      else await api.createAccessRole(request);
+      setEditingRoleId(null); setRoleName(''); setRoleDescription(''); setPermissionEffects({});
+    });
+  };
+  const editRole = (role: api.AccessControlRole) => {
+    setEditingRoleId(role.id);
+    setRoleName(role.name);
+    setRoleDescription(role.description);
+    setPermissionEffects(Object.fromEntries(role.permissions.map(permission => [permission.key, permission.effect])));
+  };
+  return (
+    <section className="cx-admin-subsection" aria-labelledby="custom-access-title">
+      <h3 id="custom-access-title" className="cx-admin-subheading">Granular access management</h3>
+      <p className="cx-admin-footnote cx-muted">Users belong to groups; groups receive roles. Set each role permission to Allow, Deny, or leave it unassigned. A Deny from any group overrides Allow from every other role.</p>
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      {roles.error !== null && <FormAlert tone="danger">{errorMessage(roles.error, t)}</FormAlert>}
+      {canManage && <div className="row g-3">
+        <div className="col-xl-6">
+          <form className="cx-card p-3" onSubmit={createRole}>
+            <h4 className="h6">{editingRoleId ? 'Edit installation role' : 'Create installation role'}</h4>
+            <label className="form-label" htmlFor="access-role-name">Name</label>
+            <input id="access-role-name" className="form-control mb-2" value={roleName} onChange={event => setRoleName(event.target.value)} required maxLength={80} />
+            <label className="form-label" htmlFor="access-role-description">Description</label>
+            <input id="access-role-description" className="form-control mb-2" value={roleDescription} onChange={event => setRoleDescription(event.target.value)} maxLength={300} />
+            <fieldset className="mb-3">
+              <legend className="form-label">Permissions</legend>
+              <div className="d-grid gap-2">{available.map(item => (
+                <label key={item.key} className="d-flex align-items-center justify-content-between gap-3">
+                  <span><code>{item.key}</code><span className="cx-muted d-block">{item.description}</span></span>
+                  <select className="form-select w-auto" aria-label={`Decision for ${item.key}`} value={permissionEffects[item.key] ?? ''}
+                    onChange={event => setPermissionEffects(current => {
+                      const next = { ...current };
+                      if (event.target.value === '') delete next[item.key];
+                      else next[item.key] = event.target.value as 'allow' | 'deny';
+                      return next;
+                    })}>
+                    <option value="">Not assigned</option>
+                    <option value="allow">Allow</option>
+                    <option value="deny">Deny</option>
+                  </select>
+                </label>
+              ))}</div>
+            </fieldset>
+            <button className="btn btn-primary" type="submit" disabled={busy || !roleName.trim()}>{editingRoleId ? 'Save role' : 'Create role'}</button>
+            {editingRoleId && <button className="btn btn-outline-secondary ms-2" type="button" disabled={busy} onClick={() => { setEditingRoleId(null); setRoleName(''); setRoleDescription(''); setPermissionEffects({}); }}>Cancel</button>}
+          </form>
+        </div>
+      </div>}
+      <div className="cx-admin-role-cards mt-3">
+        {(roles.data ?? []).map(role => <article className="cx-admin-role-card" key={role.id}>
+          <NavIcon name="shield" size={22} />
+          <span><strong>{role.name}</strong><span className="cx-muted d-block">{role.description}{role.description && role.permissions.length ? ' · ' : ''}{role.permissions.length ? role.permissions.map(permission => `${permission.key}: ${permission.effect}`).join(', ') : 'No permissions'} · {role.groups} groups</span></span>
+          {canManage && <button className="btn btn-sm btn-outline-secondary ms-auto" type="button" onClick={() => editRole(role)}>Edit</button>}
+          {canAssignGroups && <Link className="btn btn-sm btn-outline-primary" to={`/admin?tab=groups&role=${encodeURIComponent(role.id)}`}>Manage assignments</Link>}
+        </article>)}
+      </div>
+    </section>
+  );
+}
+
+function GroupsView({ canManage, canAssignRoles, initialRoleId }: { canManage: boolean; canAssignRoles: boolean; initialRoleId: string }) {
+  const { t } = useTranslation();
+  const groups = useLoad(api.getAccessGroups, []);
+  const roles = useLoad(api.getAccessRoles, []);
+  const people = useLoad(() => api.searchUsers('', 'enabled', 0, 100), []);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [initialMembers, setInitialMembers] = useState<string[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedUser, setSelectedUser] = useState('');
+  const [selectedRole, setSelectedRole] = useState(initialRoleId);
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+  const selectedGroupData = groups.data?.find(group => group.id === selectedGroup) ?? groups.data?.[0];
+
+  const run = async (operation: () => Promise<unknown>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await operation();
+      groups.reload();
+      roles.reload();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createGroup = (event: FormEvent) => {
+    event.preventDefault();
+    void run(async () => {
+      const created = await api.createAccessGroup({ name, description });
+      for (const userId of initialMembers) await api.addAccessGroupMember(created.id, userId);
+      setSelectedGroup(created.id);
+      setName('');
+      setDescription('');
+      setInitialMembers([]);
+    });
+  };
+
+  return (
+    <section className="cx-admin-section" aria-labelledby="admin-groups-title">
+      <SectionHeading id="admin-groups-title" title="Groups" subtitle="Users are added to groups. Assign roles to groups to grant or deny permissions." />
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      {groups.error !== null && <FormAlert tone="danger">{errorMessage(groups.error, t)}</FormAlert>}
+      {roles.error !== null && <FormAlert tone="danger">{errorMessage(roles.error, t)}</FormAlert>}
+      {canManage && <form className="cx-card p-3 mb-3" onSubmit={createGroup}>
+        <h2 className="h6">Create group</h2>
+        <div className="row g-3 align-items-end">
+          <div className="col-md-4"><label className="form-label" htmlFor="access-group-name">Name</label><input id="access-group-name" className="form-control" value={name} onChange={event => setName(event.target.value)} required maxLength={80} /></div>
+          <div className="col-md-4"><label className="form-label" htmlFor="access-group-description">Description</label><input id="access-group-description" className="form-control" value={description} onChange={event => setDescription(event.target.value)} maxLength={300} /></div>
+          <div className="col-md-4"><label className="form-label" htmlFor="access-group-users">Add users to this group</label><select id="access-group-users" className="form-select" multiple size={3} value={initialMembers} onChange={event => setInitialMembers(Array.from(event.target.selectedOptions, option => option.value))}>
+            {people.data?.items.map(person => <option key={person.id} value={person.id}>{person.displayName} · {person.email}</option>)}
+          </select></div>
+        </div>
+        <button className="btn btn-primary mt-3" type="submit" disabled={busy || !name.trim()}>Create group</button>
+      </form>}
+      {!groups.data ? (groups.error === null && <Loading />) : groups.data.length === 0 ? (
+        <div className="cx-card cx-table-empty cx-muted" role="status">No groups created yet.</div>
+      ) : (
+        <div className="row g-3">
+          <div className="col-lg-5"><div className="cx-card p-2" aria-label="Created groups">
+            {groups.data.map(group => <button key={group.id} type="button" className={`cx-admin-settings-group w-100 text-start${(selectedGroupData?.id ?? groups.data?.[0]?.id) === group.id ? ' is-active' : ''}`} onClick={() => setSelectedGroup(group.id)}>
+              <strong className="d-block">{group.name}</strong><span className="cx-muted small">{group.memberIds.length} users · {group.roleIds.length} roles</span>
+            </button>)}
+          </div></div>
+          {selectedGroupData && <div className="col-lg-7"><section className="cx-card p-3" aria-label={`Manage group ${selectedGroupData.name}`}>
+            <h2 className="h5">{selectedGroupData.name}</h2>
+            {selectedGroupData.description && <p className="cx-muted">{selectedGroupData.description}</p>}
+            <h3 className="h6 mt-3">Users in this group</h3>
+            {selectedGroupData.memberIds.length === 0 ? <p className="cx-muted">No users in this group.</p> : <ul className="list-unstyled">
+              {selectedGroupData.memberIds.map(userId => {
+                const person = people.data?.items.find(item => item.id === userId);
+                return <li className="d-flex align-items-center gap-2 py-1" key={userId}><span className="me-auto">{person ? `${person.displayName} · ${person.email}` : userId}</span>{canManage && <button type="button" className="btn btn-sm btn-outline-secondary" disabled={busy} onClick={() => void run(() => api.removeAccessGroupMember(selectedGroupData.id, userId))}>Remove</button>}</li>;
+              })}
+            </ul>}
+            {canManage && <div className="d-flex flex-wrap gap-2 mt-3 align-items-end">
+              <div><label htmlFor="group-add-user" className="form-label">Add user</label><select id="group-add-user" className="form-select" value={selectedUser} onChange={event => setSelectedUser(event.target.value)}><option value="">Select user</option>{people.data?.items.filter(person => !selectedGroupData.memberIds.includes(person.id)).map(person => <option key={person.id} value={person.id}>{person.displayName} · {person.email}</option>)}</select></div>
+              <button type="button" className="btn btn-outline-primary" disabled={busy || !selectedUser} onClick={() => void run(async () => { await api.addAccessGroupMember(selectedGroupData.id, selectedUser); setSelectedUser(''); })}>Add user</button>
+            </div>}
+            <h3 className="h6 mt-4">Roles assigned to this group</h3>
+            {selectedGroupData.roleIds.length === 0 ? <p className="cx-muted">No roles assigned.</p> : <ul className="list-unstyled">{selectedGroupData.roleIds.map(roleId => {
+              const role = roles.data?.find(item => item.id === roleId);
+              return <li className="d-flex align-items-center gap-2 py-1" key={roleId}><span className="me-auto">{role?.name ?? roleId}</span>{canManage && canAssignRoles && <button type="button" className="btn btn-sm btn-outline-secondary" disabled={busy} onClick={() => void run(() => api.removeAccessRoleFromGroup(roleId, selectedGroupData.id))}>Remove role</button>}</li>;
+            })}</ul>}
+            {canManage && canAssignRoles && <div className="d-flex flex-wrap gap-2 mt-3 align-items-end">
+              <div><label htmlFor="group-assign-role" className="form-label">Assign role</label><select id="group-assign-role" className="form-select" value={selectedRole} onChange={event => setSelectedRole(event.target.value)}><option value="">Select role</option>{roles.data?.filter(role => !selectedGroupData.roleIds.includes(role.id)).map(role => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
+              <button type="button" className="btn btn-outline-primary" disabled={busy || !selectedRole} onClick={() => void run(() => api.assignAccessRoleToGroup(selectedRole, selectedGroupData.id))}>Assign role</button>
+            </div>}
+          </section></div>}
+        </div>
       )}
     </section>
   );
@@ -1244,7 +1482,7 @@ function SettingRow({
 type ProviderKey = 'database' | 'search' | api.ProviderGroup['name'];
 
 const providerIcons: Record<ProviderKey, NavIconName> = {
-  database: 'database', storage: 'folder', email: 'mail', captcha: 'shield', scanning: 'shield', search: 'search',
+  database: 'database', storage: 'folder', email: 'mail', captcha: 'shield', scanning: 'shield', search: 'search', queue: 'server', ai: 'globe',
 };
 
 /** The selected provider of a group: its "…:Provider" field. */
@@ -1265,6 +1503,7 @@ function Providers({ canManage }: { canManage: boolean }) {
   const overview = useLoad(api.getOverview, []);
   const { data, setData, error } = useLoad(api.getProviders, []);
   const search = useLoad(api.getSearchStatus, []);
+  const aiTranslationProfiles = useLoad(api.getAiTranslationProviders, []);
   const [selected, setSelected] = useState<ProviderKey>('database');
   const [tests, setTests] = useState<Partial<Record<ProviderKey, { outcome: string; at: Date }>>>({});
   const groups = data ?? [];
@@ -1303,11 +1542,12 @@ function Providers({ canManage }: { canManage: boolean }) {
           t('admin.providers.databaseState'))}
         {groups.map((g) => {
           // Search runs on its built-in default when nothing is configured: the live status names it.
-          const name = providerOf(g) ?? (g.name === 'search' ? search.data?.provider ?? null : null);
+          const activeTranslation = g.name === 'ai' ? aiTranslationProfiles.data?.find(profile => profile.active) : undefined;
+          const name = activeTranslation?.name ?? providerOf(g) ?? (g.name === 'search' ? search.data?.provider ?? null : null);
           const value = g.name === 'scanning'
             ? <><span className={`cx-dot ${scanningOff ? 'cx-dot-warn' : 'cx-dot-ok'}`} aria-hidden="true" />{scanningOff ? t('admin.off') : name}</>
-            : name ?? t('admin.providers.none');
-          const pill = g.restartRequired ? t('admin.providers.restartRequired') : isOff(name) ? t('admin.providers.notConfigured') : t('admin.providers.selected');
+            : activeTranslation ? `${activeTranslation.name} · ${activeTranslation.provider}` : name ?? t('admin.providers.none');
+          const pill = activeTranslation ? t('admin.providers.selected') : g.restartRequired ? t('admin.providers.restartRequired') : isOff(name) ? t('admin.providers.notConfigured') : t('admin.providers.selected');
           return card(g.name, t(`admin.providers.${g.name}`), value, g.name === 'scanning' ? null : pill, testState(g.name), g.name === 'scanning');
         })}
         {/* Older servers do not list search among the provider groups: show the index status as its own card. */}
@@ -1323,19 +1563,19 @@ function Providers({ canManage }: { canManage: boolean }) {
         <SearchIndex canManage={canManage} />
       ) : selectedGroup ? (
         <>
-          <ProviderForm
-            key={selectedGroup.name}
-            group={selectedGroup}
-            canManage={canManage}
-            lastTest={tests[selectedGroup.name] ?? null}
-            onTested={(outcome) => setTests((current) => ({ ...current, [selectedGroup.name]: { outcome, at: new Date() } }))}
-            onSaved={(updated) => setData((list) => list && list.map((g) => (g.name === updated.name ? updated : g)))}
-          />
+          {selectedGroup.name === 'ai' ? <AiTranslationProviders canManage={canManage} /> : <ProviderForm
+              key={selectedGroup.name}
+              group={selectedGroup}
+              canManage={canManage}
+              lastTest={tests[selectedGroup.name] ?? null}
+              onTested={(outcome) => setTests((current) => ({ ...current, [selectedGroup.name]: { outcome, at: new Date() } }))}
+              onSaved={(updated) => setData((list) => list && list.map((g) => (g.name === updated.name ? updated : g)))}
+            />}
           {selectedGroup.name === 'search' && <SearchIndex canManage={canManage} />}
         </>
       ) : null}
 
-      <p className="cx-admin-footnote cx-muted"><NavIcon name="info" size={18} />{t('admin.providers.noMigration')}</p>
+      <StorageMigrationDryRun canManage={canManage} activeProvider={overview.data?.storageProvider ?? 'Local'} />
       {scanningOff && (
         <div className="cx-admin-warning cx-admin-warning-wide" role="note">
           <NavIcon name="alert" size={22} />
@@ -1350,6 +1590,235 @@ function Providers({ canManage }: { canManage: boolean }) {
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function AiTranslationProviders({ canManage }: { canManage: boolean }) {
+  const { t } = useTranslation();
+  const [profiles, setProfiles] = useState<api.AiTranslationProviderProfile[] | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [provider, setProvider] = useState<'OpenAICompatible' | 'Ollama'>('OpenAICompatible');
+  const [endpoint, setEndpoint] = useState('');
+  const [model, setModel] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [maxOutputTokens, setMaxOutputTokens] = useState(4000);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(45);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [details, setDetails] = useState<readonly string[]>([]);
+  const [outcome, setOutcome] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
+
+  const refresh = useCallback(async () => setProfiles(await api.getAiTranslationProviders()), []);
+  useEffect(() => { void refresh().catch(setError); }, [refresh]);
+
+  const reset = () => {
+    setSelectedId(null);
+    setEditingId(null); setName(''); setProvider('OpenAICompatible'); setEndpoint(''); setModel('');
+    setApiKey(''); setMaxOutputTokens(4000); setTimeoutSeconds(45); setError(null); setDetails([]); setOutcome(null);
+  };
+  const edit = (item: api.AiTranslationProviderProfile) => {
+    setSelectedId(item.id);
+    setEditingId(item.legacy ? null : item.id); setName(item.legacy ? '' : item.name);
+    setProvider(item.provider === 'Ollama' ? 'Ollama' : 'OpenAICompatible'); setEndpoint(item.endpoint); setModel(item.model);
+    setApiKey(''); setMaxOutputTokens(item.maxOutputTokens); setTimeoutSeconds(item.timeoutSeconds); setError(null); setDetails([]); setOutcome(null);
+  };
+  const save = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setError(null); setDetails([]); setOutcome(null);
+    try {
+      const request: api.AiTranslationProviderProfileRequest = { name, provider, endpoint, model, apiKey, maxOutputTokens, timeoutSeconds };
+      const saved = editingId ? await api.updateAiTranslationProvider(editingId, request) : await api.createAiTranslationProvider(request);
+      await refresh(); edit(saved); setOutcome('saved');
+    } catch (cause) { setError(cause); if (cause instanceof ApiError) setDetails(cause.details); }
+    finally { setBusy(false); }
+  };
+  const test = async () => {
+    const profileId = editingId ?? (selected?.legacy ? 'legacy' : null);
+    if (!profileId) return;
+    setBusy(true); setError(null); setDetails([]); setOutcome(null);
+    try { setOutcome((await api.testAiTranslationProvider(profileId)).outcome); }
+    catch (cause) { setError(cause); if (cause instanceof ApiError) setDetails(cause.details); }
+    finally { setBusy(false); }
+  };
+  const activate = async (id: string) => {
+    setBusy(true); setError(null); setDetails([]);
+    try { await api.activateAiTranslationProvider(id); await refresh(); }
+    catch (cause) { setError(cause); if (cause instanceof ApiError) setDetails(cause.details); }
+    finally { setBusy(false); }
+  };
+  const remove = async (item: api.AiTranslationProviderProfile) => {
+    const ok = await confirm({ title: t('admin.aiTranslation.deleteTitle'), text: t('admin.aiTranslation.deleteText', { name: item.name }), confirmLabel: t('admin.aiTranslation.deleteAction') });
+    if (!ok) return;
+    setBusy(true); setError(null); setDetails([]);
+    try { await api.deleteAiTranslationProvider(item.id); await refresh(); if (editingId === item.id) reset(); }
+    catch (cause) { setError(cause); if (cause instanceof ApiError) setDetails(cause.details); }
+    finally { setBusy(false); }
+  };
+
+  const selected = profiles?.find(item => item.id === selectedId);
+  return (
+    <section className="cx-card cx-provider-panel" aria-labelledby="ai-translation-providers-title">
+      <div className="cx-provider-panel-head">
+        <NavIcon name="globe" size={30} />
+        <span><h3 id="ai-translation-providers-title">{t('admin.aiTranslation.title')}</h3><span className="cx-muted">{t('admin.aiTranslation.hint')}</span></span>
+        {canManage && <button type="button" className="btn btn-sm btn-primary ms-auto" onClick={reset}>{t('admin.aiTranslation.add')}</button>}
+      </div>
+      {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
+      {details.length > 0 && <ul className="text-danger small">{details.map(detail => <li key={detail}>{detail}</li>)}</ul>}
+      {profiles === null ? <p className="cx-muted">{t('auth.working')}</p> : profiles.length === 0 ? <p className="cx-muted">{t('admin.aiTranslation.empty')}</p> : (
+        <ul className="list-unstyled cx-ai-provider-list">
+          {profiles.map(item => (
+            <li key={item.id} className="cx-ai-provider-item">
+              <button type="button" className="cx-ai-provider-select" onClick={() => edit(item)} aria-current={selectedId === item.id ? 'true' : undefined}>
+                <strong>{item.name}</strong><span className="cx-muted">{item.provider} · {item.model}</span>
+              </button>
+              {item.active && <span className="cx-admin-pill is-accent">{t('admin.aiTranslation.active')}</span>}
+              {canManage && !item.active && !item.legacy && <button type="button" className="btn btn-sm btn-outline-secondary" disabled={busy} onClick={() => void activate(item.id)}>{t('admin.aiTranslation.makeActive')}</button>}
+              {canManage && !item.active && !item.legacy && <button type="button" className="btn btn-sm btn-outline-danger" disabled={busy} onClick={() => void remove(item)}>{t('admin.aiTranslation.delete')}</button>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canManage && (
+        <form className="cx-provider-form cx-ai-provider-editor" onSubmit={save}>
+          <h4>{editingId ? t('admin.aiTranslation.edit') : t('admin.aiTranslation.new')}</h4>
+          {selected?.legacy && <p className="cx-admin-note">{t('admin.aiTranslation.legacyHint')}</p>}
+          <div className="cx-admin-setting-grid">
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.name')}</span><input className="form-control" required maxLength={80} value={name} onChange={e => setName(e.target.value)} /></label>
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.provider')}</span><select className="form-select" value={provider} onChange={e => setProvider(e.target.value as typeof provider)}><option value="OpenAICompatible">OpenAI compatible</option><option value="Ollama">Ollama</option></select></label>
+            <label className="cx-admin-setting is-wide"><span className="form-label">{t('admin.aiTranslation.endpoint')}</span><input className="form-control" type="url" required value={endpoint} onChange={e => setEndpoint(e.target.value)} placeholder="https://api.example.com/v1" /></label>
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.model')}</span><input className="form-control" required value={model} onChange={e => setModel(e.target.value)} /></label>
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.apiKey')}</span><input className="form-control" type="password" autoComplete="new-password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={selected?.hasApiKey ? t('admin.providers.secretSet') : t('admin.providers.secretEmpty')} />{selected?.hasApiKey && <small className="form-text">{t('admin.aiTranslation.keyPreserved')}</small>}</label>
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.maxOutputTokens')}</span><input className="form-control" type="number" min={64} max={16000} required value={maxOutputTokens} onChange={e => setMaxOutputTokens(Number(e.target.value))} /></label>
+            <label className="cx-admin-setting"><span className="form-label">{t('admin.aiTranslation.timeout')}</span><input className="form-control" type="number" min={5} max={120} required value={timeoutSeconds} onChange={e => setTimeoutSeconds(Number(e.target.value))} /></label>
+          </div>
+          {outcome && <FormAlert tone={outcome === 'saved' || outcome === 'ok' ? 'success' : 'danger'}>{t(outcome === 'saved' ? 'admin.aiTranslation.saved' : `admin.providers.outcomes.${outcome}`, { defaultValue: outcome })}</FormAlert>}
+          <div className="d-flex gap-2 flex-wrap mt-3">
+            <button type="submit" className="btn btn-primary" disabled={busy}>{t('admin.providers.saveConfiguration')}</button>
+            {(editingId || selected?.legacy) && <button type="button" className="btn btn-outline-secondary" disabled={busy} onClick={() => void test()}>{t('admin.providers.test')}</button>}
+            {editingId && <button type="button" className="btn btn-link" disabled={busy} onClick={reset}>{t('conversations.cancel')}</button>}
+          </div>
+        </form>
+      )}
+      {confirmDialog}
+    </section>
+  );
+}
+
+function StorageMigrationDryRun({ canManage, activeProvider }: { canManage: boolean; activeProvider: string }) {
+  const { t, i18n } = useTranslation();
+  const [source, setSource] = useState(activeProvider);
+  const [destination, setDestination] = useState(activeProvider === 'Local' ? 'S3' : 'Local');
+  const [report, setReport] = useState<api.StorageMigrationDryRun | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<api.StorageMigrationJob[]>([]);
+  const [jobBusy, setJobBusy] = useState<string | null>(null);
+  const providers = ['Local', 'S3', 'AzureBlob'];
+  useEffect(() => { setSource(activeProvider); }, [activeProvider]);
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => { try { const current = await api.getStorageMigrations(); if (alive) setJobs(current); } catch { /* the page still works if migration history is temporarily unavailable */ } };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 3000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, []);
+  const run = async () => {
+    setBusy(true); setError(null); setReport(null);
+    try { setReport(await api.dryRunStorageMigration(source, destination)); }
+    catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setBusy(false); }
+  };
+  const start = async () => {
+    setJobBusy('start'); setError(null);
+    try { await api.startStorageMigration(source, destination); setJobs(await api.getStorageMigrations()); }
+    catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setJobBusy(null); }
+  };
+  const setPaused = async (job: api.StorageMigrationJob) => {
+    setJobBusy(job.id); setError(null);
+    try {
+      if (job.state === 'Paused') await api.resumeStorageMigration(job.id);
+      else await api.pauseStorageMigration(job.id);
+      setJobs(await api.getStorageMigrations());
+    } catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setJobBusy(null); }
+  };
+  const cutover = async (job: api.StorageMigrationJob) => {
+    if (!window.confirm(t('admin.providers.migration.confirmCutover'))) return;
+    setJobBusy(job.id); setError(null);
+    try { await api.cutoverStorageMigration(job.id); setJobs(await api.getStorageMigrations()); }
+    catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setJobBusy(null); }
+  };
+  const startReverseCopy = async (job: api.StorageMigrationJob) => {
+    setJobBusy(job.id); setError(null);
+    try { await api.startStorageMigration(job.destinationProvider, job.sourceProvider); setJobs(await api.getStorageMigrations()); }
+    catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setJobBusy(null); }
+  };
+  const rollback = async (job: api.StorageMigrationJob, reverse: api.StorageMigrationJob) => {
+    if (!window.confirm(t('admin.providers.migration.confirmRollback'))) return;
+    setJobBusy(job.id); setError(null);
+    try { await api.rollbackStorageMigration(job.id, reverse.id); setJobs(await api.getStorageMigrations()); }
+    catch (cause) { setError(errorMessage(cause, t)); }
+    finally { setJobBusy(null); }
+  };
+  return (
+    <section className="cx-card cx-admin-panel cx-storage-migration-preview" aria-labelledby="storage-migration-preview-title">
+      <h3 id="storage-migration-preview-title">{t('admin.providers.migration.title')}</h3>
+      <p className="cx-muted">{t('admin.providers.migration.description')}</p>
+      <div className="cx-admin-filter-bar">
+        <label className="cx-field-label">{t('admin.providers.migration.source')}
+          <select className="form-select" value={source} onChange={event => {
+            const value = event.target.value;
+            setSource(value);
+            if (destination === value) setDestination(providers.find(provider => provider !== value)!);
+          }}>{providers.map(provider => <option key={provider}>{provider}</option>)}</select>
+        </label>
+        <label className="cx-field-label">{t('admin.providers.migration.destination')}
+          <select className="form-select" value={destination} onChange={event => setDestination(event.target.value)}>{providers.filter(provider => provider !== source).map(provider => <option key={provider}>{provider}</option>)}</select>
+        </label>
+        <button type="button" className="btn btn-primary" disabled={!canManage || busy} onClick={() => void run()}>
+          {busy ? t('admin.providers.migration.running') : t('admin.providers.migration.run')}
+        </button>
+      </div>
+      {error && <FormAlert tone="danger">{error}</FormAlert>}
+      {report && <div className="cx-storage-migration-report" aria-live="polite">
+        <h4>{t('admin.providers.migration.reportTitle')}</h4>
+        <p>{t('admin.providers.migration.summary', { count: report.totalFiles, bytes: formatBytes(report.totalBytes, i18n.language) })}</p>
+        <p className="cx-muted">{t('admin.providers.migration.destinationCheck', { state: t(`admin.providers.migration.${report.destinationReachable ? 'reachable' : 'unreachable'}`) })}</p>
+        {report.blockers.length > 0 && <div role="alert"><strong>{t('admin.providers.migration.blockers')}</strong><ul>{report.blockers.map((blocker, index) => <li key={`${blocker}-${index}`}>{blocker}</li>)}</ul></div>}
+        {report.warnings.length > 0 && <ul className="cx-muted">{report.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>}
+        <ul>{report.files.map(file => <li key={file.id}><code>{file.fileName}</code> — {formatBytes(file.size, i18n.language)}{file.blockers.length > 0 && <strong> ({file.blockers.join(', ')})</strong>}</li>)}</ul>
+        {report.filesTruncated && <p className="cx-muted">{t('admin.providers.migration.truncated')}</p>}
+        <button type="button" className="btn btn-primary" disabled={!canManage || busy || jobBusy !== null || report.blockers.length > 0} onClick={() => void start()}>
+          {jobBusy === 'start' ? t('admin.providers.migration.starting') : t('admin.providers.migration.startCopy')}
+        </button>
+      </div>}
+      <div className="cx-storage-migration-jobs" aria-live="polite">
+        <h4>{t('admin.providers.migration.jobs')}</h4>
+        {jobs.length === 0 ? <p className="cx-muted">{t('admin.providers.migration.noJobs')}</p> : jobs.map(job => {
+          const reverse = jobs.find(candidate => candidate.sourceProvider === job.destinationProvider
+            && candidate.destinationProvider === job.sourceProvider && candidate.id !== job.id);
+          return (
+          <article className="cx-storage-migration-job" key={job.id}>
+            <div><strong>{job.sourceProvider} → {job.destinationProvider}</strong><span className="cx-admin-pill is-muted">{job.state}</span></div>
+            <p className="cx-muted">{t('admin.providers.migration.progress', { copied: job.copiedFiles, total: job.totalFiles, failed: job.failedFiles, skipped: job.skippedFiles })}</p>
+            {(job.state === 'Queued' || job.state === 'Running' || job.state === 'Paused') && <button type="button" className="btn btn-outline-secondary btn-sm" disabled={!canManage || jobBusy !== null} onClick={() => void setPaused(job)}>{jobBusy === job.id ? '…' : job.state === 'Paused' ? t('admin.providers.migration.resume') : t('admin.providers.migration.pause')}</button>}
+            {job.state === 'Completed' && job.sourceProvider === activeProvider && <button type="button" className="btn btn-primary btn-sm" disabled={!canManage || jobBusy !== null} onClick={() => void cutover(job)}>{jobBusy === job.id ? t('admin.providers.migration.switching') : t('admin.providers.migration.cutover')}</button>}
+            {job.state === 'CutoverComplete' && job.destinationProvider === activeProvider && (!reverse || reverse.state === 'Completed' || reverse.state === 'CompletedWithErrors') && <button type="button" className="btn btn-outline-secondary btn-sm" disabled={!canManage || jobBusy !== null} onClick={() => void startReverseCopy(job)}>{jobBusy === job.id ? t('admin.providers.migration.starting') : t(reverse?.state === 'Completed' ? 'admin.providers.migration.refreshRollbackCopy' : 'admin.providers.migration.startRollbackCopy')}</button>}
+            {job.state === 'CutoverComplete' && reverse?.state === 'Completed' && <button type="button" className="btn btn-outline-danger btn-sm" disabled={!canManage || jobBusy !== null} onClick={() => void rollback(job, reverse)}>{jobBusy === job.id ? t('admin.providers.migration.switching') : t('admin.providers.migration.rollback')}</button>}
+            {(job.state === 'AwaitingRestart' || job.state === 'RollbackAwaitingRestart') && <p className="cx-muted">{t('admin.providers.migration.restartRequired')}</p>}
+            {job.state === 'CutoverComplete' && <p className="cx-muted">{t('admin.providers.migration.rollbackInstructions')}</p>}
+            {job.lastError && <p className="text-danger small">{job.lastError}</p>}
+          </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -1482,7 +1951,7 @@ function ProviderForm({ group, canManage, lastTest, onTested, onSaved }: {
   const providerField = group.fields.find((f) => f.key.endsWith(':Provider'));
   const chosen = String((providerField && (providerField.key in draft ? draft[providerField.key] : providerField.value)) ?? '').toLowerCase();
   // Only the fields of the chosen provider (Email:Smtp:* for SMTP), plus the shared ones.
-  const visible = group.fields.filter((f) => !fieldSection(f.key) || fieldSection(f.key).toLowerCase() === chosen);
+  const visible = group.name === 'ai' ? group.fields : group.fields.filter((f) => !fieldSection(f.key) || fieldSection(f.key).toLowerCase() === chosen);
   const sections = [...new Set(visible.map((f) => fieldSection(f.key)))];
   const testable = group.name !== 'captcha';
 

@@ -19,6 +19,147 @@ public sealed class AdministrationTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task Custom_permissions_are_group_based_and_deny_overrides_every_allow()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (admin, adminId) = await SignedInAsync(api, "admin@example.org", "Admin");
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        using var _1 = admin;
+        using var _2 = ana;
+        await GrantAsync(api, adminId, Roles.InstallationAdministrator);
+
+        var roleResponse = await admin.PostAsync("/api/v1/admin/access-control/roles", new
+        {
+            name = "User directory reader",
+            description = "Can view installation accounts.",
+            permissions = new[] { new { key = "users.read", effect = "allow" } },
+        });
+        AssertStatus(HttpStatusCode.Created, roleResponse);
+        var roleId = (await JsonAsync(roleResponse)).GetProperty("id").GetGuid();
+
+        var groupResponse = await admin.PostAsync("/api/v1/admin/access-control/groups", new { name = "Directory Reviewers", description = "" });
+        AssertStatus(HttpStatusCode.Created, groupResponse);
+        var groupId = (await JsonAsync(groupResponse)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/access-control/groups/{groupId}/members/{anaId}"));
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/access-control/roles/{roleId}/groups/{groupId}"));
+        var listedRoles = await JsonAsync(await admin.GetAsync("/api/v1/admin/access-control/roles"));
+        var listedRole = listedRoles.EnumerateArray().Single(item => item.GetProperty("id").GetGuid() == roleId);
+        Assert.Equal(1, listedRole.GetProperty("groups").GetInt32());
+        Assert.Contains("users.read", listedRole.GetProperty("permissions").EnumerateArray()
+            .Select(permission => permission.GetProperty("key").GetString()));
+        AssertStatus(HttpStatusCode.OK, await ana.GetAsync("/api/v1/admin/users"));
+        var effective = await JsonAsync(await ana.GetAsync($"/api/v1/admin/users/{anaId}/effective-permissions"));
+        Assert.Contains("users.read", effective.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+        var accessReview = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{anaId}/access-review"));
+        Assert.Contains(accessReview.GetProperty("groups").EnumerateArray(), group =>
+            group.GetProperty("name").GetString() == "Directory Reviewers"
+            && group.GetProperty("roles").EnumerateArray().Any(role => role.GetString() == "User directory reader"));
+        var reviewedRead = accessReview.GetProperty("permissions").EnumerateArray()
+            .Single(permission => permission.GetProperty("key").GetString() == "users.read");
+        Assert.Equal("allowed", reviewedRead.GetProperty("outcome").GetString());
+        Assert.Contains("group_allow", reviewedRead.GetProperty("source").GetString());
+        var me = await JsonAsync(await ana.GetAsync("/api/v1/users/me"));
+        Assert.Contains("users.read", me.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+        AssertStatus(HttpStatusCode.Forbidden, await ana.PostAsync($"/api/v1/admin/users/{adminId}/disable"));
+
+        var denyRole = await admin.PostAsync("/api/v1/admin/access-control/roles", new
+        {
+            name = "Directory restriction",
+            permissions = new[] { new { key = "users.read", effect = "deny" } },
+        });
+        AssertStatus(HttpStatusCode.Created, denyRole);
+        var denyRoleId = (await JsonAsync(denyRole)).GetProperty("id").GetGuid();
+        var denyGroup = await admin.PostAsync("/api/v1/admin/access-control/groups", new { name = "Restricted users", description = "" });
+        AssertStatus(HttpStatusCode.Created, denyGroup);
+        var denyGroupId = (await JsonAsync(denyGroup)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/access-control/groups/{denyGroupId}/members/{anaId}"));
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/admin/access-control/roles/{denyRoleId}/groups/{denyGroupId}"));
+        AssertStatus(HttpStatusCode.Forbidden, await ana.GetAsync("/api/v1/admin/users")); // Deny wins over the allow role.
+        var denied = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{anaId}/effective-permissions"));
+        Assert.DoesNotContain("users.read", denied.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+        Assert.Contains("users.read", denied.GetProperty("deniedPermissions").EnumerateArray().Select(p => p.GetString()));
+        var deniedReview = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{anaId}/access-review"));
+        var reviewedDenied = deniedReview.GetProperty("permissions").EnumerateArray()
+            .Single(permission => permission.GetProperty("key").GetString() == "users.read");
+        Assert.Equal("denied", reviewedDenied.GetProperty("outcome").GetString());
+        Assert.Equal("group_deny", reviewedDenied.GetProperty("source").GetString());
+        Assert.DoesNotContain("users.read", (await JsonAsync(await ana.GetAsync("/api/v1/users/me"))).GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+
+        // There is no direct custom-role-to-user assignment route; removing group membership revokes access.
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync($"/api/v1/admin/access-control/roles/{roleId}/users/{anaId}")).StatusCode);
+        AssertStatus(HttpStatusCode.OK, await admin.SendAsync(HttpMethod.Delete, $"/api/v1/admin/access-control/groups/{denyGroupId}/members/{anaId}"));
+        AssertStatus(HttpStatusCode.OK, await admin.SendAsync(HttpMethod.Delete, $"/api/v1/admin/access-control/groups/{groupId}/members/{anaId}"));
+        AssertStatus(HttpStatusCode.Forbidden, await ana.GetAsync("/api/v1/admin/users"));
+        Assert.DoesNotContain("users.read", (await JsonAsync(await ana.GetAsync("/api/v1/users/me"))).GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+
+        var audit = (await JsonAsync(await admin.GetAsync("/api/v1/admin/audit?limit=200"))).GetProperty("items").EnumerateArray()
+            .Select(entry => entry.GetProperty("action").GetString()).ToList();
+        Assert.Contains("admin.access_group.created", audit);
+        Assert.Contains("admin.access_role.created", audit);
+        Assert.Contains("admin.access_group.member_added", audit);
+        Assert.Contains("admin.access_group.member_removed", audit);
+    }
+
+    [Fact]
+    public async Task Effective_access_review_supports_organization_and_workspace_contexts()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (admin, adminId) = await SignedInAsync(api, "review-admin@example.org", "Review Admin");
+        var (member, memberId) = await SignedInAsync(api, "review-member@example.org", "Review Member");
+        using var _1 = admin;
+        using var _2 = member;
+        await GrantAsync(api, adminId, Roles.InstallationAdministrator);
+
+        var organizationId = (await JsonAsync(await admin.PostAsync("/api/v1/organizations", new { name = "Review Org" }))).GetProperty("id").GetGuid();
+        var invitationId = (await JsonAsync(await admin.PostAsync($"/api/v1/organizations/{organizationId}/invitations", new { email = "review-member@example.org" }))).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await member.PostAsync($"/api/v1/organizations/invitations/{invitationId}/accept"));
+        var workspaceId = Assert.Single((await JsonAsync(await admin.GetAsync($"/api/v1/organizations/{organizationId}/workspaces"))).EnumerateArray()).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/members", new { userId = memberId }));
+
+        var contexts = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{memberId}/access-review-contexts"));
+        Assert.Contains(contexts.EnumerateArray(), item => item.GetProperty("scope").GetString() == "organization" && item.GetProperty("organizationId").GetGuid() == organizationId);
+        Assert.Contains(contexts.EnumerateArray(), item => item.GetProperty("scope").GetString() == "workspace" && item.GetProperty("workspaceId").GetGuid() == workspaceId);
+
+        var orgRole = await admin.PostAsync($"/api/v1/organizations/{organizationId}/access-control/roles", new
+        {
+            name = "Support access",
+            permissions = new[] { new { key = "support.access", effect = "allow" } },
+        });
+        AssertStatus(HttpStatusCode.Created, orgRole);
+        var orgRoleId = (await JsonAsync(orgRole)).GetProperty("id").GetGuid();
+        var orgGroup = await admin.PostAsync($"/api/v1/organizations/{organizationId}/access-control/groups", new { name = "Support users", description = "" });
+        AssertStatus(HttpStatusCode.Created, orgGroup);
+        var orgGroupId = (await JsonAsync(orgGroup)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/access-control/groups/{orgGroupId}/members/{memberId}"));
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/access-control/roles/{orgRoleId}/groups/{orgGroupId}"));
+
+        var workspaceRole = await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/roles", new
+        {
+            name = "Channel creator",
+            permissions = new[] { new { key = "channels.create", effect = "allow" } },
+        });
+        AssertStatus(HttpStatusCode.Created, workspaceRole);
+        var workspaceRoleId = (await JsonAsync(workspaceRole)).GetProperty("id").GetGuid();
+        var workspaceGroup = await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/groups", new { name = "Channel team", description = "" });
+        AssertStatus(HttpStatusCode.Created, workspaceGroup);
+        var workspaceGroupId = (await JsonAsync(workspaceGroup)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/groups/{workspaceGroupId}/members/{memberId}"));
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/roles/{workspaceRoleId}/groups/{workspaceGroupId}"));
+
+        var orgReview = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{memberId}/access-review?scope=organization&organizationId={organizationId}"));
+        Assert.Equal("organization", orgReview.GetProperty("scope").GetString());
+        Assert.Contains(orgReview.GetProperty("groups").EnumerateArray(), item => item.GetProperty("scope").GetString() == "organization" && item.GetProperty("name").GetString() == "Support users");
+        Assert.Equal("allowed", orgReview.GetProperty("permissions").EnumerateArray().Single(item => item.GetProperty("key").GetString() == "support.access").GetProperty("outcome").GetString());
+
+        var workspaceReview = await JsonAsync(await admin.GetAsync($"/api/v1/admin/users/{memberId}/access-review?scope=workspace&organizationId={organizationId}&workspaceId={workspaceId}"));
+        Assert.Equal("workspace", workspaceReview.GetProperty("scope").GetString());
+        Assert.Contains(workspaceReview.GetProperty("groups").EnumerateArray(), item => item.GetProperty("scope").GetString() == "workspace" && item.GetProperty("name").GetString() == "Channel team");
+        Assert.Equal("allowed", workspaceReview.GetProperty("permissions").EnumerateArray().Single(item => item.GetProperty("key").GetString() == "channels.create").GetProperty("outcome").GetString());
+    }
+
     [Theory]
     [MemberData(nameof(Providers))]
     public async Task Only_permitted_roles_reach_the_administration_and_role_changes_apply_at_once(string provider)
@@ -32,7 +173,7 @@ public sealed class AdministrationTests
         await GrantAsync(api, adminId, Roles.InstallationAdministrator);
 
         string[] reads = ["/api/v1/admin/overview", "/api/v1/admin/settings", "/api/v1/admin/providers", "/api/v1/admin/users", "/api/v1/admin/roles",
-            "/api/v1/admin/organizations", "/api/v1/admin/audit"];
+            "/api/v1/admin/permissions/catalog", "/api/v1/admin/organizations", "/api/v1/admin/audit"];
         using var anonymous = api.CreateHttpsClient();
         foreach (var path in reads)
         {
@@ -64,6 +205,11 @@ public sealed class AdministrationTests
         var roles = await JsonAsync(await admin.GetAsync("/api/v1/admin/roles"));
         var adminRole = roles.EnumerateArray().Single(r => r.GetProperty("name").GetString() == "InstallationAdministrator");
         Assert.Equal(1, adminRole.GetProperty("members").GetInt32());
+
+        var catalog = await JsonAsync(await admin.GetAsync("/api/v1/admin/permissions/catalog"));
+        var privateChatPermission = catalog.EnumerateArray().Single(p => p.GetProperty("key").GetString() == "private_chats.use");
+        Assert.Equal(("organization", "implemented"), (privateChatPermission.GetProperty("scope").GetString(), privateChatPermission.GetProperty("state").GetString()));
+        Assert.Equal(HttpStatusCode.Forbidden, (await ana.GetAsync("/api/v1/admin/permissions/catalog")).StatusCode);
     }
 
     [Fact]
@@ -244,15 +390,63 @@ public sealed class AdministrationTests
         await GrantAsync(api, adminId, Roles.InstallationAdministrator);
         try
         {
+            var storage = await ProviderAsync(admin, "storage");
+            Assert.Equal(new[] { "Local", "S3", "AzureBlob" }, storage["Storage:Provider"].GetProperty("choices").EnumerateArray().Select(x => x.GetString()).ToArray());
+            var savedStorage = await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/storage", new
+            {
+                values = new Dictionary<string, object?>
+                {
+                    ["Storage:Provider"] = "AzureBlob",
+                    ["Storage:AzureBlob:ConnectionString"] = "UseDevelopmentStorage=true",
+                    ["Storage:AzureBlob:Container"] = "chatx-files",
+                },
+            });
+            AssertStatus(HttpStatusCode.OK, savedStorage, await savedStorage.Content.ReadAsStringAsync(Ct));
+            Assert.True((await JsonAsync(savedStorage)).GetProperty("restartRequired").GetBoolean());
+            Assert.DoesNotContain("UseDevelopmentStorage", await savedStorage.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
+            var queue = await ProviderAsync(admin, "queue");
+            Assert.Equal("Database", queue["SupportQueue:Provider"].GetProperty("value").GetString());
+            Assert.Equal(new[] { "Database", "Redis" }, queue["SupportQueue:Provider"].GetProperty("choices").EnumerateArray().Select(x => x.GetString()).ToArray());
+
+            // Redis cannot be selected until its connection is configured; validation must not write a partial settings file.
+            var settingsBeforeMissingRedis = File.Exists(settingsFile) ? await File.ReadAllBytesAsync(settingsFile, Ct) : null;
+            var missingRedis = await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/queue", new
+            {
+                values = new Dictionary<string, object?> { ["SupportQueue:Provider"] = "Redis" },
+            });
+            Assert.Equal("settings_invalid", await ErrorCodeAsync(missingRedis));
+            if (settingsBeforeMissingRedis is null)
+            {
+                Assert.False(File.Exists(settingsFile));
+            }
+            else
+            {
+                Assert.Equal(settingsBeforeMissingRedis, await File.ReadAllBytesAsync(settingsFile, Ct));
+            }
+
+            var savedQueue = await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/queue", new
+            {
+                values = new Dictionary<string, object?>
+                {
+                    ["SupportQueue:Provider"] = "Redis",
+                    ["SupportQueue:Redis:ConnectionString"] = "localhost:6379,password=redis-secret",
+                },
+            });
+            AssertStatus(HttpStatusCode.OK, savedQueue, await savedQueue.Content.ReadAsStringAsync(Ct));
+            Assert.True((await JsonAsync(savedQueue)).GetProperty("restartRequired").GetBoolean());
+            Assert.DoesNotContain("redis-secret", await savedQueue.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+
             var email = await ProviderAsync(admin, "email");
             Assert.True(email["Email:Smtp:Host"].GetProperty("locked").GetBoolean());
             Assert.Equal("setting_locked", await FieldErrorAsync(await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/email",
                 new { values = new Dictionary<string, object> { ["Email:Smtp:Host"] = "other.test" } }), "Email:Smtp:Host"));
 
             // Postmark without a server token fails the startup rules; nothing is written.
+            var settingsBeforeInvalidEmail = await File.ReadAllBytesAsync(settingsFile, Ct);
             var invalid = await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/email", new { values = new Dictionary<string, object?> { ["Email:Provider"] = "Postmark" } });
             Assert.Equal("settings_invalid", await ErrorCodeAsync(invalid));
-            Assert.False(File.Exists(settingsFile));
+            Assert.Equal(settingsBeforeInvalidEmail, await File.ReadAllBytesAsync(settingsFile, Ct));
 
             var saved = await admin.SendAsync(HttpMethod.Put, "/api/v1/admin/providers/email", new
             {
@@ -282,6 +476,7 @@ public sealed class AdministrationTests
 
             var overview = await JsonAsync(await admin.GetAsync("/api/v1/admin/overview"));
             Assert.Contains("email", overview.GetProperty("restartRequiredFor").EnumerateArray().Select(e => e.GetString()));
+            Assert.Contains("queue", overview.GetProperty("restartRequiredFor").EnumerateArray().Select(e => e.GetString()));
 
             var audit = await admin.GetAsync("/api/v1/admin/audit?action=admin.provider.");
             var auditText = await audit.Content.ReadAsStringAsync(Ct);

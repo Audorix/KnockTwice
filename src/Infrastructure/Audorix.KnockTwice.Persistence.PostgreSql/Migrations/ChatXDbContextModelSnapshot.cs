@@ -227,6 +227,11 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("storage_key");
 
+                    b.Property<string>("StorageProvider")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("storage_provider");
+
                     b.HasKey("Id")
                         .HasName("pk_attachments");
 
@@ -252,6 +257,207 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
 
                             t.HasCheckConstraint("ck_attachments_size", "size >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organization_id");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("scope");
+
+                    b.Property<Guid?>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_access_groups");
+
+                    b.HasIndex("OrganizationId")
+                        .HasDatabaseName("ix_access_groups_organization_id");
+
+                    b.HasIndex("WorkspaceId")
+                        .HasDatabaseName("ix_access_groups_workspace_id");
+
+                    b.HasIndex("Scope", "OrganizationId", "WorkspaceId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_access_groups_scope_organization_id_workspace_id_normalized~");
+
+                    b.ToTable("access_groups", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessGroupMember", b =>
+                {
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("AddedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("added_at_utc");
+
+                    b.Property<Guid>("AddedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("added_by_user_id");
+
+                    b.HasKey("GroupId", "UserId")
+                        .HasName("pk_access_group_members");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_access_group_members_user_id");
+
+                    b.ToTable("access_group_members", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid?>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organization_id");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("scope");
+
+                    b.Property<Guid?>("WorkspaceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("workspace_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_access_roles");
+
+                    b.HasIndex("OrganizationId")
+                        .HasDatabaseName("ix_access_roles_organization_id");
+
+                    b.HasIndex("WorkspaceId")
+                        .HasDatabaseName("ix_access_roles_workspace_id");
+
+                    b.HasIndex("Scope", "OrganizationId", "WorkspaceId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_access_roles_scope_organization_id_workspace_id_normalized_~");
+
+                    b.ToTable("access_roles", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRoleGrant", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("role_id");
+
+                    b.Property<string>("PermissionKey")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("permission_key");
+
+                    b.Property<string>("Effect")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("effect");
+
+                    b.HasKey("RoleId", "PermissionKey")
+                        .HasName("pk_access_role_permissions");
+
+                    b.ToTable("access_role_permissions", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRoleGroupAssignment", b =>
+                {
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("role_id");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<DateTimeOffset>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at_utc");
+
+                    b.Property<Guid>("AssignedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("assigned_by_user_id");
+
+                    b.HasKey("RoleId", "GroupId")
+                        .HasName("pk_access_role_groups");
+
+                    b.HasIndex("GroupId")
+                        .HasDatabaseName("ix_access_role_groups_group_id");
+
+                    b.ToTable("access_role_groups", (string)null);
                 });
 
             modelBuilder.Entity("Audorix.KnockTwice.Domain.Contacts.Contact", b =>
@@ -1358,6 +1564,12 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<bool>("AutomaticEnrollmentEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("automatic_enrollment_enabled");
+
                     b.Property<string>("BannerContentType")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
@@ -1418,6 +1630,27 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("photo_version");
 
+                    b.Property<bool>("PrivateChatsRequireSharedTeam")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("private_chats_require_shared_team");
+
+                    b.Property<string>("ProtectedSsoClientSecret")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("protected_sso_client_secret");
+
+                    b.Property<string>("SsoClientId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("sso_client_id");
+
+                    b.Property<string>("SsoIssuer")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("sso_issuer");
+
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at_utc");
@@ -1436,6 +1669,10 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<DateTime>("AccessExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("access_expires_at_utc");
 
                     b.Property<Guid>("InvitedByUserId")
                         .HasColumnType("uuid")
@@ -1674,6 +1911,49 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                     b.ToTable("team_members", (string)null);
                 });
 
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Organizations.VerifiedOrganizationDomain", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Domain")
+                        .IsRequired()
+                        .HasMaxLength(253)
+                        .HasColumnType("character varying(253)")
+                        .HasColumnName("domain");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organization_id");
+
+                    b.Property<string>("VerificationToken")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("verification_token");
+
+                    b.Property<DateTimeOffset?>("VerifiedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("verified_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_organization_domains");
+
+                    b.HasIndex("Domain")
+                        .IsUnique()
+                        .HasDatabaseName("ix_organization_domains_domain");
+
+                    b.HasIndex("OrganizationId")
+                        .HasDatabaseName("ix_organization_domains_organization_id");
+
+                    b.ToTable("organization_domains", (string)null);
+                });
+
             modelBuilder.Entity("Audorix.KnockTwice.Domain.Organizations.Workspace", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1870,6 +2150,16 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("email_notifications");
+
+                    b.Property<string>("GeneratedAvatarSeed")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("generated_avatar_seed");
+
+                    b.Property<string>("GeneratedAvatarStyle")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("generated_avatar_style");
 
                     b.Property<string>("Handle")
                         .HasMaxLength(30)
@@ -2323,6 +2613,145 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.AttachmentStorageMigrationFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AttachmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("attachment_id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<long>("AvailableAtTicks")
+                        .HasColumnType("bigint")
+                        .HasColumnName("available_at_ticks");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset?>("CopiedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("copied_at_utc");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("file_name");
+
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<long?>("LeaseExpiresAtTicks")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lease_expires_at_ticks");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.Property<long>("Size")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("storage_key");
+
+                    b.HasKey("Id")
+                        .HasName("pk_attachment_storage_migration_files");
+
+                    b.HasIndex("AttachmentId")
+                        .HasDatabaseName("ix_attachment_storage_migration_files_attachment");
+
+                    b.HasIndex("JobId", "State", "AvailableAtTicks")
+                        .HasDatabaseName("ix_attachment_storage_migration_files_claim");
+
+                    b.ToTable("attachment_storage_migration_files", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.AttachmentStorageMigrationJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("DestinationProvider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("destination_provider");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<long?>("LeaseExpiresAtTicks")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lease_expires_at_ticks");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<string>("SourceProvider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("source_provider");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_attachment_storage_migration_jobs");
+
+                    b.HasIndex("State", "LeaseExpiresAtTicks")
+                        .HasDatabaseName("ix_attachment_storage_migration_jobs_claim");
+
+                    b.ToTable("attachment_storage_migration_jobs", (string)null);
+                });
+
             modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.ChangeLogItem", b =>
                 {
                     b.Property<long>("Id")
@@ -2354,6 +2783,144 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasDatabaseName("ix_change_log_conversation_id_id");
 
                     b.ToTable("change_log", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.StoredMessageTranslation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("message_id");
+
+                    b.Property<string>("OriginalText")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("original_text");
+
+                    b.Property<string>("SourceSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("source_sha256");
+
+                    b.Property<string>("TargetLanguage")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("target_language");
+
+                    b.Property<string>("TranslatedText")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("translated_text");
+
+                    b.HasKey("Id")
+                        .HasName("pk_message_translations");
+
+                    b.HasIndex("ConversationId", "MessageId")
+                        .HasDatabaseName("ix_message_translations_conversation_id_message_id");
+
+                    b.HasIndex("MessageId", "TargetLanguage", "SourceSha256")
+                        .IsUnique()
+                        .HasDatabaseName("ux_message_translations_message_language_source");
+
+                    b.ToTable("message_translations", (string)null);
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.SupportRoutingOutboxItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempt_count");
+
+                    b.Property<long>("AvailableAtTicks")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("available_at_ticks");
+
+                    b.Property<DateTimeOffset>("AvailableAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("available_at_utc");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("conversation_id");
+
+                    b.Property<DateTimeOffset?>("DeadLetteredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("dead_lettered_at_utc");
+
+                    b.Property<long>("EnqueuedAtTicks")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(0L)
+                        .HasColumnName("enqueued_at_ticks");
+
+                    b.Property<DateTimeOffset>("EnqueuedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enqueued_at_utc");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("event_type");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<long?>("LeaseExpiresAtTicks")
+                        .HasColumnType("bigint")
+                        .HasColumnName("lease_expires_at_ticks");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lease_expires_at_utc");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uuid")
+                        .HasColumnName("lease_token");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organization_id");
+
+                    b.Property<DateTimeOffset?>("PublishedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at_utc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_support_routing_outbox");
+
+                    b.HasIndex("OrganizationId", "ConversationId", "EnqueuedAtUtc")
+                        .HasDatabaseName("ix_support_routing_outbox_conversation");
+
+                    b.HasIndex("CompletedAtUtc", "DeadLetteredAtUtc", "PublishedAtUtc", "AvailableAtTicks", "LeaseExpiresAtTicks")
+                        .HasDatabaseName("ix_support_routing_outbox_delivery");
+
+                    b.ToTable("support_routing_outbox", (string)null);
                 });
 
             modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Search.MessageSearchRow", b =>
@@ -2611,6 +3178,80 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasPrincipalKey("ConversationId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_attachments_conversation_events_conversation_id_message_ent~");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessGroup", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_access_groups_organizations_organization_id");
+
+                    b.HasOne("Audorix.KnockTwice.Domain.Organizations.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_access_groups_workspaces_workspace_id");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessGroupMember", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Authorization.AccessGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_access_group_members_access_groups_group_id");
+
+                    b.HasOne("Audorix.KnockTwice.Infrastructure.Identity.ChatXUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_access_group_members_users_user_id");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRole", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_access_roles_organizations_organization_id");
+
+                    b.HasOne("Audorix.KnockTwice.Domain.Organizations.Workspace", null)
+                        .WithMany()
+                        .HasForeignKey("WorkspaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_access_roles_workspaces_workspace_id");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRoleGrant", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Authorization.AccessRole", null)
+                        .WithMany("Permissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_access_role_permissions_access_roles_role_id");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRoleGroupAssignment", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Authorization.AccessGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_access_role_groups_access_groups_group_id");
+
+                    b.HasOne("Audorix.KnockTwice.Domain.Authorization.AccessRole", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_access_role_groups_access_roles_role_id");
                 });
 
             modelBuilder.Entity("Audorix.KnockTwice.Domain.Contacts.Contact", b =>
@@ -3076,6 +3717,16 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasConstraintName("fk_team_members_workspace_members_workspace_id_user_id");
                 });
 
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Organizations.VerifiedOrganizationDomain", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_domains_organizations_organization_id");
+                });
+
             modelBuilder.Entity("Audorix.KnockTwice.Domain.Organizations.Workspace", b =>
                 {
                     b.HasOne("Audorix.KnockTwice.Domain.Organizations.Organization", null)
@@ -3196,6 +3847,27 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .HasConstraintName("fk_widget_responders_widgets_widget_id");
                 });
 
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.AttachmentStorageMigrationFile", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Infrastructure.Persistence.AttachmentStorageMigrationJob", null)
+                        .WithMany()
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_attachment_storage_migration_files_attachment_storage_migra~");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Infrastructure.Persistence.StoredMessageTranslation", b =>
+                {
+                    b.HasOne("Audorix.KnockTwice.Domain.Conversations.ConversationEvent", null)
+                        .WithMany()
+                        .HasForeignKey("ConversationId", "MessageId")
+                        .HasPrincipalKey("ConversationId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_message_translations_conversation_events_conversation_id_me~");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Audorix.KnockTwice.Infrastructure.Identity.ChatXRole", null)
@@ -3251,6 +3923,11 @@ namespace Audorix.KnockTwice.Persistence.PostgreSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("Audorix.KnockTwice.Domain.Authorization.AccessRole", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 #pragma warning restore 612, 618
         }

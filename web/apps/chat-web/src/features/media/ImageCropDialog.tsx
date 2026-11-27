@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { trapTab } from '../../shared/components/ConfirmDialog';
 import { FormAlert } from '../../shared/components/Field';
@@ -49,6 +49,7 @@ export interface ImageCropOptions {
   /** Defaults to the profile photo wording. */
   saveLabel?: string;
   currentLabel?: string;
+  modeSwitcher?: ReactNode;
 }
 
 /**
@@ -276,6 +277,7 @@ export function ImageCropDialog({ options, onClose }: { options: ImageCropOption
             <NavIcon name="close" size={20} />
           </button>
         </header>
+        {options.modeSwitcher}
 
         <div className="cx-photo-body">
           <div className="cx-photo-editor">

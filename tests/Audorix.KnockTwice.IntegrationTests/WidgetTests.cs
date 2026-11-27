@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using Audorix.KnockTwice.Application.Conversations;
 using Audorix.KnockTwice.Application.Widgets;
 using Audorix.KnockTwice.Contracts.V1.Realtime;
 using Audorix.KnockTwice.Infrastructure.Persistence;
@@ -12,6 +13,8 @@ using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using StackExchange.Redis;
 using static Audorix.KnockTwice.IntegrationTests.Support.ApiSession;
 using static Audorix.KnockTwice.IntegrationTests.Support.TestUsers;
 
@@ -78,15 +81,31 @@ public sealed class WidgetTests
         AssertStatus(HttpStatusCode.Created, first, await first.Content.ReadAsStringAsync(Ct));
         Assert.Equal(HttpStatusCode.OK, (await visitor.PostAsJsonAsync("/api/v1/widget/visitor/messages", new { clientMessageId = "v1", body = "Is this in stock?" }, Ct)).StatusCode);
 
+        // The case event is committed with the case/message update so a queue relay can recover it after a restart.
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var routingWork = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportRoutingOutbox
+                .AsNoTracking().Where(item => item.OrganizationId == organizationId).ToListAsync(Ct);
+            Assert.Contains(routingWork, item => item.EventType == "case.created");
+        }
+        await WaitForRoutingOutboxAsync(api, organizationId);
+
         // The responder sees a website conversation in the normal list and answers there.
         var benList = await JsonAsync(await ben.GetAsync("/api/v1/conversations"));
         var website = benList.EnumerateArray().Single();
         Assert.Equal(("website", "organization"), (website.GetProperty("type").GetString(), website.GetProperty("scope").GetString()));
         var conversationId = website.GetProperty("id").GetGuid();
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var routingWork = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportRoutingOutbox
+                .AsNoTracking().Where(item => item.ConversationId == conversationId).ToListAsync(Ct);
+            Assert.Contains(routingWork, item => item.EventType == "case.changed");
+        }
         Assert.Empty((await JsonAsync(await carl.GetAsync("/api/v1/conversations"))).EnumerateArray());
         Assert.Equal("conversation_not_found", await ErrorCodeAsync(await carl.GetAsync($"/api/v1/conversations/{conversationId}/history")));
 
         AssertStatus(HttpStatusCode.Created, await ben.PostAsync($"/api/v1/conversations/{conversationId}/messages", new { clientMessageId = "b1", body = "Yes, two left." }));
+        await WaitForRoutingOutboxAsync(api, organizationId);
         // Delivery is at least once (outbox retries), so wait for the reply rather than count events.
         Assert.Equal(conversationId, (await visitorHub.NextMessageAsync("Yes, two left.")).ConversationId);
 
@@ -126,6 +145,181 @@ public sealed class WidgetTests
 
         // The organization keeps the conversation.
         Assert.Equal(conversationId, (await JsonAsync(await ben.GetAsync("/api/v1/conversations"))).EnumerateArray().Single().GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task Redis_provider_relays_and_completes_support_routing_work()
+    {
+        var redisConnection = Environment.GetEnvironmentVariable("CHATX_TEST_REDIS");
+        if (string.IsNullOrWhiteSpace(redisConnection))
+        {
+            Assert.Skip("Set CHATX_TEST_REDIS to a Redis endpoint (for example, a local Redis Docker container) to run this integration test.");
+        }
+
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        var notifier = new ScriptedSupportRoutingNotifier();
+        var streamPrefix = "chatx-test-" + Guid.NewGuid().ToString("N");
+        await using var api = await StartAsync(db, new()
+        {
+            ["SupportQueue:Provider"] = "Redis",
+            ["SupportQueue:Redis:ConnectionString"] = redisConnection,
+            ["SupportQueue:Redis:StreamPrefix"] = streamPrefix,
+            ["SupportQueue:PollInterval"] = "00:00:00.100",
+        }, services => ReplaceNotifier(services, notifier));
+        var (owner, ownerId) = await SignedInAsync(api, "redis-owner@example.org", "Redis owner");
+        using var _1 = owner;
+        var organizationId = await CreateOrganizationAsync(owner);
+        var (widgetId, _) = await CreateWidgetAsync(owner, organizationId, responders: [ownerId]);
+        using var browser = api.CreateHttpsClient();
+        using var visitor = VisitorClient(api, await StartSessionAsync(browser, widgetId));
+        AssertStatus(HttpStatusCode.Created, await visitor.PostAsJsonAsync("/api/v1/widget/visitor/messages",
+            new { clientMessageId = "redis-case", body = "Please route this case." }, Ct));
+
+        await WaitForRoutingOutboxAsync(api, organizationId);
+        await using var scope = api.Services.CreateAsyncScope();
+        var completedItems = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportRoutingOutbox
+            .AsNoTracking().Where(item => item.OrganizationId == organizationId)
+            .ToListAsync(Ct);
+        Assert.NotEmpty(completedItems);
+        Assert.All(completedItems, item =>
+        {
+            Assert.NotNull(item.PublishedAtUtc);
+            Assert.NotNull(item.CompletedAtUtc);
+            Assert.Null(item.DeadLetteredAtUtc);
+        });
+
+        // Deliver the same stable work ID again. A completed database row makes this duplicate a
+        // no-op, and the Redis consumer group acknowledges it without notifying staff twice.
+        var initialNotifications = notifier.CallCount;
+        var completedWork = completedItems[0];
+        var stream = (RedisKey)$"{streamPrefix}:routing";
+        using var redis = await ConnectionMultiplexer.ConnectAsync(redisConnection);
+        var redisDb = redis.GetDatabase();
+        var duplicateStreamId = await redisDb.StreamAddAsync(stream,
+        [
+            new NameValueEntry("workId", completedWork.Id.ToString("N")),
+            new NameValueEntry("organizationId", completedWork.OrganizationId.ToString("N")),
+            new NameValueEntry("conversationId", completedWork.ConversationId.ToString("N")),
+            new NameValueEntry("eventType", completedWork.EventType),
+            new NameValueEntry("enqueuedAtUtc", completedWork.EnqueuedAtUtc.ToString("O")),
+        ]).WaitAsync(Ct);
+
+        await WaitUntilAsync(async () =>
+        {
+            var group = (await redisDb.StreamGroupInfoAsync(stream).WaitAsync(Ct))
+                .Single(item => item.Name == "support-routing-v1");
+            return group.LastDeliveredId == duplicateStreamId && group.PendingMessageCount == 0;
+        }, TimeSpan.FromSeconds(10));
+        Assert.Equal(initialNotifications, notifier.CallCount);
+    }
+
+    [Fact]
+    public async Task Database_provider_retries_a_transient_routing_failure()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        var notifier = new ScriptedSupportRoutingNotifier(failures: 1);
+        await using var api = await StartAsync(db, new()
+        {
+            ["SupportQueue:PollInterval"] = "00:00:00.100",
+            ["SupportQueue:MaxAttempts"] = "3",
+        }, services => ReplaceNotifier(services, notifier));
+
+        var (organizationId, workId) = await CreateSupportConversationAsync(api, "retry");
+        var item = await WaitForRoutingItemAsync(api, workId, x => x.CompletedAtUtc is not null || x.DeadLetteredAtUtc is not null,
+            TimeSpan.FromSeconds(15));
+
+        Assert.NotNull(item.CompletedAtUtc);
+        Assert.Null(item.DeadLetteredAtUtc);
+        Assert.Equal(2, item.AttemptCount);
+        Assert.Null(item.LastError);
+        Assert.True(notifier.CallCount >= 2);
+        Assert.Equal(organizationId, item.OrganizationId);
+    }
+
+    [Fact]
+    public async Task Database_provider_dead_letters_work_after_attempt_limit()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        var notifier = new ScriptedSupportRoutingNotifier(failures: int.MaxValue);
+        await using var api = await StartAsync(db, new()
+        {
+            ["SupportQueue:PollInterval"] = "00:00:00.100",
+            ["SupportQueue:MaxAttempts"] = "1",
+        }, services => ReplaceNotifier(services, notifier));
+
+        var (_, workId) = await CreateSupportConversationAsync(api, "dead-letter");
+        var item = await WaitForRoutingItemAsync(api, workId, x => x.DeadLetteredAtUtc is not null,
+            TimeSpan.FromSeconds(10));
+
+        Assert.Null(item.CompletedAtUtc);
+        Assert.NotNull(item.DeadLetteredAtUtc);
+        Assert.Equal(1, item.AttemptCount);
+        Assert.Contains("simulated routing failure", item.LastError, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Redis_provider_reclaims_work_left_pending_by_a_crashed_consumer()
+    {
+        var redisConnection = Environment.GetEnvironmentVariable("CHATX_TEST_REDIS");
+        if (string.IsNullOrWhiteSpace(redisConnection))
+        {
+            Assert.Skip("Set CHATX_TEST_REDIS to a Redis endpoint (for example, a local Redis Docker container) to run this integration test.");
+        }
+
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        var streamPrefix = "chatx-recovery-" + Guid.NewGuid().ToString("N");
+        await using var api = await StartAsync(db, new()
+        {
+            ["SupportQueue:Provider"] = "Redis",
+            ["SupportQueue:Redis:ConnectionString"] = redisConnection,
+            ["SupportQueue:Redis:StreamPrefix"] = streamPrefix,
+            ["SupportQueue:PollInterval"] = "00:00:00.100",
+            ["SupportQueue:LeaseDuration"] = "00:00:05",
+        });
+        var (organizationId, workId) = await CreateSupportConversationAsync(api, "recovery");
+        await WaitForRoutingItemAsync(api, workId, item => item.CompletedAtUtc is not null, TimeSpan.FromSeconds(15));
+
+        Guid conversationId;
+        var recoveryWorkId = Guid.Empty;
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<ChatXDbContext>();
+            conversationId = await dbContext.SupportRoutingOutbox.AsNoTracking()
+                .Where(item => item.Id == workId).Select(item => item.ConversationId).SingleAsync(Ct);
+            var now = DateTimeOffset.UtcNow;
+            recoveryWorkId = Guid.CreateVersion7(now);
+            dbContext.SupportRoutingOutbox.Add(new SupportRoutingOutboxItem
+            {
+                Id = recoveryWorkId,
+                OrganizationId = organizationId,
+                ConversationId = conversationId,
+                EventType = "case.changed",
+                EnqueuedAtUtc = now,
+                EnqueuedAtTicks = now.UtcTicks,
+                AvailableAtUtc = now,
+                AvailableAtTicks = now.UtcTicks,
+                PublishedAtUtc = now,
+            });
+            await dbContext.SaveChangesAsync(Ct);
+        }
+
+        var stream = (RedisKey)$"{streamPrefix}:routing";
+        using var redis = await ConnectionMultiplexer.ConnectAsync(redisConnection);
+        var redisDb = redis.GetDatabase();
+        // Create and deliver the message to a simulated crashed consumer atomically, before the
+        // live worker can read it as a new message.
+        await redisDb.ScriptEvaluateAsync(
+            "local id=redis.call('XADD',KEYS[1],'*','workId',ARGV[1],'organizationId',ARGV[2],'conversationId',ARGV[3],'eventType',ARGV[4],'enqueuedAtUtc',ARGV[5]); redis.call('XREADGROUP','GROUP',ARGV[6],ARGV[7],'COUNT','1','STREAMS',KEYS[1],'>'); return id;",
+            [stream],
+            [recoveryWorkId.ToString("N"), organizationId.ToString("N"), conversationId.ToString("N"), "case.changed", DateTimeOffset.UtcNow.ToString("O"), "support-routing-v1", "crashed-consumer"])
+            .WaitAsync(Ct);
+
+        var recovered = await WaitForRoutingItemAsync(api, recoveryWorkId, item => item.CompletedAtUtc is not null,
+            TimeSpan.FromSeconds(20));
+        Assert.NotNull(recovered.CompletedAtUtc);
+        Assert.Null(recovered.DeadLetteredAtUtc);
+        Assert.True(recovered.AttemptCount >= 1);
+        Assert.Equal(0, (await redisDb.StreamPendingAsync(stream, "support-routing-v1").WaitAsync(Ct)).PendingMessageCount);
     }
 
     [Theory]
@@ -298,6 +492,101 @@ public sealed class WidgetTests
         file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
         form.Add(file, "file", fileName);
         return await client.PostAsync(path, form, Ct);
+    }
+
+    private static async Task WaitForRoutingOutboxAsync(ChatXApiFactory api, Guid organizationId)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(10));
+        while (!timeout.IsCancellationRequested)
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<ChatXDbContext>();
+            var events = await db.SupportRoutingOutbox.AsNoTracking()
+                .Where(item => item.OrganizationId == organizationId).ToListAsync(timeout.Token);
+            if (events.Count > 0 && events.All(item => item.CompletedAtUtc is not null)) return;
+            await Task.Delay(TimeSpan.FromMilliseconds(100), timeout.Token);
+        }
+
+        Assert.Fail("Support routing outbox events were not completed by the Database provider worker.");
+    }
+
+    private static async Task<(Guid OrganizationId, Guid WorkId)> CreateSupportConversationAsync(ChatXApiFactory api, string suffix)
+    {
+        var (owner, ownerId) = await SignedInAsync(api, $"queue-{suffix}@example.org", "Queue owner");
+        using (owner)
+        {
+            var organizationId = await CreateOrganizationAsync(owner);
+            var (widgetId, _) = await CreateWidgetAsync(owner, organizationId, responders: [ownerId]);
+            using var browser = api.CreateHttpsClient();
+            using var visitor = VisitorClient(api, await StartSessionAsync(browser, widgetId));
+            AssertStatus(HttpStatusCode.Created, await visitor.PostAsJsonAsync("/api/v1/widget/visitor/messages",
+                new { clientMessageId = "queue-case", body = "Please route this case." }, Ct));
+
+            await using var scope = api.Services.CreateAsyncScope();
+            var item = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportRoutingOutbox
+                .AsNoTracking().Where(x => x.OrganizationId == organizationId && x.EventType == "case.created")
+                .OrderBy(x => x.EnqueuedAtTicks).FirstAsync(Ct);
+            return (organizationId, item.Id);
+        }
+    }
+
+    private static void ReplaceNotifier(IServiceCollection services, ISupportRoutingNotifier notifier)
+    {
+        services.RemoveAll<ISupportRoutingNotifier>();
+        services.AddSingleton<ISupportRoutingNotifier>(notifier);
+    }
+
+    private static async Task<SupportRoutingOutboxItem> WaitForRoutingItemAsync(
+        ChatXApiFactory api,
+        Guid workId,
+        Func<SupportRoutingOutboxItem, bool> complete,
+        TimeSpan timeout)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        cancellation.CancelAfter(timeout);
+        while (!cancellation.IsCancellationRequested)
+        {
+            await using var scope = api.Services.CreateAsyncScope();
+            var item = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().SupportRoutingOutbox
+                .AsNoTracking().SingleAsync(x => x.Id == workId, cancellation.Token);
+            if (complete(item)) return item;
+            await Task.Delay(50, cancellation.Token);
+        }
+
+        Assert.Fail($"Support routing work {workId} did not reach the expected state.");
+        throw new InvalidOperationException("Unreachable after assertion failure.");
+    }
+
+    private static async Task WaitUntilAsync(Func<Task<bool>> predicate, TimeSpan timeout)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        cancellation.CancelAfter(timeout);
+        while (!cancellation.IsCancellationRequested)
+        {
+            if (await predicate()) return;
+            await Task.Delay(50, cancellation.Token);
+        }
+
+        Assert.Fail("Condition was not met before timeout.");
+    }
+
+    private sealed class ScriptedSupportRoutingNotifier(int failures = 0) : ISupportRoutingNotifier
+    {
+        private int _callCount;
+
+        public int CallCount => Volatile.Read(ref _callCount);
+
+        public Task NotifySupportRoutingAsync(Guid conversationId, CancellationToken cancellationToken)
+        {
+            var attempt = Interlocked.Increment(ref _callCount);
+            if (attempt <= failures)
+            {
+                throw new InvalidOperationException("simulated routing failure");
+            }
+
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>An "alg: none" token: must never be accepted.</summary>

@@ -4,6 +4,7 @@ using Audorix.KnockTwice.Application.Installations;
 using Audorix.KnockTwice.Application.Sessions;
 using Audorix.KnockTwice.Application.Users;
 using Audorix.KnockTwice.Infrastructure.Captcha;
+using Audorix.KnockTwice.Infrastructure.AI;
 using Audorix.KnockTwice.Infrastructure.Email;
 using Audorix.KnockTwice.Infrastructure.Identity;
 using Audorix.KnockTwice.Infrastructure.Persistence;
@@ -52,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<ISessionStore, EfSessionStore>();
         services.AddScoped<IUserAccountManager, IdentityUserAccountManager>();
         services.AddScoped<Application.Organizations.IOrganizationStore, EfOrganizationStore>();
+        services.AddSingleton<Application.Organizations.IDomainTxtRecordLookup, SystemDnsTxtRecordLookup>();
         services.AddScoped<Application.Contacts.IContactStore, EfContactStore>();
         services.AddScoped<IUserDirectory, EfUserDirectory>();
         services.AddScoped<Application.Realtime.IPresenceAudience, EfPresenceAudience>();
@@ -63,9 +65,13 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<Application.Attachments.IAttachmentStore, EfAttachmentStore>();
+        services.AddScoped<Application.Attachments.IStorageMigrationGate, EfStorageMigrationGate>();
         services.AddScoped<Application.Administration.IAuditStore, EfAuditStore>();
         services.AddScoped<Application.Administration.IInstallationSettingsStore, EfInstallationSettingsStore>();
         services.AddScoped<Application.Administration.IAdminDirectory, EfAdminDirectory>();
+        services.AddScoped<EfScopedAccessStore>();
+        services.AddScoped<Application.Administration.IScopedAccessStore>(sp => sp.GetRequiredService<EfScopedAccessStore>());
+        services.AddScoped<Application.Administration.IEffectivePermissionReader>(sp => sp.GetRequiredService<EfScopedAccessStore>());
         services.AddScoped<Application.Identity.IRegistrationInvitations, EfRegistrationInvitations>();
         services.AddScoped<Application.Widgets.IWidgetStore, EfWidgetStore>();
         services.AddScoped<IAccountErasure, EfAccountErasure>();
@@ -82,6 +88,9 @@ public static class DependencyInjection
         services.AddChatXCaptcha();
         services.AddChatXStorage();
         services.AddChatXSearch();
+        services.AddOptions<AiTranslationOptions>().BindConfiguration(AiTranslationOptions.SectionName).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<AiTranslationOptions>, AiTranslationOptionsValidator>();
+        services.AddHttpClient<Application.Translation.IMessageTranslationProvider, OpenAiCompatibleMessageTranslationProvider>();
 
         // Keys are stored in the application database so cookies and tokens survive restarts
         // and stay valid across instances that share the database (Architecture §17.7).
@@ -128,14 +137,9 @@ public static class DependencyInjection
         services.AddSingleton<IValidateOptions<StorageOptions>, StorageOptionsValidator>();
         services.AddHttpClient(S3AttachmentStorage.HttpClientName)
             .ConfigureHttpClient((sp, client) => client.Timeout = sp.GetRequiredService<IOptions<StorageOptions>>().Value.S3.Timeout);
+        services.AddSingleton<Application.Attachments.IAttachmentStorageProviderRegistry, StorageProviderRegistry>();
         services.AddSingleton<Application.Attachments.IAttachmentStorage>(sp =>
-        {
-            var options = sp.GetRequiredService<IOptions<StorageOptions>>();
-            return StorageOptions.Normalize(options.Value.Provider) == StorageOptions.S3Provider
-                ? new S3AttachmentStorage(sp.GetRequiredService<IHttpClientFactory>().CreateClient(S3AttachmentStorage.HttpClientName), options,
-                    sp.GetRequiredService<TimeProvider>())
-                : new LocalAttachmentStorage(Path.GetFullPath(options.Value.Local.Path));
-        });
+            sp.GetRequiredService<Application.Attachments.IAttachmentStorageProviderRegistry>().Resolve(null));
 
         services.AddOptions<ScanningOptions>().BindConfiguration(ScanningOptions.SectionName).ValidateOnStart();
         services.AddSingleton<IValidateOptions<ScanningOptions>, ScanningOptionsValidator>();

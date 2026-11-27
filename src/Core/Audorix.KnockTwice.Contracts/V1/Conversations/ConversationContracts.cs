@@ -96,6 +96,11 @@ public sealed record SetPinnedRequest(bool Pinned);
 
 public sealed record SetSavedRequest(bool Saved);
 
+/// <summary>Explicitly requests translation of one visible message; its original remains unchanged.</summary>
+public sealed record TranslateMessageRequest(string? TargetLanguage);
+
+public sealed record TranslateMessageResponse(string Translation, string TargetLanguage);
+
 /// <param name="ClientMessageId">Idempotency key of the copy in the target conversation (1-62 characters).</param>
 /// <param name="Comment">Optional text sent just before the forwarded copy.</param>
 public sealed record ForwardMessageRequest(Guid TargetConversationId, string? ClientMessageId, string? Comment);

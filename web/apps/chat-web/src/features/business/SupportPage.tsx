@@ -225,6 +225,22 @@ function Support() {
               />
             </label>
             <span className="cx-support-divider" aria-hidden="true" />
+            <button type="button" className={`cx-support-queue${assignment === 'unassigned' && tab === 'open' ? ' is-active' : ''}`}
+              aria-label={`${t('support.queue')} ${counts?.unassignedOpen ?? 0}`}
+              aria-pressed={assignment === 'unassigned' && tab === 'open'}
+              onClick={() => {
+                if (assignment === 'unassigned' && tab === 'open') setAssignment('anyone');
+                else {
+                  setTab('open');
+                  setAssignment('unassigned');
+                  setMine(false);
+                }
+              }}>
+              <NavIcon name="headset" size={16} />
+              <span>{t('support.queue')}</span>
+              <span className="cx-support-queue-count">{counts?.unassignedOpen ?? 0}</span>
+            </button>
+            <span className="cx-support-divider" aria-hidden="true" />
             <label className="visually-hidden" htmlFor="support-assignment">{t('support.assignment.label')}</label>
             <select id="support-assignment" className="form-select cx-support-select" value={assignment} onChange={(e) => setAssignment(e.target.value as Assignment)}>
               {(['anyone', 'unassigned', 'assigned'] as const).map((a) => <option key={a} value={a}>{t(`support.assignment.${a}`)}</option>)}
@@ -253,7 +269,15 @@ function Support() {
                 <ul className="list-unstyled cx-support-items mb-0">
                   {items.map((item) => (
                     <SupportListItem key={item.conversation.conversationId} item={item} selected={item.conversation.conversationId === selectedId}
-                      onOpen={() => go({ id: item.conversation.conversationId })} />
+                      onOpen={() => go({ id: item.conversation.conversationId })}
+                      onClaim={async (conversationId) => {
+                        try {
+                          await api.claimSupportConversation(conversationId);
+                          reload();
+                        } catch (err) {
+                          setError(err);
+                        }
+                      }} />
                   ))}
                 </ul>
               )}
@@ -287,14 +311,20 @@ function Support() {
   );
 }
 
-function SupportListItem({ item, selected, onOpen }: { item: SupportInboxItemResponse; selected: boolean; onOpen: () => void }) {
+function SupportListItem({ item, selected, onOpen, onClaim }: {
+  item: SupportInboxItemResponse;
+  selected: boolean;
+  onOpen: () => void;
+  onClaim: (conversationId: string) => Promise<void>;
+}) {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const [claiming, setClaiming] = useState(false);
   const c = item.conversation;
   const customer = customerOf(c.conversationId, c.visitorName);
   const at = item.lastMessage?.sentAtUtc ?? c.lastActivityAtUtc;
   return (
-    <li>
+    <li className="cx-support-list-row">
       <button type="button" className={`cx-support-item${selected ? ' is-selected' : ''}`} aria-current={selected ? 'true' : undefined} onClick={onOpen}>
         <Avatar user={customer} />
         <span className="cx-support-item-main">
@@ -319,6 +349,23 @@ function SupportListItem({ item, selected, onOpen }: { item: SupportInboxItemRes
           </span>
         </span>
       </button>
+      {c.status === 'open' && !c.assignedTo && (
+        <button
+          type="button"
+          className="cx-support-claim"
+          aria-label={t('support.claimNamed', { name: c.visitorName })}
+          disabled={claiming}
+          onClick={async (event) => {
+            event.stopPropagation();
+            setClaiming(true);
+            await onClaim(c.conversationId);
+            setClaiming(false);
+          }}
+        >
+          <NavIcon name="user" size={15} />
+          {t('support.claim')}
+        </button>
+      )}
     </li>
   );
 }

@@ -22,15 +22,20 @@ public sealed class ScaleOutSettings
     /// <summary>A StackExchange.Redis connection string (for example <c>redis:6379,password=…,ssl=true</c>). Empty: single server.</summary>
     public string Redis { get; set; } = string.Empty;
 
-    /// <summary>Prefix of every Redis key and channel, so several installations can share one Redis.</summary>
-    public string Prefix { get; set; } = "chatx";
+    /// <summary>Environment-specific prefix of every Redis key and channel. Required when scale-out is enabled.</summary>
+    public string Prefix { get; set; } = string.Empty;
 
     public bool Enabled => !string.IsNullOrWhiteSpace(Redis);
 
     public IReadOnlyList<string> Validate()
     {
         var errors = new List<string>();
-        if (string.IsNullOrWhiteSpace(Prefix) || Prefix.Length > 32 || Prefix.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
+        if (Enabled && string.IsNullOrWhiteSpace(Prefix))
+        {
+            errors.Add("ScaleOut:Prefix is required when ScaleOut:Redis is configured; use a different prefix for each environment.");
+        }
+        else if (!string.IsNullOrWhiteSpace(Prefix)
+            && (Prefix.Length > 32 || Prefix.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')))
         {
             errors.Add("ScaleOut:Prefix must be 1-32 letters, digits, '-' or '_'.");
         }

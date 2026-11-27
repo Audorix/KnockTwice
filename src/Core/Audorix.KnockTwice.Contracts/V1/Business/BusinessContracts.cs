@@ -67,7 +67,7 @@ public sealed record MyGuestInvitationResponse(
 
 public sealed record GuestChannelResponse(Guid Id, string Name);
 
-public sealed record GuestResponse(UserSummaryResponse User, DateTimeOffset JoinedAtUtc, IReadOnlyList<GuestChannelResponse> Channels);
+public sealed record GuestResponse(UserSummaryResponse User, DateTimeOffset JoinedAtUtc, DateTimeOffset AccessExpiresAtUtc, IReadOnlyList<GuestChannelResponse> Channels);
 
 public sealed record AcceptGuestInvitationResponse(Guid ConversationId);
 
@@ -103,7 +103,7 @@ public sealed record SupportPreviewResponse(string Text, bool FromCustomer, Date
 public sealed record SupportInboxItemResponse(SupportConversationResponse Conversation, string? Title, SupportPreviewResponse? LastMessage);
 
 /// <summary>Conversations per status under the other filters (assignment, search).</summary>
-public sealed record SupportInboxCountsResponse(int Open, int Pending, int Closed, int All);
+public sealed record SupportInboxCountsResponse(int Open, int Pending, int Closed, int All, int UnassignedOpen = 0);
 
 public sealed record SupportInboxPageResponse(IReadOnlyList<SupportInboxItemResponse> Items, int Total, SupportInboxCountsResponse Counts);
 

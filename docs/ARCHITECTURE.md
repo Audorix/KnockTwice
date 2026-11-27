@@ -33,7 +33,7 @@ flowchart TD
   App --> Domain["Domain rules"]
   App --> Ports["Provider interfaces"]
   Ports --> DB["SQLite or PostgreSQL"]
-  Ports --> Files["Local or S3 storage"]
+  Ports --> Files["Local, S3-compatible, or Azure Blob storage"]
   Ports --> RT["SignalR publisher"]
 ```
 
@@ -279,6 +279,27 @@ Failed publication must be retried.
 
 Event processing must be idempotent.
 
+### 7.4 Support routing queue providers
+
+Support conversations and visitor messages remain persisted in the relational database. A queue
+provider transports routing work; it does not own or replace case history.
+
+- Define an application-owned queue contract so routing and assignment rules do not depend on a
+  broker SDK.
+- `Database` is the default provider. It stores durable, leased work items in the configured
+  SQLite or PostgreSQL database and supports retry after worker restart.
+- `Redis` is an optional provider, implemented with Redis Streams and consumer groups so work can be
+  acknowledged after processing and recovered after consumer failure.
+- Write a routing outbox record in the same transaction that creates or updates the case. When Redis
+  is selected, publish from that outbox and mark delivery only after Redis accepts the item; consumers
+  use a stable work-item ID to make retries idempotent.
+- Apply bounded retries, visibility leases, and observable failed-item handling. Do not silently
+  drop a case when a broker is unavailable.
+- Keep future Azure Service Bus and RabbitMQ integrations as adapters to the same queue contract.
+
+Configuration uses `SupportQueue:Provider` with `Database` as the default and `Redis` as the other
+initial option. Selecting an unavailable or unknown provider must fail startup with a clear error.
+
 ## 8. Realtime architecture
 
 SignalR is the initial transport.
@@ -317,6 +338,7 @@ Storage providers:
 
 - Local filesystem.
 - S3-compatible object storage.
+- Azure Blob Storage.
 
 Database records contain:
 
@@ -369,6 +391,21 @@ Role vocabulary across the roadmap includes (activate each role only when its mo
 - Support Agent.
 
 Roles are collections of permissions, not substitutes for resource-level authorization.
+
+The permission catalog spans five capability areas: private-chat use; organization-scoped support;
+organization participation and management; organization/workspace-scoped channel creation and
+administration; and installation administration for users, roles, permissions, groups, settings,
+providers, organizations, and audit. Assignments may be scoped to installation, organization, or
+workspace. Users receive granular custom roles through groups; direct custom-role-to-user
+assignments are not supported. Each role/permission pair is Allow, Deny, or unassigned. A Deny
+from any applicable role overrides every Allow, including a built-in role grant. Conversation,
+organization, workspace, and participant checks still determine which records they may access.
+Installation administration never grants access to private conversation content by itself.
+
+The effective-access view must explain the source of each decision (group, role, and Allow/Deny),
+and permission changes must be auditable and effective on the next request. User-interface
+visibility follows the effective permissions, but API and realtime authorization remain
+authoritative.
 
 For browser applications, prefer secure HttpOnly cookies with appropriate CSRF protection where using cookie authentication. External SDK authentication uses short-lived, narrowly scoped tokens.
 
@@ -466,7 +503,7 @@ Support:
 
 Recommended production configuration:
 
-A reverse proxy terminates HTTPS and forwards HTTP and WebSocket traffic to the API host. The host accesses PostgreSQL and private S3-compatible attachment storage. Its initial background services dispatch the transactional outbox and expire presence sessions. Redis or another distributed realtime service is added only when scale-out is implemented and tested.
+A reverse proxy terminates HTTPS and forwards HTTP and WebSocket traffic to the API host. The host accesses PostgreSQL and private attachment storage (S3-compatible or Azure Blob). Its initial background services dispatch the transactional outbox and expire presence sessions. Redis or another distributed realtime service is added only when scale-out is implemented and tested.
 
 SQLite and local filesystem are available for lightweight installations.
 
@@ -594,5 +631,6 @@ Anonymous visitors require per-widget/session/network rate and storage limits. D
 | Keys | Persist authentication/data-protection keys across restarts; share securely if scaled out |
 | Observability | Request errors, outbox lag/retries, reconnects, upload failures and storage usage |
 | Scale-out | Shared storage, realtime backplane, presence coordination and worker leases required together |
+| Support routing | Durable database default; optional Redis Streams transport; route work through an outbox and make consumers idempotent |
 
 Keep the outbox worker in the initial host. Process-local presence is acceptable as explicitly ephemeral single-node state; it is not suitable for durable receipts or multi-node coordination. No throughput, availability or scale guarantee is established by this design.

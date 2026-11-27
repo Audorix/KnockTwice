@@ -11,6 +11,7 @@ using Audorix.KnockTwice.Application.Localization;
 using Audorix.KnockTwice.Application.Messaging;
 using Audorix.KnockTwice.Application.PrivateChats;
 using Audorix.KnockTwice.Infrastructure.Captcha;
+using Audorix.KnockTwice.Infrastructure.AI;
 using Audorix.KnockTwice.Infrastructure.Email;
 using Audorix.KnockTwice.Infrastructure.Storage;
 using Microsoft.Extensions.Configuration.CommandLine;
@@ -280,7 +281,8 @@ internal sealed class ProviderSettingsManager(
     PendingRestart pending,
     IWebHostEnvironment environment,
     ILoggerFactory loggerFactory,
-    AuditService audit)
+    AuditService audit,
+    IAttachmentStore attachments)
 {
     public static IReadOnlyList<ProviderGroupDefinition> Groups { get; } =
     [
@@ -305,7 +307,7 @@ internal sealed class ProviderSettingsManager(
         ]),
         new("storage",
         [
-            new("Storage:Provider", "choice", [StorageOptions.LocalProvider, StorageOptions.S3Provider]),
+            new("Storage:Provider", "choice", [StorageOptions.LocalProvider, StorageOptions.S3Provider, StorageOptions.AzureBlobProvider]),
             new("Storage:Local:Path", "text"),
             new("Storage:S3:Endpoint", "text"),
             new("Storage:S3:Region", "text"),
@@ -314,6 +316,9 @@ internal sealed class ProviderSettingsManager(
             new("Storage:S3:SecretAccessKey", "secret"),
             new("Storage:S3:ForcePathStyle", "boolean"),
             new("Storage:S3:Prefix", "text"),
+            new("Storage:AzureBlob:ConnectionString", "secret"),
+            new("Storage:AzureBlob:Container", "text"),
+            new("Storage:AzureBlob:Prefix", "text"),
         ]),
         new("scanning",
         [
@@ -328,6 +333,20 @@ internal sealed class ProviderSettingsManager(
             new("Search:OpenSearch:IndexName", "text"),
             new("Search:OpenSearch:Username", "text"),
             new("Search:OpenSearch:Password", "secret"),
+        ]),
+        new("queue",
+        [
+            new("SupportQueue:Provider", "choice", ["Database", "Redis"]),
+            new("SupportQueue:Redis:ConnectionString", "secret"),
+            new("SupportQueue:Redis:StreamPrefix", "text"),
+        ]),
+        new("ai",
+        [
+            new("AI:Translation:Provider", "choice", ["None", "OpenAICompatible", "Ollama"]),
+            new("AI:Translation:Endpoint", "text"),
+            new("AI:Translation:Model", "text"),
+            new("AI:Translation:ApiKey", "secret"),
+            new("AI:Translation:MaxOutputTokens", "integer"),
         ]),
     ];
 
@@ -363,6 +382,18 @@ internal sealed class ProviderSettingsManager(
             Validate(candidate, group);
         }
 
+        if (group.Name == "storage" && changes.TryGetValue("Storage:Provider", out var nextProvider) && nextProvider is not null)
+        {
+            var currentProvider = StorageOptions.Normalize(configuration["Storage:Provider"]);
+            var selectedProvider = StorageOptions.Normalize(nextProvider);
+            if (!string.Equals(currentProvider, selectedProvider, StringComparison.Ordinal))
+            {
+                // Old rows have no provider key. Pin them to the still-active backend before
+                // the saved configuration makes the next provider the default after restart.
+                await attachments.AssignProviderToLegacyAttachmentsAsync(currentProvider, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
         await ChatXSettingsFile.MergeAsync(sources.SettingsFilePath, changes, cancellationToken).ConfigureAwait(false);
         pending.Mark(group.Name);
         await audit.RecordAsync(AuditActions.ProviderChanged, actorId, "provider", group.Name,
@@ -387,6 +418,8 @@ internal sealed class ProviderSettingsManager(
                 "storage" => await TestStorageAsync(scope.ServiceProvider, cancellationToken).ConfigureAwait(false),
                 "scanning" => await TestScannerAsync(scope.ServiceProvider, cancellationToken).ConfigureAwait(false),
                 "search" => await TestSearchAsync(scope.ServiceProvider, cancellationToken).ConfigureAwait(false),
+                "queue" => await TestQueueAsync(scope.ServiceProvider, cancellationToken).ConfigureAwait(false),
+                "ai" => await TestAiTranslationAsync(scope.ServiceProvider, cancellationToken).ConfigureAwait(false),
                 _ => "valid",
             };
         }
@@ -484,6 +517,8 @@ internal sealed class ProviderSettingsManager(
                     candidate.GetRequiredService<IOptions<Application.Search.SearchSettings>>().Value,
                     candidate.GetRequiredService<IOptions<Infrastructure.Search.OpenSearchOptions>>().Value,
                 },
+                "queue" => ValidateQueue(candidate.GetRequiredService<IConfiguration>()),
+                "ai" => candidate.GetRequiredService<IOptions<AiTranslationOptions>>().Value,
                 _ => (object)candidate.GetRequiredService<IOptions<ScanningOptions>>().Value,
             };
         }
@@ -542,6 +577,73 @@ internal sealed class ProviderSettingsManager(
         {
             return "unavailable";
         }
+    }
+
+    private static object ValidateQueue(IConfiguration configuration)
+    {
+        var provider = configuration["SupportQueue:Provider"] ?? "Database";
+        if (string.Equals(provider, "Database", StringComparison.OrdinalIgnoreCase))
+        {
+            return new object();
+        }
+
+        if (!string.Equals(provider, "Redis", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new OptionsValidationException("SupportQueue", typeof(string), ["SupportQueue:Provider must be Database or Redis."]);
+        }
+
+        var connectionString = configuration["SupportQueue:Redis:ConnectionString"];
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new OptionsValidationException("SupportQueue", typeof(string), ["SupportQueue:Redis:ConnectionString is required when SupportQueue:Provider is Redis."]);
+        }
+
+        try
+        {
+            _ = StackExchange.Redis.ConfigurationOptions.Parse(connectionString);
+        }
+        catch (ArgumentException)
+        {
+            throw new OptionsValidationException("SupportQueue", typeof(string), ["SupportQueue:Redis:ConnectionString is invalid."]);
+        }
+
+        var prefix = configuration["SupportQueue:Redis:StreamPrefix"];
+        if (string.IsNullOrWhiteSpace(prefix) || prefix.Length > 48 || prefix.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_'))
+        {
+            throw new OptionsValidationException("SupportQueue", typeof(string), ["SupportQueue:Redis:StreamPrefix must be 1-48 letters, digits, '-' or '_'."]);
+        }
+
+        return new object();
+    }
+
+    private static async Task<string> TestQueueAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var configuration = services.GetRequiredService<IConfiguration>();
+        if (!string.Equals(configuration["SupportQueue:Provider"], "Redis", StringComparison.OrdinalIgnoreCase))
+        {
+            return "valid";
+        }
+
+        var options = StackExchange.Redis.ConfigurationOptions.Parse(configuration["SupportQueue:Redis:ConnectionString"]!);
+        options.AbortOnConnectFail = true;
+        options.ConnectTimeout = 3000;
+        options.AsyncTimeout = 3000;
+        var connection = await StackExchange.Redis.ConnectionMultiplexer.ConnectAsync(options).WaitAsync(TimeSpan.FromSeconds(4), cancellationToken).ConfigureAwait(false);
+        using (connection)
+        {
+            await connection.GetDatabase().PingAsync().WaitAsync(TimeSpan.FromSeconds(4), cancellationToken).ConfigureAwait(false);
+        }
+
+        return "ok";
+    }
+
+    private static async Task<string> TestAiTranslationAsync(IServiceProvider services, CancellationToken cancellationToken)
+    {
+        var settings = services.GetRequiredService<IOptions<AiTranslationOptions>>().Value;
+        if (settings.Provider == "None") return "disabled";
+        var result = await services.GetRequiredService<Application.Translation.IMessageTranslationProvider>()
+            .TranslateAsync("Hello", "es", cancellationToken).ConfigureAwait(false);
+        return string.IsNullOrWhiteSpace(result) ? "failed" : "ok";
     }
 
     private static async Task<string> TestScannerAsync(IServiceProvider services, CancellationToken cancellationToken)

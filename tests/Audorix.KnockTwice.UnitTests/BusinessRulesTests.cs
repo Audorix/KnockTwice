@@ -75,9 +75,9 @@ public sealed class BusinessRulesTests
     {
         var organization = Organization.Create(Org, "Acme", Ana, Now);
         Assert.Equal((true, ChannelCreationPolicy.Members), (organization.GuestsEnabled, organization.ChannelCreation));
-        organization.Configure(false, null, Now);
+        organization.Configure(false, null, null, Now);
         Assert.Equal((false, ChannelCreationPolicy.Members), (organization.GuestsEnabled, organization.ChannelCreation));
-        organization.Configure(null, ChannelCreationPolicy.Administrators, Now);
+        organization.Configure(null, ChannelCreationPolicy.Administrators, null, Now);
         Assert.Equal((false, ChannelCreationPolicy.Administrators), (organization.GuestsEnabled, organization.ChannelCreation));
 
         var member = OrganizationMember.Join(Guid.NewGuid(), Org, Ana, OrganizationRole.Member, Now);
@@ -97,5 +97,20 @@ public sealed class BusinessRulesTests
         invitation.Accept(Now);
         Assert.Equal("invitation_not_open", Assert.Throws<DomainRuleException>(() => invitation.Decline(Now)).Code);
         Assert.Equal("email_invalid", Assert.Throws<DomainRuleException>(() => GuestInvitation.Create(Guid.NewGuid(), Org, Guid.NewGuid(), "nope", Ana, Now)).Code);
+    }
+
+    [Fact]
+    public void Guest_access_expires_after_ninety_days_and_reactivation_renews_the_window()
+    {
+        var guest = OrganizationGuest.Join(Guid.NewGuid(), Org, Guid.NewGuid(), Ana, Now);
+
+        Assert.Equal(Now + OrganizationGuest.AccessLifetime, guest.AccessExpiresAtUtc);
+        Assert.True(guest.IsActiveAt(guest.AccessExpiresAtUtc.AddTicks(-1)));
+        Assert.False(guest.IsActiveAt(guest.AccessExpiresAtUtc));
+
+        var renewedAt = Now.AddDays(30);
+        guest.Reactivate(Guid.NewGuid(), renewedAt);
+        Assert.True(guest.IsActiveAt(renewedAt));
+        Assert.Equal(renewedAt + OrganizationGuest.AccessLifetime, guest.AccessExpiresAtUtc);
     }
 }

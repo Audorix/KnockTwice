@@ -34,6 +34,12 @@
   --cx-ok: #1f8a4c;
   --cx-warn: #b7791f;
   --cx-down: #d23f3f;
+  --cx-code-comment: #65738a;
+  --cx-code-string: #27714a;
+  --cx-code-literal: #7d45a1;
+  --cx-code-keyword: #235fbb;
+  --cx-code-property: #9a5a18;
+  --cx-code-punctuation: #596574;
   --cx-radius: 0.75rem;
   --cx-radius-sm: 0.5rem;
   --cx-shadow: 0 1px 2px rgba(31, 41, 55, 0.04), 0 6px 20px rgba(31, 41, 55, 0.05);
@@ -78,6 +84,12 @@
   --cx-ok: #4cc27f;
   --cx-warn: #e2b04a;
   --cx-down: #f07a72;
+  --cx-code-comment: #98a3b3;
+  --cx-code-string: #8dd3a4;
+  --cx-code-literal: #d6a5f2;
+  --cx-code-keyword: #84adff;
+  --cx-code-property: #f3ba74;
+  --cx-code-punctuation: #b7c1cd;
   --cx-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   --cx-shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
@@ -792,16 +804,146 @@ body {
 }
 
 .cx-rich .cx-code-block {
-  overflow-x: auto;
-  padding: 0.5rem 0.625rem;
   border-radius: 0.375rem;
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--cx-raised);
+}
+
+.cx-rich .cx-code-block pre {
+  overflow-x: auto;
+  margin: 0;
+  padding: 0 0.625rem 0.625rem;
   white-space: pre;
 }
 
-.cx-rich .cx-code-block code {
+.cx-rich .cx-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 -0.625rem 0.5rem;
+  padding: 0.35rem 0.625rem;
+  border-bottom: 1px solid var(--cx-border);
+  color: var(--cx-text-muted);
+  font: 0.75rem/1.2 system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+.cx-code-copy {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--cx-border);
+  border-radius: 0.3rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cx-code-copy:hover,
+.cx-code-copy:focus-visible {
+  color: var(--cx-text);
+  border-color: var(--cx-primary);
+}
+
+.cx-rich .cx-code-block pre code {
   padding: 0;
   background: none;
+}
+
+.cx-rich .cx-code-comment { color: var(--cx-code-comment); }
+.cx-rich .cx-code-string { color: var(--cx-code-string); }
+.cx-rich .cx-code-number,
+.cx-rich .cx-code-literal { color: var(--cx-code-literal); }
+.cx-rich .cx-code-keyword { color: var(--cx-code-keyword); font-weight: 600; }
+.cx-rich .cx-code-property { color: var(--cx-code-property); }
+.cx-rich .cx-code-punctuation { color: var(--cx-code-punctuation); }
+
+.cx-code-editor {
+  min-height: 15rem;
+  font-family: var(--cx-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  white-space: pre;
+  tab-size: 2;
+}
+
+.cx-code-dialog {
+  width: min(48rem, calc(100vw - 2rem));
+}
+
+.cx-rich-editor-dialog {
+  width: min(58rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+}
+
+.cx-rich-editor-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.cx-rich-editor-heading .cx-confirm-title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.cx-rich-editor-toolbar {
+  margin-bottom: 0.5rem;
+}
+
+.cx-rich-editor-content {
+  min-height: min(24rem, 48vh);
+  resize: vertical;
+  font-family: var(--cx-font-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  tab-size: 2;
+}
+
+.cx-rich-editor-surface {
+  overflow-y: auto;
+  white-space: normal;
+  font-family: var(--bs-body-font-family);
+  cursor: text;
+}
+
+.cx-rich-editor-surface .cx-rich {
+  min-height: min(22rem, 44vh);
+}
+
+.cx-rich-editor-surface .cx-rich > :first-child { margin-top: 0; }
+.cx-rich-editor-surface .cx-rich > :last-child { margin-bottom: 0; }
+.cx-rich-editor-surface .cx-code-header { display: none; }
+
+.cx-rich-editor-preview {
+  min-height: min(24rem, 48vh);
+  max-height: 55vh;
+  overflow: auto;
+  padding: 0.875rem;
+  border: 1px solid var(--cx-border);
+  border-radius: 0.5rem;
+  background: var(--cx-canvas);
+  color: var(--cx-text);
+}
+
+.cx-rich-link-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(10, 14, 18, 0.42);
+}
+
+.cx-rich-link-dialog {
+  width: min(28rem, 100%);
+  padding: 1rem;
+  border: 1px solid var(--cx-border);
+  border-radius: var(--cx-radius);
+  background: var(--cx-surface);
+  box-shadow: var(--cx-shadow-pop);
+}
+
+.cx-rich-editor-button {
+  white-space: nowrap;
 }
 
 .cx-rich-quote {
@@ -1616,6 +1758,13 @@ body {
   border-radius: 0.5rem;
   background: var(--cx-surface);
   box-shadow: var(--cx-shadow);
+}
+
+.cx-message-menu-portal {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 2000;
 }
 
 .cx-emoji-row,

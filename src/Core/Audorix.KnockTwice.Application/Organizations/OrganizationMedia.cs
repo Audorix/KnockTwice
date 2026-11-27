@@ -28,7 +28,7 @@ public sealed class OrganizationMediaService(
     {
         ArgumentNullException.ThrowIfNull(content);
         var (organization, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.Manage);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.manage", OrganizationPermission.Manage, cancellationToken).ConfigureAwait(false);
 
         var limit = MaxBytes(kind);
         using var buffer = new MemoryStream();
@@ -61,17 +61,19 @@ public sealed class OrganizationMediaService(
         var previous = organization.SetImage(kind, key, type, now);
         await SaveAsync(cancellationToken).ConfigureAwait(false);
         await TryDeleteAsync(previous).ConfigureAwait(false);
-        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent);
+        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent,
+            await organizations.GetMyPermissionsAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<OrganizationView> RemoveImageAsync(Guid userId, Guid organizationId, OrganizationImage kind, CancellationToken cancellationToken)
     {
         var (organization, membership) = await organizations.RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        OrganizationService.RequirePermission(membership, OrganizationPermission.Manage);
+        await organizations.RequirePermissionAsync(userId, organizationId, membership, "organization.manage", OrganizationPermission.Manage, cancellationToken).ConfigureAwait(false);
         var previous = organization.RemoveImage(kind, time.GetUtcNow());
         await SaveAsync(cancellationToken).ConfigureAwait(false);
         await TryDeleteAsync(previous).ConfigureAwait(false);
-        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent);
+        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent,
+            await organizations.GetMyPermissionsAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>The picture or background image for a member, or null when there is none.</summary>

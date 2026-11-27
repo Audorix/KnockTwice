@@ -88,6 +88,10 @@ export async function removePhoto(): Promise<CurrentUserResponse> {
   return (await sendJson<CurrentUserResponse>('DELETE', '/api/v1/users/me/photo'))!;
 }
 
+export async function saveGeneratedAvatar(style: string | null, seed: string | null): Promise<CurrentUserResponse> {
+  return (await sendJson<CurrentUserResponse>('PUT', '/api/v1/users/me/avatar', { style, seed }))!;
+}
+
 export type LinkPlatform = 'website' | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x';
 export type LinkVisibility = 'contacts' | 'only_me';
 export interface ProfileLink {

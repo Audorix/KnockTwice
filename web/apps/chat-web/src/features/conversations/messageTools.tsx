@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { ConversationEntryResponse, ConversationSummaryResponse, PinnedMessageResponse } from '../../shared/api/contracts';
 import { FormAlert } from '../../shared/components/Field';
@@ -28,6 +29,9 @@ export function MessageMenu({ entry, tools, compact = false }: { entry: Conversa
   const [remind, setRemind] = useState(false);
   const [custom, setCustom] = useState('');
   const box = useRef<HTMLSpanElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLSpanElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, visible: false });
 
   useEffect(() => {
     if (!open) setRemind(false);
@@ -37,11 +41,44 @@ export function MessageMenu({ entry, tools, compact = false }: { entry: Conversa
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent) => {
-      if (box.current && !box.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (box.current?.contains(target) || menu.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setMenuPosition((position) => position.visible ? { ...position, visible: false } : position);
+      return;
+    }
+
+    const place = () => {
+      const anchor = trigger.current?.getBoundingClientRect();
+      const popup = menu.current?.getBoundingClientRect();
+      if (!anchor || !popup) return;
+
+      const margin = 8;
+      const gap = 6;
+      const below = window.innerHeight - anchor.bottom - gap;
+      const above = anchor.top - gap;
+      const openAbove = popup.height <= above || below < popup.height;
+      const rawTop = openAbove ? anchor.top - popup.height - gap : anchor.bottom + gap;
+      const top = Math.max(margin, Math.min(rawTop, window.innerHeight - popup.height - margin));
+      const left = Math.max(margin, Math.min(anchor.right - popup.width, window.innerWidth - popup.width - margin));
+      setMenuPosition({ top, left, visible: true });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, remind, custom, tools.canPin, tools.canForward]);
 
   const run = (action: () => void) => {
     setOpen(false);
@@ -51,14 +88,19 @@ export function MessageMenu({ entry, tools, compact = false }: { entry: Conversa
   return (
     <span className="cx-reaction-picker" ref={box}>
       {compact ? (
-        <ToolButton icon="dots" label={t('tools.more')} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)} />
+        <ToolButton icon="dots" label={t('tools.more')} aria-expanded={open} aria-haspopup="menu" onClick={(event) => {
+          trigger.current = event.currentTarget;
+          setOpen((o) => !o);
+        }} />
       ) : (
-        <button type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
+        <button ref={trigger} type="button" className="btn btn-sm btn-link p-0" aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen((o) => !o)}>
           {t('tools.more')}
         </button>
       )}
-      {open && remind && (
-        <span className="cx-reaction-menu cx-tools-menu cx-time-menu" role="menu" aria-label={t('planning.remindMe')} onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+      {open && remind && createPortal(
+        <span ref={menu} className="cx-reaction-menu cx-tools-menu cx-time-menu cx-message-menu-portal" role="menu" aria-label={t('planning.remindMe')}
+          style={{ top: menuPosition.top, left: menuPosition.left, visibility: menuPosition.visible ? 'visible' : 'hidden' }}
+          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
           {presetTimes().map((choice) => (
             <button key={choice.key} type="button" role="menuitem" className="cx-tools-item" onClick={() => run(() => tools.onRemind(choice.at))}>
               {t(`planning.presets.${choice.key}`)}{' '}
@@ -81,10 +123,12 @@ export function MessageMenu({ entry, tools, compact = false }: { entry: Conversa
               {t('planning.set')}
             </button>
           </form>
-        </span>
+        </span>, document.body,
       )}
-      {open && !remind && (
-        <span className="cx-reaction-menu cx-tools-menu" role="menu" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
+      {open && !remind && createPortal(
+        <span ref={menu} className="cx-reaction-menu cx-tools-menu cx-message-menu-portal" role="menu"
+          style={{ top: menuPosition.top, left: menuPosition.left, visibility: menuPosition.visible ? 'visible' : 'hidden' }}
+          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}>
           <button type="button" role="menuitem" className="cx-tools-item" onClick={() => setRemind(true)}>
             {t('planning.remindMe')}
           </button>
@@ -101,7 +145,7 @@ export function MessageMenu({ entry, tools, compact = false }: { entry: Conversa
               {t('tools.forward')}
             </button>
           )}
-        </span>
+        </span>, document.body,
       )}
     </span>
   );

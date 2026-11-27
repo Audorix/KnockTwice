@@ -345,12 +345,14 @@ settings.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `ScaleOut:Redis` | empty (single server) | A StackExchange.Redis connection string, for example `redis:6379,password=…,ssl=true`. When set: SignalR Redis backplane, presence shared between instances, shared sign-in and visitor rate limits, and a `redis` readiness check. Requires a restart. |
-| `ScaleOut:Prefix` | `chatx` | Prefix of every Redis key and channel (letters, digits, `-`, `_`), so several installations can share one Redis. |
+| `ScaleOut:Prefix` | required when Redis is enabled | Prefix of every Redis key and channel (letters, digits, `-`, `_`). Use the same value on every node in one environment and a different value in each environment. |
 
-With several instances behind a load balancer: enable WebSockets on the balancer, use the same
-database, Data Protection keys (already in the database) and settings everywhere, and either run
-one instance for private chats or switch `PrivateChats:Enabled` off (private chats live in one
-instance's memory; a startup warning reminds you).
+With several instances behind a load balancer: enable WebSockets and cookie-based affinity for
+`/hubs/chat` negotiation and all connection/fallback requests. Use the same database, Data
+Protection keys (already in the database), Redis connection and `ScaleOut:Prefix` on every node.
+Use a different prefix in each environment. Either run one instance for ephemeral private chats or
+switch `PrivateChats:Enabled` off (private chats live in one instance's memory; a startup warning
+reminds you).
 
 ## Drafts, scheduled messages and reminders (Phase 20)
 

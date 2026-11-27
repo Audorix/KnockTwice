@@ -20,6 +20,7 @@ internal sealed class AttachmentConfiguration : IEntityTypeConfiguration<Attachm
         builder.Property(a => a.Id).ValueGeneratedNever();
         builder.Property(a => a.Status).HasConversion<string>().HasMaxLength(16);
         builder.Property(a => a.StorageKey).HasMaxLength(Attachment.StorageKeyMaxLength).IsRequired();
+        builder.Property(a => a.StorageProvider).HasMaxLength(32);
         builder.Property(a => a.FileName).HasMaxLength(Attachment.FileNameMaxLength).IsRequired();
         builder.Property(a => a.ContentType).HasMaxLength(Attachment.ContentTypeMaxLength).IsRequired();
         builder.Property(a => a.Sha256).HasMaxLength(64).IsRequired();

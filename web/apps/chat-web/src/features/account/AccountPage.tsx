@@ -139,7 +139,7 @@ function ProfileHero({ onChangePhoto }: { onChangePhoto: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   if (!user) return null;
-  const hasPhoto = !!user.avatar.photoUrl;
+  const hasCustomAvatar = !!user.avatar.photoUrl || !!user.avatar.generatedStyle;
 
   const switchToInitials = async () => {
     setBusy(true);
@@ -179,7 +179,7 @@ function ProfileHero({ onChangePhoto }: { onChangePhoto: () => void }) {
             <button type="button" className="btn btn-outline-primary" onClick={onChangePhoto}>
               {t('profile.photo.change')}
             </button>
-            <button type="button" className="btn btn-outline-secondary" onClick={() => void switchToInitials()} disabled={!hasPhoto || busy}>
+              <button type="button" className="btn btn-outline-secondary" onClick={() => void switchToInitials()} disabled={!hasCustomAvatar || busy}>
               {t('profile.photo.useInitials')}
             </button>
           </div>

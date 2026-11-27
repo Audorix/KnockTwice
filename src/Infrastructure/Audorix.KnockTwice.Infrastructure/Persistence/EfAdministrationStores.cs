@@ -249,7 +249,8 @@ internal sealed class EfAdminDirectory(ChatXDbContext db, TimeProvider time) : I
             select new { Member = m, Profile = p, u.Email }).ToListAsync(cancellationToken).ConfigureAwait(false);
         var views = members
             .Select(x => new AdminMemberView(
-                new UserSummary(x.Profile.UserId, x.Profile.DisplayName, x.Profile.Initials, PhotoVersion: x.Profile.HasPhoto && !x.Profile.IsDeleted ? x.Profile.PhotoVersion : 0),
+                new UserSummary(x.Profile.UserId, x.Profile.DisplayName, x.Profile.Initials, PhotoVersion: x.Profile.HasPhoto && !x.Profile.IsDeleted ? x.Profile.PhotoVersion : 0,
+                    GeneratedAvatarStyle: x.Profile.IsDeleted ? null : x.Profile.GeneratedAvatarStyle, GeneratedAvatarSeed: x.Profile.IsDeleted ? null : x.Profile.GeneratedAvatarSeed),
                 x.Email ?? string.Empty, x.Member.Role, x.Member.JoinedAtUtc))
             .OrderByDescending(m => m.Role)
             .ThenBy(m => m.User.DisplayName, StringComparer.CurrentCultureIgnoreCase)

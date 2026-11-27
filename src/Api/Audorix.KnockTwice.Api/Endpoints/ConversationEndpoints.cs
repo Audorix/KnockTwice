@@ -4,9 +4,13 @@ using System.Text;
 using Audorix.KnockTwice.Api.Identity;
 using Audorix.KnockTwice.Application.Common;
 using Audorix.KnockTwice.Application.Conversations;
+using Audorix.KnockTwice.Application.Translation;
+using Audorix.KnockTwice.Domain.Authorization;
 using Audorix.KnockTwice.Contracts.V1.Conversations;
 using Audorix.KnockTwice.Domain.Conversations;
+using Audorix.KnockTwice.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using static Audorix.KnockTwice.Api.Endpoints.OrganizationEndpoints;
 
 namespace Audorix.KnockTwice.Api.Endpoints;
@@ -89,6 +93,44 @@ internal static class ConversationEndpoints
             .WithSummary("Delivery acknowledgement (ADR-023): a device of the caller received everything up to the sequence.");
 
         var messages = conversations.MapGroup("/{conversationId:guid}/messages").WithTags("Messages");
+        messages.MapPost("/{messageId:guid}/translate", async (
+            Guid conversationId, Guid messageId, TranslateMessageRequest request, HttpContext http,
+            ConversationService conversationsService, MessageTranslationService translation, ChatXDbContext db, CancellationToken ct) =>
+        {
+            var context = await conversationsService.GetMessageContextAsync(http.User.RequireUserId(), conversationId, messageId, 0, ct).ConfigureAwait(false);
+            var message = context.Items.Single(item => item.Entry.Id == messageId);
+            if (message.Entry.DeletedAtUtc is not null || string.IsNullOrWhiteSpace(message.Entry.Body))
+                throw new RequestValidationException("message", "translation_text_required");
+            var original = message.Entry.Body;
+            var language = request.TargetLanguage?.Trim();
+            if (string.IsNullOrWhiteSpace(language) || !System.Text.RegularExpressions.Regex.IsMatch(language, "^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})?$", System.Text.RegularExpressions.RegexOptions.CultureInvariant))
+                throw new RequestValidationException("targetLanguage", "language_invalid");
+            var normalizedLanguage = language.ToLowerInvariant();
+            var sourceHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(original)));
+            var saved = await db.MessageTranslations.AsNoTracking()
+                .Where(item => item.MessageId == messageId && item.TargetLanguage == normalizedLanguage && item.SourceSha256 == sourceHash)
+                .OrderByDescending(item => item.CreatedAtUtc)
+                .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+            if (saved is not null)
+                return TypedResults.Ok(new TranslateMessageResponse(saved.TranslatedText, saved.TargetLanguage));
+
+            var result = await translation.TranslateAsync(original, language, ct).ConfigureAwait(false);
+            db.MessageTranslations.Add(new StoredMessageTranslation
+            {
+                Id = Guid.CreateVersion7(),
+                MessageId = messageId,
+                ConversationId = conversationId,
+                TargetLanguage = normalizedLanguage,
+                SourceSha256 = sourceHash,
+                OriginalText = original,
+                TranslatedText = result,
+                CreatedAtUtc = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+            return TypedResults.Ok(new TranslateMessageResponse(result, normalizedLanguage));
+        }).RequireAuthorization(Permissions.MessagesTranslate)
+            .WithSummary("Returns and saves a translation snapshot for a message the caller can read. The original message is not changed.");
+
         messages.MapPost(string.Empty, async Task<Results<Ok<ConversationEntryResponse>, Created<ConversationEntryResponse>>> (
             Guid conversationId, SendMessageRequest request, HttpContext http, Application.Messaging.MessagingService messaging, CancellationToken ct) =>
         {

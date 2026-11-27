@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Audorix.KnockTwice.Infrastructure.Persistence;
 
-internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStore
+internal sealed class EfConversationStore(ChatXDbContext db, TimeProvider time) : IConversationStore
 {
     public void Add(Conversation conversation) => db.Conversations.Add(conversation);
 
@@ -24,10 +24,19 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
     public Task<ConversationParticipant?> FindParticipantAsync(Guid conversationId, Guid userId, CancellationToken cancellationToken) =>
         db.ConversationParticipants.FirstOrDefaultAsync(p => p.ConversationId == conversationId && p.UserId == userId, cancellationToken);
 
-    public async Task<IReadOnlyList<ConversationParticipant>> ListActiveParticipantsAsync(Guid conversationId, CancellationToken cancellationToken) =>
-        await db.ConversationParticipants
-            .Where(p => p.ConversationId == conversationId && p.Status == ParticipantStatus.Active)
+    public async Task<IReadOnlyList<ConversationParticipant>> ListActiveParticipantsAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        var organizationId = await db.Conversations.Where(c => c.Id == conversationId).Select(c => c.OrganizationId)
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        var activeGuestIds = organizationId is { } orgId
+            ? await db.OrganizationGuests.AsNoTracking().Where(g => g.OrganizationId == orgId && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now)
+                .Select(g => g.UserId).ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+        return await db.ConversationParticipants
+            .Where(p => p.ConversationId == conversationId && p.Status == ParticipantStatus.Active && (!p.IsGuest || activeGuestIds.Contains(p.UserId)))
             .ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<Participation>> ListForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -322,13 +331,19 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
         public bool Unread { get; init; }
     }
 
-    public async Task<IReadOnlyList<Guid>> ListActiveConversationIdsInOrganizationAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>
-        await (
+    public async Task<IReadOnlyList<Guid>> ListActiveConversationIdsInOrganizationAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        var isActiveGuest = await db.OrganizationGuests.AsNoTracking().AnyAsync(g => g.OrganizationId == organizationId && g.UserId == userId
+            && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now, cancellationToken).ConfigureAwait(false);
+        return await (
             from p in db.ConversationParticipants
             where p.UserId == userId && p.Status == ParticipantStatus.Active
+                && (!p.IsGuest || isActiveGuest)
             join c in db.Conversations on p.ConversationId equals c.Id
             where c.OrganizationId == organizationId
             select c.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public void Add(OutboxMessage message) => db.OutboxMessages.Add(message);
 
@@ -344,8 +359,18 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
         db.ConversationEvents.FirstOrDefaultAsync(
             e => e.ConversationId == conversationId && e.ActorUserId == authorUserId && e.ClientMessageId == clientMessageId, cancellationToken);
 
-    public async Task<IReadOnlyList<Guid>> ListRecipientsAsync(Guid conversationId, long sequence, CancellationToken cancellationToken) =>
-        await (
+    public async Task<IReadOnlyList<Guid>> ListRecipientsAsync(Guid conversationId, long sequence, CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        var organizationId = await db.Conversations.AsNoTracking().Where(c => c.Id == conversationId).Select(c => c.OrganizationId)
+            .SingleOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        var activeGuestIds = organizationId is { } orgId
+            ? await db.OrganizationGuests.AsNoTracking().Where(g => g.OrganizationId == orgId && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now)
+                .Select(g => g.UserId).ToListAsync(cancellationToken).ConfigureAwait(false)
+            : [];
+        var guestsEnabled = organizationId is { } guestOrgId
+            && await db.Organizations.AsNoTracking().AnyAsync(o => o.Id == guestOrgId && o.GuestsEnabled, cancellationToken).ConfigureAwait(false);
+        return await (
             from p in db.ConversationParticipants
             where p.ConversationId == conversationId && p.Status == ParticipantStatus.Active && p.VisibleFromSequence <= sequence
             join c in db.Conversations on p.ConversationId equals c.Id
@@ -354,24 +379,38 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
                       && db.OrganizationMembers.Any(m => m.OrganizationId == c.OrganizationId && m.UserId == p.UserId && m.Status == MembershipStatus.Active)
                       && (c.WorkspaceId == null
                           || db.WorkspaceMembers.Any(w => w.WorkspaceId == c.WorkspaceId && w.UserId == p.UserId && w.Status == MembershipStatus.Active)))
-                  || (p.IsGuest
-                      && db.OrganizationGuests.Any(g => g.OrganizationId == c.OrganizationId && g.UserId == p.UserId && g.Status == MembershipStatus.Active)
-                      && db.Organizations.Any(o => o.Id == c.OrganizationId && o.GuestsEnabled))
+                  || (p.IsGuest && guestsEnabled && activeGuestIds.Contains(p.UserId))
             select p.UserId).ToListAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<IReadOnlyList<Conversation>> ListChannelsAsync(Guid workspaceId, CancellationToken cancellationToken) =>
         await db.Conversations.AsNoTracking()
             .Where(c => c.WorkspaceId == workspaceId && c.Type == ConversationType.Channel)
             .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-    public async Task<IReadOnlyDictionary<Guid, int>> CountActiveParticipantsAsync(IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken) =>
-        conversationIds.Count == 0
-            ? new Dictionary<Guid, int>()
-            : await db.ConversationParticipants.AsNoTracking()
-                .Where(p => conversationIds.Contains(p.ConversationId) && p.Status == ParticipantStatus.Active)
-                .GroupBy(p => p.ConversationId)
-                .Select(g => new { g.Key, Count = g.Count() })
-                .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken).ConfigureAwait(false);
+    public async Task<IReadOnlyDictionary<Guid, int>> CountActiveParticipantsAsync(IReadOnlyCollection<Guid> conversationIds, CancellationToken cancellationToken)
+    {
+        if (conversationIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        var now = time.GetUtcNow();
+        var candidates = await (
+            from p in db.ConversationParticipants.AsNoTracking()
+            join c in db.Conversations on p.ConversationId equals c.Id
+            where conversationIds.Contains(p.ConversationId) && p.Status == ParticipantStatus.Active
+            select new { Participant = p, c.OrganizationId }).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var organizationIds = candidates.Where(c => c.Participant.IsGuest && c.OrganizationId != null).Select(c => c.OrganizationId!.Value).Distinct().ToList();
+        var activeGuests = organizationIds.Count == 0
+            ? []
+            : await db.OrganizationGuests.AsNoTracking().Where(g => organizationIds.Contains(g.OrganizationId)
+                && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now)
+                .Select(g => new { g.OrganizationId, g.UserId }).ToListAsync(cancellationToken).ConfigureAwait(false);
+        var activeGuestKeys = activeGuests.Select(g => (g.OrganizationId, g.UserId)).ToHashSet();
+        return candidates.Where(c => !c.Participant.IsGuest || (c.OrganizationId is { } orgId && activeGuestKeys.Contains((orgId, c.Participant.UserId))))
+            .GroupBy(c => c.Participant.ConversationId).ToDictionary(g => g.Key, g => g.Count());
+    }
 
     public async Task<IReadOnlyList<Guid>> ListActiveChannelIdsInWorkspaceAsync(Guid workspaceId, Guid userId, CancellationToken cancellationToken) =>
         await (
@@ -479,19 +518,43 @@ internal sealed class EfConversationStore(ChatXDbContext db) : IConversationStor
 /// organization conversations an active member of that organization. Checked on every join and
 /// typing signal.
 /// </summary>
-internal sealed class EfConversationAccess(ChatXDbContext db) : IConversationAccess
+internal sealed class EfConversationAccess(ChatXDbContext db, TimeProvider time) : IConversationAccess
 {
-    public Task<bool> CanAccessAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken) =>
-        (from p in db.ConversationParticipants
-         where p.ConversationId == conversationId && p.UserId == userId && p.Status == ParticipantStatus.Active
-         join c in db.Conversations on p.ConversationId equals c.Id
-         where c.OrganizationId == null || p.IsVisitor
-               || (!p.IsGuest
-                   && db.OrganizationMembers.Any(m => m.OrganizationId == c.OrganizationId && m.UserId == userId && m.Status == MembershipStatus.Active)
-                   && (c.WorkspaceId == null
-                       || db.WorkspaceMembers.Any(w => w.WorkspaceId == c.WorkspaceId && w.UserId == userId && w.Status == MembershipStatus.Active)))
-               || (p.IsGuest
-                   && db.OrganizationGuests.Any(g => g.OrganizationId == c.OrganizationId && g.UserId == userId && g.Status == MembershipStatus.Active)
-                   && db.Organizations.Any(o => o.Id == c.OrganizationId && o.GuestsEnabled))
-         select p.Id).AnyAsync(cancellationToken);
+    public async Task<bool> CanAccessAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
+    {
+        var row = await (
+            from p in db.ConversationParticipants.AsNoTracking()
+            join c in db.Conversations.AsNoTracking() on p.ConversationId equals c.Id
+            where p.ConversationId == conversationId && p.UserId == userId && p.Status == ParticipantStatus.Active
+            select new { p.IsVisitor, p.IsGuest, c.OrganizationId, c.WorkspaceId })
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
+        if (row is null)
+        {
+            return false;
+        }
+
+        if (row.OrganizationId is not { } organizationId || row.IsVisitor)
+        {
+            return true;
+        }
+
+        if (row.IsGuest)
+        {
+            var now = time.GetUtcNow();
+            return await db.OrganizationGuests.AsNoTracking().AnyAsync(g => g.OrganizationId == organizationId && g.UserId == userId
+                    && g.Status == MembershipStatus.Active && g.AccessExpiresAtUtc > now, cancellationToken).ConfigureAwait(false)
+                && await db.Organizations.AsNoTracking().AnyAsync(o => o.Id == organizationId && o.GuestsEnabled, cancellationToken).ConfigureAwait(false);
+        }
+
+        var isOrganizationMember = await db.OrganizationMembers.AsNoTracking().AnyAsync(m => m.OrganizationId == organizationId
+            && m.UserId == userId && m.Status == MembershipStatus.Active, cancellationToken).ConfigureAwait(false);
+        if (!isOrganizationMember)
+        {
+            return false;
+        }
+
+        return row.WorkspaceId is not { } workspaceId
+            || await db.WorkspaceMembers.AsNoTracking().AnyAsync(w => w.WorkspaceId == workspaceId && w.UserId == userId
+                && w.Status == MembershipStatus.Active, cancellationToken).ConfigureAwait(false);
+    }
 }

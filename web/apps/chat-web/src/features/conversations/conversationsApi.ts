@@ -161,6 +161,10 @@ export async function sendMessage(
 
 const messageUrl = (conversationId: string, messageId: string) => `${base(conversationId)}/messages/${encodeURIComponent(messageId)}`;
 
+export async function translateMessage(conversationId: string, messageId: string, targetLanguage: string): Promise<{ translation: string; targetLanguage: string }> {
+  return (await sendJson<{ translation: string; targetLanguage: string }>('POST', `${messageUrl(conversationId, messageId)}/translate`, { targetLanguage }))!;
+}
+
 /** Phase 16: adds or removes the caller's reaction; returns the message's reactions. */
 export async function setReaction(conversationId: string, messageId: string, emoji: string, reacted: boolean): Promise<ReactionResponse[]> {
   return (await sendJson<ReactionResponse[]>('PUT', `${messageUrl(conversationId, messageId)}/reactions`, { emoji, reacted })) ?? [];

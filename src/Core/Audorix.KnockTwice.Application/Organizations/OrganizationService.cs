@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Common;
 using Audorix.KnockTwice.Application.Identity;
 using Audorix.KnockTwice.Application.Users;
@@ -12,6 +13,10 @@ public interface IOrganizationStore
 {
     void Add(Organization organization);
 
+    void Add(VerifiedOrganizationDomain domain);
+
+    void Remove(VerifiedOrganizationDomain domain);
+
     void Add(OrganizationMember member);
 
     void Add(OrganizationInvitation invitation);
@@ -21,6 +26,14 @@ public interface IOrganizationStore
     void Add(WorkspaceMember member);
 
     Task<Organization?> FindOrganizationAsync(Guid organizationId, CancellationToken cancellationToken);
+
+    Task<VerifiedOrganizationDomain?> FindVerifiedDomainAsync(Guid organizationId, Guid domainId, CancellationToken cancellationToken);
+
+    Task<VerifiedOrganizationDomain?> FindDomainByNameAsync(string normalizedDomain, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<VerifiedOrganizationDomain>> ListVerifiedDomainsAsync(Guid organizationId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Organization>> ListAutomaticEnrollmentOrganizationsAsync(string emailDomain, CancellationToken cancellationToken);
 
     /// <summary>The membership record (active or revoked), or null.</summary>
     Task<OrganizationMember?> FindMemberAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken);
@@ -110,7 +123,13 @@ public sealed class OrganizationSettings
     public string DefaultWorkspaceName { get; set; } = "General";
 }
 
-public sealed record OrganizationView(Organization Organization, OrganizationRole MyRole, bool IsSupportAgent = false);
+public sealed record OrganizationView(Organization Organization, OrganizationRole MyRole, bool IsSupportAgent = false, IReadOnlyList<string>? MyPermissions = null);
+
+/// <summary>Looks up TXT records through the host's configured DNS resolvers.</summary>
+public interface IDomainTxtRecordLookup
+{
+    Task<IReadOnlyList<string>> LookupAsync(string domain, CancellationToken cancellationToken);
+}
 
 public sealed record MemberView(OrganizationMember Member, UserSummary User);
 
@@ -129,8 +148,17 @@ public sealed class OrganizationService(
     IUserDirectory directory,
     IUserAccountManager accounts,
     TimeProvider time,
-    IOptionsSnapshot<OrganizationSettings> settings)
+    IOptionsSnapshot<OrganizationSettings> settings,
+    IScopedAccessStore scopedAccess)
 {
+    private static readonly (string Key, OrganizationPermission Legacy)[] ManagedPermissions =
+    [
+        ("organization.manage", OrganizationPermission.Manage),
+        ("organization.members.manage", OrganizationPermission.ManageMembers),
+        ("organization.roles.manage", OrganizationPermission.ManageRoles),
+        ("organization.workspaces.manage", OrganizationPermission.ManageWorkspaces),
+    ];
+
     public async Task<OrganizationView> CreateAsync(Guid userId, string? name, CancellationToken cancellationToken)
     {
         // Owner decision (Phase 9): when creation is restricted, installation administrators still create organizations.
@@ -149,46 +177,57 @@ public sealed class OrganizationService(
         store.Add(workspace);
         store.Add(WorkspaceMember.Join(Guid.CreateVersion7(now), workspace, owner, WorkspaceRole.Administrator, now));
         await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
-        return new OrganizationView(organization, OrganizationRole.Owner);
+        return new OrganizationView(organization, OrganizationRole.Owner, MyPermissions: ["organization.manage", "organization.members.manage", "organization.roles.manage", "organization.workspaces.manage"]);
     }
 
-    public async Task<IReadOnlyList<OrganizationView>> ListMineAsync(Guid userId, CancellationToken cancellationToken) =>
-        (await store.ListActiveMembershipsAsync(userId, cancellationToken).ConfigureAwait(false))
-            .Select(m => new OrganizationView(m.Organization, m.Membership.Role, m.Membership.IsSupportAgent))
-            .OrderBy(o => o.Organization.Name, StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
+    public async Task<IReadOnlyList<OrganizationView>> ListMineAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var result = new List<OrganizationView>();
+        foreach (var item in await store.ListActiveMembershipsAsync(userId, cancellationToken).ConfigureAwait(false))
+        {
+            if (!await CanDiscoverAsync(userId, item.Organization.Id, cancellationToken).ConfigureAwait(false)) continue;
+            result.Add(new OrganizationView(item.Organization, item.Membership.Role, item.Membership.IsSupportAgent,
+                await GetMyPermissionsAsync(userId, item.Organization.Id, item.Membership, cancellationToken).ConfigureAwait(false)));
+        }
+
+        return result.OrderBy(o => o.Organization.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
 
     public async Task<OrganizationView> GetAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
     {
         var (organization, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent);
+        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent,
+            await GetMyPermissionsAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false));
     }
 
     public async Task<OrganizationView> RenameAsync(Guid userId, Guid organizationId, string? name, CancellationToken cancellationToken)
     {
         var (organization, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.Manage);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.manage", OrganizationPermission.Manage, cancellationToken).ConfigureAwait(false);
         organization.Rename(name ?? string.Empty, time.GetUtcNow());
         await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
-        return new OrganizationView(organization, membership.Role);
+        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent,
+            await GetMyPermissionsAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Organization-specific configuration (Phase 11): guests and who creates channels. Owners and administrators.</summary>
     public async Task<OrganizationView> ConfigureAsync(
-        Guid userId, Guid organizationId, bool? guestsEnabled, ChannelCreationPolicy? channelCreation, CancellationToken cancellationToken)
+        Guid userId, Guid organizationId, bool? guestsEnabled, ChannelCreationPolicy? channelCreation,
+        bool? privateChatsRequireSharedTeam, CancellationToken cancellationToken)
     {
         var (organization, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.Manage);
-        organization.Configure(guestsEnabled, channelCreation, time.GetUtcNow());
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.manage", OrganizationPermission.Manage, cancellationToken).ConfigureAwait(false);
+        organization.Configure(guestsEnabled, channelCreation, privateChatsRequireSharedTeam, time.GetUtcNow());
         await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
-        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent);
+        return new OrganizationView(organization, membership.Role, membership.IsSupportAgent,
+            await GetMyPermissionsAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false));
     }
 
     /// <summary>Grants or removes the Support Agent role (owners and administrators).</summary>
     public async Task<MemberView> SetSupportAgentAsync(Guid userId, Guid organizationId, Guid targetUserId, bool isAgent, CancellationToken cancellationToken)
     {
         var (_, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var target = await RequireActiveMemberAsync(organizationId, targetUserId, cancellationToken).ConfigureAwait(false);
         target.SetSupportAgent(isAgent);
         await SaveOrConflictAsync(cancellationToken).ConfigureAwait(false);
@@ -210,7 +249,7 @@ public sealed class OrganizationService(
             .ToList();
 
         IReadOnlyList<OrganizationInvitation>? invitations = null;
-        if (membership.Can(OrganizationPermission.ManageMembers))
+        if (await HasPermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false))
         {
             var now = time.GetUtcNow();
             invitations = (await store.ListPendingInvitationsAsync(organizationId, cancellationToken).ConfigureAwait(false))
@@ -229,7 +268,7 @@ public sealed class OrganizationService(
     public async Task<OrganizationInvitation> InviteAsync(Guid userId, Guid organizationId, string? email, OrganizationRole role, CancellationToken cancellationToken)
     {
         var (_, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var address = email?.Trim() ?? string.Empty;
         if (!MailAddress.TryCreate(address, out var parsed) || parsed.Address != address || !address.Contains('.', StringComparison.Ordinal))
         {
@@ -253,7 +292,7 @@ public sealed class OrganizationService(
     public async Task RevokeInvitationAsync(Guid userId, Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
     {
         var (_, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.ManageMembers);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.members.manage", OrganizationPermission.ManageMembers, cancellationToken).ConfigureAwait(false);
         var invitation = await store.FindInvitationAsync(invitationId, cancellationToken).ConfigureAwait(false);
         if (invitation is null || invitation.OrganizationId != organizationId || !invitation.IsOpen(time.GetUtcNow()))
         {
@@ -331,7 +370,7 @@ public sealed class OrganizationService(
     public async Task<MemberView> ChangeRoleAsync(Guid userId, Guid organizationId, Guid targetUserId, OrganizationRole role, CancellationToken cancellationToken)
     {
         var (_, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
-        RequirePermission(membership, OrganizationPermission.ManageRoles);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.roles.manage", OrganizationPermission.ManageRoles, cancellationToken).ConfigureAwait(false);
         var target = await RequireActiveMemberAsync(organizationId, targetUserId, cancellationToken).ConfigureAwait(false);
         if (target.Role == OrganizationRole.Owner && role != OrganizationRole.Owner)
         {
@@ -355,7 +394,9 @@ public sealed class OrganizationService(
         var target = targetUserId == userId ? membership : await RequireActiveMemberAsync(organizationId, targetUserId, cancellationToken).ConfigureAwait(false);
         if (targetUserId != userId)
         {
-            RequirePermission(membership, target.Role == OrganizationRole.Owner ? OrganizationPermission.ManageRoles : OrganizationPermission.ManageMembers);
+            var permissionKey = target.Role == OrganizationRole.Owner ? "organization.roles.manage" : "organization.members.manage";
+            var legacyPermission = target.Role == OrganizationRole.Owner ? OrganizationPermission.ManageRoles : OrganizationPermission.ManageMembers;
+            await RequirePermissionAsync(userId, organizationId, membership, permissionKey, legacyPermission, cancellationToken).ConfigureAwait(false);
         }
 
         if (target.Role == OrganizationRole.Owner)
@@ -428,15 +469,49 @@ public sealed class OrganizationService(
         var organization = membership is { IsActive: true }
             ? await store.FindOrganizationAsync(organizationId, cancellationToken).ConfigureAwait(false)
             : null;
-        return organization is null ? throw new ResourceNotFoundException("organization_not_found") : (organization, membership!);
+        if (organization is null) throw new ResourceNotFoundException("organization_not_found");
+        if (!await CanDiscoverAsync(userId, organizationId, cancellationToken).ConfigureAwait(false))
+            throw new ResourceNotFoundException("organization_not_found");
+        return (organization, membership!);
     }
 
-    internal static void RequirePermission(OrganizationMember membership, OrganizationPermission permission)
+    internal async Task RequirePermissionAsync(Guid userId, Guid organizationId, OrganizationMember membership, string permissionKey,
+        OrganizationPermission legacyPermission, CancellationToken cancellationToken)
     {
-        if (!membership.Can(permission))
-        {
+        if (!await HasPermissionAsync(userId, organizationId, membership, permissionKey, legacyPermission, cancellationToken).ConfigureAwait(false))
             throw new ForbiddenException();
+    }
+
+    public async Task RequireRoleManagementAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        var (_, membership) = await RequireMembershipAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+        await RequirePermissionAsync(userId, organizationId, membership, "organization.roles.manage", OrganizationPermission.ManageRoles, cancellationToken).ConfigureAwait(false);
+    }
+
+    internal async Task<bool> HasPermissionAsync(Guid userId, Guid organizationId, OrganizationMember membership, string permissionKey,
+        OrganizationPermission legacyPermission, CancellationToken cancellationToken)
+    {
+        if (!await scopedAccess.IsPermissionConfiguredAsync(organizationId, permissionKey, cancellationToken).ConfigureAwait(false))
+            return membership.Can(legacyPermission);
+        var effective = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+        return effective.Allowed.Contains(permissionKey, StringComparer.Ordinal);
+    }
+
+    internal async Task<IReadOnlyList<string>> GetMyPermissionsAsync(Guid userId, Guid organizationId, OrganizationMember membership, CancellationToken cancellationToken)
+    {
+        var allowed = new List<string>();
+        foreach (var (key, legacy) in ManagedPermissions)
+        {
+            if (await HasPermissionAsync(userId, organizationId, membership, key, legacy, cancellationToken).ConfigureAwait(false)) allowed.Add(key);
         }
+        return allowed;
+    }
+
+    private async Task<bool> CanDiscoverAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (!await scopedAccess.IsPermissionConfiguredAsync(organizationId, "organization.discover", cancellationToken).ConfigureAwait(false)) return true;
+        var effective = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+        return effective.Allowed.Contains("organization.discover", StringComparer.Ordinal);
     }
 
     private async Task<OrganizationMember> RequireActiveMemberAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>

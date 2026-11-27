@@ -19,12 +19,16 @@ import { PeopleList } from '../contacts/ContactsPage';
 import { ImageCropDialog, type ImageCropOptions } from '../media/ImageCropDialog';
 import * as api from './organizationsApi';
 import { OrganizationMark, organizationInitials } from './OrganizationMark';
+import { OrganizationDomainsSection } from './OrganizationDomainsSection';
+import { OrganizationSsoSection } from './OrganizationSsoSection';
+import { OrganizationAccessSection } from './OrganizationAccessSection';
+import { WorkspaceChannelAccessSection } from './WorkspaceChannelAccessSection';
 import { WidgetsSection } from '../widgets/WidgetsSection';
 import { listGuests } from '../business/businessApi';
 import { GuestsSection, OrganizationSettingsSection, SupportAgentToggle, TeamsSection } from '../business/OrganizationBusiness';
 
-type Tab = 'profile' | 'members' | 'workspaces' | 'channels' | 'website' | 'settings';
-const allTabs: Tab[] = ['profile', 'members', 'workspaces', 'channels', 'website', 'settings'];
+type Tab = 'profile' | 'members' | 'workspaces' | 'channels' | 'website' | 'access' | 'settings';
+const allTabs: Tab[] = ['profile', 'members', 'workspaces', 'channels', 'website', 'access', 'settings'];
 
 /**
  * One organization (redesign 2026-11-24, owner mockup): a header with its background image,
@@ -51,6 +55,7 @@ function Organization() {
   const [error, setError] = useState<unknown>(null);
   const [missing, setMissing] = useState(false);
   const [editing, setEditing] = useState<api.OrganizationImage | null>(null);
+  const [setupGuideHidden, setSetupGuideHidden] = useState(false);
 
   const reload = useCallback(() => {
     Promise.all([api.getOrganization(organizationId), api.listMembers(organizationId), api.listWorkspaces(organizationId)]).then(
@@ -82,7 +87,7 @@ function Organization() {
   const isOwner = organization.myRole === 'owner';
   const canManage = can('organization.manage');
   const available = allTabs.filter((x) =>
-    x === 'channels' ? can('organization.members.manage') : x === 'website' ? canManage : true);
+    x === 'channels' ? can('organization.members.manage') : x === 'website' ? canManage : x === 'access' ? isOwner : true);
   const requested = query.get('tab') as Tab | null;
   const tab: Tab = requested && available.includes(requested) ? requested : 'profile';
   const select = (next: Tab) =>
@@ -152,38 +157,42 @@ function Organization() {
 
       <div role="tabpanel" id="org-panel" aria-labelledby={`org-tab-${tab}`} className="cx-org-panel">
         {tab === 'profile' && (
-          <div className="cx-org-profile">
-            <ProfileCard organization={organization} canManage={canManage} onSaved={setOrganization} onEdit={setEditing} />
-            <aside className="cx-org-side">
-              <section className="cx-card" aria-labelledby="org-glance-title">
-                <h2 id="org-glance-title" className="cx-card-title">{t('orgPage.glance')}</h2>
-                <ul className="list-unstyled cx-org-glance mb-0">
-                  <Glance icon="people" label={t('orgPage.tabs.members')} value={memberCount} />
-                  <Glance icon="layers" label={t('orgPage.tabs.workspaces')} value={workspaces.length} />
-                  {guests !== null && <Glance icon="user-plus" label={t('orgPage.guests')} value={guests} />}
-                </ul>
-              </section>
-              {(can('organization.members.manage') || can('organization.workspaces.manage')) && (
-                <section className="cx-card" aria-labelledby="org-actions-title">
-                  <h2 id="org-actions-title" className="cx-card-title">{t('orgPage.quickActions')}</h2>
-                  <div className="d-grid gap-2">
-                    {can('organization.members.manage') && (
-                      <button type="button" className="btn btn-outline-secondary cx-icon-button cx-org-quick" onClick={() => select('members')}>
-                        <NavIcon name="user-plus" size={20} />
-                        {t('organizations.invite')}
-                      </button>
-                    )}
-                    {can('organization.workspaces.manage') && (
-                      <button type="button" className="btn btn-outline-secondary cx-icon-button cx-org-quick" onClick={() => select('workspaces')}>
-                        <NavIcon name="layers" size={20} />
-                        {t('organizations.createWorkspace')}
-                      </button>
-                    )}
-                  </div>
+          <>
+            {canManage && <OrganizationSetupGuide organization={organization} members={members} workspaces={workspaces}
+              hidden={setupGuideHidden} onHide={() => setSetupGuideHidden(true)} onEditLogo={() => setEditing('photo')} onOpenTab={select} />}
+            <div className="cx-org-profile">
+              <ProfileCard organization={organization} canManage={canManage} onSaved={setOrganization} onEdit={setEditing} />
+              <aside className="cx-org-side">
+                <section className="cx-card" aria-labelledby="org-glance-title">
+                  <h2 id="org-glance-title" className="cx-card-title">{t('orgPage.glance')}</h2>
+                  <ul className="list-unstyled cx-org-glance mb-0">
+                    <Glance icon="people" label={t('orgPage.tabs.members')} value={memberCount} />
+                    <Glance icon="layers" label={t('orgPage.tabs.workspaces')} value={workspaces.length} />
+                    {guests !== null && <Glance icon="user-plus" label={t('orgPage.guests')} value={guests} />}
+                  </ul>
                 </section>
-              )}
-            </aside>
-          </div>
+                {(can('organization.members.manage') || can('organization.workspaces.manage')) && (
+                  <section className="cx-card" aria-labelledby="org-actions-title">
+                    <h2 id="org-actions-title" className="cx-card-title">{t('orgPage.quickActions')}</h2>
+                    <div className="d-grid gap-2">
+                      {can('organization.members.manage') && (
+                        <button type="button" className="btn btn-outline-secondary cx-icon-button cx-org-quick" onClick={() => select('members')}>
+                          <NavIcon name="user-plus" size={20} />
+                          {t('organizations.invite')}
+                        </button>
+                      )}
+                      {can('organization.workspaces.manage') && (
+                        <button type="button" className="btn btn-outline-secondary cx-icon-button cx-org-quick" onClick={() => select('workspaces')}>
+                          <NavIcon name="layers" size={20} />
+                          {t('organizations.createWorkspace')}
+                        </button>
+                      )}
+                    </div>
+                  </section>
+                )}
+              </aside>
+            </div>
+          </>
         )}
 
         {tab === 'members' && (
@@ -197,6 +206,13 @@ function Organization() {
                 items={members.members.map((m) => ({ key: m.user.id, user: m.user, role: m.role, supportAgent: !!m.supportAgent }))}
                 actions={(member) => (
                   <>
+                    {member.key !== user.id && (
+                      <Link className="btn btn-sm btn-outline-primary cx-icon-button"
+                        to={`/private?with=${encodeURIComponent(member.key)}&organizationId=${encodeURIComponent(organization.id)}&name=${encodeURIComponent(member.user.displayName)}`}>
+                        <NavIcon name="message" size={16} />
+                        {t('private.startOrganizationChat')}
+                      </Link>
+                    )}
                     {can('organization.members.manage') && (
                       <SupportAgentToggle organizationId={organization.id} userId={member.key} name={member.user.displayName} value={member.supportAgent}
                         onChanged={(err) => (err ? setError(err) : reload())} />
@@ -262,9 +278,13 @@ function Organization() {
 
         {tab === 'website' && <WidgetsSection organizationId={organization.id} members={members.members.map((m) => m.user)} />}
 
+        {tab === 'access' && isOwner && <OrganizationAccessSection organizationId={organization.id} members={members} />}
+
         {tab === 'settings' && (
           <>
             {canManage && <OrganizationSettingsSection organization={organization} onSaved={setOrganization} />}
+            {canManage && <OrganizationDomainsSection organizationId={organization.id} />}
+            {canManage && <OrganizationSsoSection organizationId={organization.id} />}
             <section className="cx-card cx-org-leave">
               <div className="min-w-0">
                 <h2 className="cx-card-title">{t('organizations.leave')}</h2>
@@ -284,6 +304,76 @@ function Organization() {
         />
       )}
     </div>
+  );
+}
+
+/** A short owner/admin checklist that points to the existing branding, workspace and team controls. */
+function OrganizationSetupGuide({ organization, members, workspaces, hidden, onHide, onEditLogo, onOpenTab }: {
+  organization: OrganizationResponse;
+  members: OrganizationMembersResponse;
+  workspaces: WorkspaceResponse[];
+  hidden: boolean;
+  onHide: () => void;
+  onEditLogo: () => void;
+  onOpenTab: (tab: Tab) => void;
+}) {
+  const { t } = useTranslation();
+  const logoDone = organization.photoUrl !== null;
+  const workspaceDone = workspaces.length > 0;
+  const teamDone = members.members.length > 1 || (members.invitations?.length ?? 0) > 0;
+  const completed = Number(logoDone) + Number(workspaceDone) + Number(teamDone);
+  if (hidden || completed === 3) return null;
+
+  const steps = [
+    {
+      id: 'brand', done: logoDone, icon: 'building' as const,
+      title: t('orgPage.setupGuide.brandTitle'), text: t('orgPage.setupGuide.brandText'),
+      action: t(logoDone ? 'orgPage.setupGuide.brandDone' : 'orgPage.setupGuide.brandAction'),
+      onClick: onEditLogo,
+    },
+    {
+      id: 'workspace', done: workspaceDone, icon: 'layers' as const,
+      title: t('orgPage.setupGuide.workspaceTitle'),
+      text: t('orgPage.setupGuide.workspaceText', { name: workspaces[0]?.name ?? t('orgPage.setupGuide.workspaceFallback') }),
+      action: t('orgPage.setupGuide.workspaceAction'),
+      onClick: () => onOpenTab('workspaces'),
+    },
+    {
+      id: 'team', done: teamDone, icon: 'user-plus' as const,
+      title: t('orgPage.setupGuide.teamTitle'), text: t('orgPage.setupGuide.teamText'),
+      action: t(teamDone ? 'orgPage.setupGuide.teamDone' : 'orgPage.setupGuide.teamAction'),
+      onClick: () => onOpenTab('members'),
+    },
+  ];
+
+  return (
+    <section className="cx-card cx-org-setup-guide mb-3" aria-labelledby="org-setup-guide-title">
+      <div className="d-flex align-items-start justify-content-between gap-3">
+        <div>
+          <h2 id="org-setup-guide-title" className="cx-card-title mb-1">{t('orgPage.setupGuide.title')}</h2>
+          <p className="cx-muted mb-0">{t('orgPage.setupGuide.intro', { completed, total: steps.length })}</p>
+        </div>
+        <button type="button" className="btn btn-sm btn-link" onClick={onHide}>
+          {t('orgPage.setupGuide.hide')}
+        </button>
+      </div>
+      <ol className="list-unstyled cx-org-setup-steps mb-0 mt-3">
+        {steps.map((step) => (
+          <li key={step.id} className={`cx-org-setup-step${step.done ? ' is-complete' : ''}`}>
+            <span className="cx-org-setup-step-icon" aria-hidden="true">
+              <NavIcon name={step.done ? 'check' : step.icon} size={18} />
+            </span>
+            <span className="min-w-0 flex-grow-1">
+              <strong className="d-block">{step.title}</strong>
+              <span className="cx-muted small">{step.text}</span>
+            </span>
+            <button type="button" className="btn btn-sm btn-outline-secondary" onClick={step.onClick}>
+              {step.action}
+            </button>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -653,6 +743,8 @@ function WorkspacesSection({
             </form>
           )}
           <TeamsSection organizationId={organization.id} workspaceId={openWorkspace.id} canManageWorkspace={canManageOpen} workspaceMembers={members} />
+          <WorkspaceChannelAccessSection organizationId={organization.id} workspaceId={openWorkspace.id} members={members}
+            canManage={organization.myPermissions.includes('organization.roles.manage')} />
         </div>
       )}
 

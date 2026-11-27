@@ -12,6 +12,7 @@ using Audorix.KnockTwice.Persistence.PostgreSql;
 using Audorix.KnockTwice.Persistence.Sqlite;
 using Audorix.KnockTwice.Api.Administration;
 using Audorix.KnockTwice.Api.Widgets;
+using Audorix.KnockTwice.Api.SupportQueue;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -169,6 +170,8 @@ public static class ChatXApiComposition
 
         services.AddChatXApplication();
         services.AddChatXInfrastructure();
+        services.AddSupportRoutingQueue();
+        services.AddHostedService<SupportQueue.AttachmentStorageMigrationWorker>();
 
         // Local attachment storage: relative paths are relative to the content root, like the SQLite file.
         services.PostConfigure<Infrastructure.Storage.StorageOptions>(options =>
@@ -242,6 +245,7 @@ public static class ChatXApiComposition
         app.UseChatXForwardedHeaders();
         app.UseChatXRequestBasics();
         app.UseChatXRealtimeOriginCheck();
+        app.UseOrganizationOidcCallbackRegistration();
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseRateLimiter();

@@ -106,6 +106,15 @@ public sealed class ProfileMediaService(
         return profile;
     }
 
+    public async Task<UserProfile> SetGeneratedAvatarAsync(Guid userId, string? style, string? seed, CancellationToken cancellationToken)
+    {
+        var profile = await RequireProfileAsync(userId, cancellationToken).ConfigureAwait(false);
+        var previous = profile.SelectGeneratedAvatar(style, seed, time.GetUtcNow());
+        await profiles.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        await TryDeleteAsync(previous).ConfigureAwait(false);
+        return profile;
+    }
+
     /// <summary>The person's photo, or null when they have none (or the account was deleted).</summary>
     public async Task<ProfilePhotoContent?> OpenPhotoAsync(Guid userId, CancellationToken cancellationToken)
     {

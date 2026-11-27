@@ -18,11 +18,30 @@ internal sealed class OrganizationConfiguration : IEntityTypeConfiguration<Organ
         builder.Property(o => o.Name).HasMaxLength(Organization.NameMaxLength).IsRequired();
         builder.Property(o => o.GuestsEnabled).HasDefaultValue(true);
         builder.Property(o => o.ChannelCreation).HasConversion<string>().HasMaxLength(16).HasDefaultValue(ChannelCreationPolicy.Members);
+        builder.Property(o => o.PrivateChatsRequireSharedTeam).HasDefaultValue(false);
+        builder.Property(o => o.AutomaticEnrollmentEnabled).HasDefaultValue(false);
+        builder.Property(o => o.SsoIssuer).HasMaxLength(512);
+        builder.Property(o => o.SsoClientId).HasMaxLength(256);
+        builder.Property(o => o.ProtectedSsoClientSecret).HasMaxLength(4096);
         builder.Property(o => o.PhotoKey).HasMaxLength(200);
         builder.Property(o => o.PhotoContentType).HasMaxLength(32);
         builder.Property(o => o.BannerKey).HasMaxLength(200);
         builder.Property(o => o.BannerContentType).HasMaxLength(32);
         builder.HasOne<ChatXUser>().WithMany().HasForeignKey(o => o.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class VerifiedOrganizationDomainConfiguration : IEntityTypeConfiguration<VerifiedOrganizationDomain>
+{
+    public void Configure(EntityTypeBuilder<VerifiedOrganizationDomain> builder)
+    {
+        builder.ToTable("organization_domains");
+        builder.Property(d => d.Id).ValueGeneratedNever();
+        builder.Property(d => d.Domain).HasMaxLength(VerifiedOrganizationDomain.DomainMaxLength).IsRequired();
+        builder.Property(d => d.VerificationToken).HasMaxLength(128).IsRequired();
+        builder.HasIndex(d => d.Domain).IsUnique();
+        builder.HasIndex(d => d.OrganizationId);
+        builder.HasOne<Organization>().WithMany().HasForeignKey(d => d.OrganizationId).OnDelete(DeleteBehavior.Cascade);
     }
 }
 
@@ -80,6 +99,9 @@ internal sealed class OrganizationGuestConfiguration : IEntityTypeConfiguration<
         builder.ToTable("organization_guests");
         builder.Property(g => g.Id).ValueGeneratedNever();
         builder.Property(g => g.Status).HasConversion<string>().HasMaxLength(16);
+          builder.Property(g => g.AccessExpiresAtUtc).HasConversion(
+              value => value.UtcDateTime,
+              value => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)));
         builder.Ignore(g => g.IsActive);
         builder.HasAlternateKey(g => new { g.OrganizationId, g.UserId });
         builder.HasIndex(g => new { g.UserId, g.Status });

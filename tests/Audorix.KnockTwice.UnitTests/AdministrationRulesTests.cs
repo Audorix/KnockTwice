@@ -9,6 +9,41 @@ namespace Audorix.KnockTwice.UnitTests;
 public sealed class AdministrationRulesTests
 {
     [Fact]
+    public void Permission_catalog_has_unique_scoped_keys_and_matches_the_active_authorization_set()
+    {
+        Assert.Equal(PermissionCatalog.All.Count, PermissionCatalog.All.Select(permission => permission.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(
+            Permissions.All.Order(StringComparer.Ordinal),
+            PermissionCatalog.Available.Select(permission => permission.Key).Order(StringComparer.Ordinal));
+        Assert.All(PermissionCatalog.All, permission =>
+        {
+            Assert.Contains(permission.Scope, new[] { PermissionScopes.Installation, PermissionScopes.Organization, PermissionScopes.Workspace });
+            Assert.Contains(permission.State, new[] { PermissionCatalog.Implemented, PermissionCatalog.Planned });
+            Assert.False(string.IsNullOrWhiteSpace(permission.Description));
+        });
+    }
+
+    [Fact]
+    public void Organization_permission_is_cataloged_but_not_granted_by_installation_roles()
+    {
+        var permission = Assert.Single(PermissionCatalog.All, item => item.Key == "private_chats.use");
+
+        Assert.Equal(PermissionCatalog.Implemented, permission.State);
+        Assert.Equal(PermissionScopes.Organization, permission.Scope);
+        Assert.False(Permissions.IsGrantedBy([Roles.InstallationAdministrator], permission.Key));
+        Assert.False(Permissions.IsGrantedBy([Roles.Auditor], permission.Key));
+    }
+
+    [Fact]
+    public void Granular_installation_permissions_keep_legacy_access_until_configured_then_use_exact_grants()
+    {
+        Assert.True(Permissions.IsEffectivelyGranted([Roles.InstallationAdministrator], "settings.read", [], [], []));
+        Assert.False(Permissions.IsEffectivelyGranted([Roles.InstallationAdministrator], "settings.read", [], [], ["settings.read"]));
+        Assert.True(Permissions.IsEffectivelyGranted([], "settings.read", ["settings.read"], [], ["settings.read"]));
+        Assert.False(Permissions.IsEffectivelyGranted([Roles.InstallationAdministrator], "settings.read", ["settings.read"], ["settings.read"], ["settings.read"]));
+    }
+
+    [Fact]
     public void Audit_details_never_keep_secrets_message_text_or_oversized_values()
     {
         var json = AuditService.Serialize(new Dictionary<string, object?>
@@ -52,8 +87,43 @@ public sealed class AdministrationRulesTests
         Assert.True(Permissions.IsGrantedBy([Roles.Auditor], Permissions.UsersRead));
         Assert.False(Permissions.IsGrantedBy([Roles.Auditor], Permissions.UsersManage));
         Assert.False(Permissions.IsGrantedBy([Roles.Auditor], Permissions.InstallationManage));
-        Assert.All(Permissions.All, p => Assert.True(Permissions.IsGrantedBy([Roles.InstallationAdministrator], p)));
+        Assert.True(Permissions.IsEffectivelyGranted([Roles.Auditor], "settings.read", [], [], []));
+        Assert.False(Permissions.IsEffectivelyGranted([Roles.Auditor], "settings.manage", [], [], []));
+        Assert.All(Permissions.All, p => Assert.True(Permissions.IsEffectivelyGranted([Roles.InstallationAdministrator], p, [], [], [])));
         Assert.Empty(Permissions.ForRole("Unknown"));
+    }
+
+    [Fact]
+    public void Custom_access_roles_accept_only_implemented_installation_permissions()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var role = AccessRole.Create(Guid.NewGuid(), "Support Readers", "Can review users", Guid.NewGuid(), now);
+        role.SetPermissions([new RolePermissionDecision("users.read", PermissionEffect.Allow)]);
+        Assert.Equal([("users.read", PermissionEffect.Allow)], role.Permissions.Select(item => (item.PermissionKey, item.Effect)));
+
+        var wrongScope = Assert.Throws<DomainRuleException>(() => role.SetPermissions([new RolePermissionDecision("private_chats.use", PermissionEffect.Deny)]));
+        Assert.Equal("permission_not_assignable", wrongScope.Code);
+        var organizationId = Guid.NewGuid();
+        var orgRole = AccessRole.Create(Guid.NewGuid(), "Private Chat Users", null, Guid.NewGuid(), now, PermissionScopes.Organization, organizationId);
+        orgRole.SetPermissions([new RolePermissionDecision("private_chats.use", PermissionEffect.Allow)]);
+        Assert.Equal(PermissionScopes.Organization, orgRole.Scope);
+        Assert.Equal(organizationId, orgRole.OrganizationId);
+        Assert.Throws<DomainRuleException>(() => AccessRole.Create(Guid.NewGuid(), "Bad scope", null, Guid.NewGuid(), now, PermissionScopes.Organization));
+        var duplicate = Assert.Throws<DomainRuleException>(() => role.SetPermissions([
+            new RolePermissionDecision("users.read", PermissionEffect.Allow), new RolePermissionDecision("users.read", PermissionEffect.Deny)]));
+        Assert.Equal("permission_duplicate", duplicate.Code);
+        Assert.Throws<DomainRuleException>(() => AccessRole.Create(Guid.NewGuid(), "Auditor", null, Guid.NewGuid(), now));
+        Assert.Throws<DomainRuleException>(() => AccessRole.Create(Guid.NewGuid(), "Role & Admin", null, Guid.NewGuid(), now));
+    }
+
+    [Fact]
+    public void Custom_access_groups_normalize_names_and_reject_empty_or_controlled_names()
+    {
+        var group = AccessGroup.Create(Guid.NewGuid(), "  Support   Agents ", null, Guid.NewGuid(), DateTimeOffset.UtcNow);
+        Assert.Equal("Support   Agents", group.Name);
+        Assert.Equal("SUPPORT   AGENTS", group.NormalizedName);
+        Assert.Throws<DomainRuleException>(() => AccessGroup.Create(Guid.NewGuid(), "", null, Guid.NewGuid(), DateTimeOffset.UtcNow));
+        Assert.Throws<DomainRuleException>(() => AccessGroup.Create(Guid.NewGuid(), "Bad\nGroup", null, Guid.NewGuid(), DateTimeOffset.UtcNow));
     }
 
     [Theory]

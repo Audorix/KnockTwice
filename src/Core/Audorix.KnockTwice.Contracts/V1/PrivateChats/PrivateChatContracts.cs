@@ -20,7 +20,8 @@ public sealed record PrivateChatResponse(
     DateTimeOffset InvitationExpiresAtUtc,
     long UsedBytes,
     long MaxBytes,
-    long MaxFileSize);
+    long MaxFileSize,
+    Guid? OrganizationId = null);
 
 /// <param name="Messages">Everything said so far, oldest first; it exists only in memory.</param>
 public sealed record PrivateChatDetailResponse(PrivateChatResponse Chat, IReadOnlyList<PrivateMessageResponse> Messages);
@@ -32,7 +33,7 @@ public sealed record PrivateMessageResponse(
     Guid Id, long Sequence, UserSummaryResponse? Author, Guid AuthorId, string ClientMessageId, string Body,
     IReadOnlyList<PrivateAttachmentResponse> Attachments, DateTimeOffset CreatedAtUtc);
 
-public sealed record StartPrivateChatRequest(Guid UserId);
+public sealed record StartPrivateChatRequest(Guid UserId, Guid? OrganizationId = null);
 
 /// <param name="ClientMessageId">Sender-generated id, 1-64 characters; a retry returns the original.</param>
 /// <param name="AttachmentIds">Files uploaded into this private chat by the sender.</param>

@@ -1,17 +1,23 @@
 using Audorix.KnockTwice.Application.Administration;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Audorix.KnockTwice.Api.Identity;
 using Audorix.KnockTwice.Application.Abstractions;
 using Audorix.KnockTwice.Application.Identity;
 using Audorix.KnockTwice.Application.Realtime;
 using Audorix.KnockTwice.Application.Sessions;
 using Audorix.KnockTwice.Application.Users;
+using Audorix.KnockTwice.Application.Organizations;
 using Audorix.KnockTwice.Contracts.Errors;
 using Audorix.KnockTwice.Contracts.V1.Auth;
 using Audorix.KnockTwice.Contracts.V1.Users;
+using Audorix.KnockTwice.Domain;
+using Audorix.KnockTwice.Domain.Organizations;
 using Audorix.KnockTwice.Infrastructure.Identity;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -42,6 +48,10 @@ internal static class AuthEndpoints
         limited.MapPost("/reset-password", ResetPasswordAsync).WithSummary("Sets a new password from an emailed link; signs out all sessions.");
         limited.MapGet("/external/{provider}", ExternalChallenge).WithSummary("Starts sign-in with an enabled external provider (google, microsoft).");
         limited.MapGet("/external/callback", ExternalCallbackAsync).WithSummary("Completes external sign-in and redirects to the web app.").ExcludeFromDescription();
+        limited.MapGet("/organization-sso/{organizationId:guid}", OrganizationSsoChallengeAsync)
+            .WithSummary("Starts sign-in through an organization's configured identity provider.");
+        limited.MapGet("/organization-sso/complete/{organizationId:guid}", OrganizationSsoCompleteAsync)
+            .WithSummary("Completes an organization SSO sign-in.").ExcludeFromDescription();
 
         auth.MapPost("/logout", LogoutAsync).RequireAuthorization().WithSummary("Ends the current session.");
 
@@ -127,6 +137,7 @@ internal static class AuthEndpoints
         SessionService sessions,
         UserProfileService profiles,
         AuditService audit,
+        OrganizationDomainEnrollmentService domainEnrollment,
         CancellationToken cancellationToken)
     {
         var email = request.Email?.Trim();
@@ -157,6 +168,7 @@ internal static class AuthEndpoints
         }
 
         await SessionSignIn.SignInAsync(context, signIn, sessions, user, request.RememberMe, cancellationToken).ConfigureAwait(false);
+        await domainEnrollment.EnrollIfEligibleAsync(user.Id, cancellationToken).ConfigureAwait(false);
         await AuditSignInAsync(audit, user.Id, true, null, cancellationToken).ConfigureAwait(false);
         var current = await profiles.GetCurrentAsync(user.Id, cancellationToken).ConfigureAwait(false);
         return TypedResults.Ok(UserEndpoints.ToResponse(current));
@@ -205,6 +217,7 @@ internal static class AuthEndpoints
         SessionService sessions,
         AccountService accounts,
         IOptions<PublicUrlSettings> urls,
+        OrganizationDomainEnrollmentService domainEnrollment,
         CancellationToken cancellationToken)
     {
         RedirectHttpResult Fail(string code) => TypedResults.Redirect(urls.Value.Link("sign-in", ("error", code)).AbsoluteUri);
@@ -244,6 +257,7 @@ internal static class AuthEndpoints
             }
 
             await SessionSignIn.SignInAsync(context, signIn, sessions, user, persistent: true, cancellationToken).ConfigureAwait(false);
+            await domainEnrollment.EnrollIfEligibleAsync(user.Id, cancellationToken).ConfigureAwait(false);
             return TypedResults.Redirect(new Uri(urls.Value.BaseUri, LocalReturnUrl.Normalize(returnUrl).TrimStart('/')).AbsoluteUri);
         }
         finally
@@ -251,6 +265,109 @@ internal static class AuthEndpoints
             await context.SignOutAsync(IdentityConstants.ExternalScheme).ConfigureAwait(false);
         }
     }
+
+    private static async Task<Results<ChallengeHttpResult, RedirectHttpResult>> OrganizationSsoChallengeAsync(
+        Guid organizationId, string? returnUrl, OrganizationDomainService organizations,
+        IDataProtectionProvider protection, OrganizationOidcSchemeManager schemes, IOptions<PublicUrlSettings> urls,
+        CancellationToken cancellationToken)
+    {
+        var settings = await organizations.GetSsoForSignInAsync(organizationId, cancellationToken).ConfigureAwait(false);
+        if (settings is null)
+            return TypedResults.Redirect(urls.Value.Link("sign-in", ("error", "external_sign_in_failed")).AbsoluteUri);
+
+        try
+        {
+            var secret = protection.CreateProtector("Audorix.KnockTwice.OrganizationSso.ClientSecret.v1")
+                .Unprotect(settings.ProtectedClientSecret);
+            await schemes.EnsureRegisteredAsync(settings, secret).ConfigureAwait(false);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            return TypedResults.Redirect(urls.Value.Link("sign-in", ("error", "external_sign_in_failed")).AbsoluteUri);
+        }
+
+        var safeReturnUrl = LocalReturnUrl.Normalize(returnUrl);
+        var complete = $"/api/v1/auth/organization-sso/complete/{organizationId:D}?returnUrl={Uri.EscapeDataString(safeReturnUrl)}";
+        var properties = new AuthenticationProperties { RedirectUri = complete };
+        var scheme = OrganizationOidcSchemeRegistry.SchemeName(organizationId);
+        return TypedResults.Challenge(properties, [scheme]);
+    }
+
+    private static async Task<RedirectHttpResult> OrganizationSsoCompleteAsync(
+        Guid organizationId, string? returnUrl, HttpContext context, UserManager<ChatXUser> users,
+        SignInManager<ChatXUser> signIn, AccountService accounts, SessionService sessions,
+        OrganizationDomainService organizations, OrganizationDomainEnrollmentService enrollment,
+        AuditService audit, IOptions<PublicUrlSettings> urls, CancellationToken cancellationToken)
+    {
+        RedirectHttpResult Fail() => TypedResults.Redirect(urls.Value.Link("sign-in", ("error", "external_sign_in_failed")).AbsoluteUri);
+        try
+        {
+            var settings = await organizations.GetSsoForSignInAsync(organizationId, cancellationToken).ConfigureAwait(false);
+            var info = await signIn.GetExternalLoginInfoAsync().ConfigureAwait(false);
+            if (settings is null || info is null
+                || !string.Equals(info.LoginProvider, OrganizationOidcSchemeRegistry.SchemeName(organizationId), StringComparison.Ordinal))
+                return Fail();
+
+            var email = info.Principal.FindFirstValue(ClaimTypes.Email) ?? info.Principal.FindFirstValue("email");
+            var subject = info.ProviderKey;
+            var verified = info.Principal.FindFirstValue("email_verified");
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(subject)
+                || !string.Equals(verified, "true", StringComparison.OrdinalIgnoreCase)
+                || !EmailMatchesOrganizationDomain(email, settings.VerifiedDomains))
+                return Fail();
+
+            var loginProvider = $"orgsso-{organizationId:N}";
+            var providerKey = Base64Url(SHA256.HashData(Encoding.UTF8.GetBytes(settings.Issuer + "\n" + subject)));
+            var user = await users.FindByLoginAsync(loginProvider, providerKey).ConfigureAwait(false);
+            if (user is null)
+            {
+                user = await users.FindByEmailAsync(email.Trim()).ConfigureAwait(false);
+                if (user is not null)
+                {
+                    if (!user.EmailConfirmed || !string.Equals(user.Email, email.Trim(), StringComparison.OrdinalIgnoreCase)) return Fail();
+                    var linked = await users.AddLoginAsync(user, new UserLoginInfo(loginProvider, providerKey, settings.OrganizationName)).ConfigureAwait(false);
+                    if (!linked.Succeeded) return Fail();
+                }
+                else
+                {
+                    if (!settings.AutomaticEnrollmentEnabled) return Fail();
+                    var displayName = info.Principal.FindFirstValue(ClaimTypes.Name) ?? info.Principal.FindFirstValue("name") ?? string.Empty;
+                    var provisioned = await accounts.ProvisionExternalAccountAsync(
+                        new ExternalLoginReference(loginProvider, providerKey, displayName), email,
+                        context.Request.Headers.AcceptLanguage.ToString().Split(',', 2)[0].Split('-', 2)[0], cancellationToken).ConfigureAwait(false);
+                    if (!provisioned.Succeeded) return Fail();
+                    user = await users.FindByIdAsync(provisioned.UserId!.Value.ToString()).ConfigureAwait(false);
+                }
+            }
+
+            if (user is null || !user.EmailConfirmed || user.DisabledAtUtc is not null
+                || await users.IsLockedOutAsync(user).ConfigureAwait(false)) return Fail();
+
+            await enrollment.EnrollIfEligibleAsync(user.Id, cancellationToken).ConfigureAwait(false);
+            if (!await enrollment.HasActiveMembershipAsync(organizationId, user.Id, cancellationToken).ConfigureAwait(false)) return Fail();
+
+            await SessionSignIn.SignInAsync(context, signIn, sessions, user, persistent: true, cancellationToken).ConfigureAwait(false);
+            await audit.RecordAsync(AuditActions.SignIn, user.Id, "organization", organizationId.ToString(),
+                new Dictionary<string, object?> { ["provider"] = "organization_sso" }, cancellationToken: cancellationToken).ConfigureAwait(false);
+            return TypedResults.Redirect(new Uri(urls.Value.BaseUri, LocalReturnUrl.Normalize(returnUrl).TrimStart('/')).AbsoluteUri);
+        }
+        finally
+        {
+            await context.SignOutAsync(IdentityConstants.ExternalScheme).ConfigureAwait(false);
+        }
+    }
+
+    private static bool EmailMatchesOrganizationDomain(string email, IReadOnlyList<string> verifiedDomains)
+    {
+        var at = email.LastIndexOf('@');
+        if (at <= 0 || at == email.Length - 1) return false;
+        string domain;
+        try { domain = VerifiedOrganizationDomain.NormalizeDomain(email[(at + 1)..]); }
+        catch (DomainRuleException) { return false; }
+        return verifiedDomains.Contains(domain, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string Base64Url(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static async Task<Ok<IReadOnlyList<SessionResponse>>> ListSessionsAsync(
         HttpContext context, SessionService sessions, CancellationToken cancellationToken)

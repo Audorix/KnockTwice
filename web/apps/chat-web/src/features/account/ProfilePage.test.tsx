@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n, { initI18n } from '../../i18n/i18n';
 import { resetCsrfToken } from '../../shared/api/httpClient';
@@ -54,6 +54,34 @@ describe('My profile (redesign 2026-11)', () => {
     await actor.click(within(hero).getByRole('button', { name: 'Use initials' }));
     expect(await within(hero).findByRole('button', { name: 'Use initials' })).toBeDisabled();
     expect(hero.querySelector('img')).toBeNull();
+  });
+
+  it('saves a locally generated avatar style and stable seed', async () => {
+    window.history.replaceState(null, '', '/account');
+    let saved: { style: string | null; seed: string | null } | undefined;
+    mockFetch({
+      'GET /api/v1/auth/config': () => json(200, authConfig),
+      'GET /api/v1/users/me': () => json(200, ana(false)),
+      'GET /api/v1/auth/csrf': () => json(200, { token: 't', headerName: 'X-CSRF-TOKEN' }),
+      'GET /api/v1/auth/sessions': () => json(200, [session('s1', true)]),
+      'PUT /api/v1/users/me/avatar': (init) => {
+        saved = JSON.parse(String(init?.body)) as { style: string | null; seed: string | null };
+        return json(200, { ...ana(false), avatar: { initials: 'AL', generatedStyle: saved.style, generatedSeed: saved.seed } });
+      },
+    });
+    const actor = userEvent.setup();
+    render(<AuthProvider><AccountPage /></AuthProvider>);
+
+    const profileHero = await screen.findByRole('region', { name: 'Your profile' });
+    await actor.click(within(profileHero).getAllByRole('button', { name: 'Change photo' })[1]!);
+    await actor.click(await screen.findByRole('tab', { name: 'Illustrated avatar' }));
+    await actor.click(screen.getByRole('option', { name: 'Pixel Art' }));
+    await actor.click(screen.getByRole('button', { name: 'Use this avatar' }));
+
+    expect(saved?.style).toBe('pixel-art');
+    expect(saved?.seed).toBe('u-ana');
+    const hero = await screen.findByRole('region', { name: 'Your profile' });
+    await waitFor(() => expect(hero.querySelector('img')).toHaveAttribute('src', expect.stringContaining('data:image/svg+xml')));
   });
 
   it('picks up a sign-in from another browser when you come back or open Sessions', async () => {

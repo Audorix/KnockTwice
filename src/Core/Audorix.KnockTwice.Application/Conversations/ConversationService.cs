@@ -1,4 +1,5 @@
 using Audorix.KnockTwice.Application.Common;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Contacts;
 using Audorix.KnockTwice.Application.Organizations;
 using Audorix.KnockTwice.Application.Realtime;
@@ -294,7 +295,8 @@ public sealed partial class ConversationService(
     RealtimeService realtime,
     TimeProvider time,
     IOptionsSnapshot<ConversationSettings> settings,
-    Attachments.IAttachmentStore attachments)
+    Attachments.IAttachmentStore attachments,
+    IScopedAccessStore? scopedAccess = null)
 {
     public const int DefaultPageSize = 50;
     public const int MaxPageSize = 100;
@@ -488,11 +490,27 @@ public sealed partial class ConversationService(
         var guestOf = (await organizations.ListGuestOrganizationsAsync(userId, cancellationToken).ConfigureAwait(false))
             .ToDictionary(o => o.Id, o => o.Name);
         var workspaces = await organizations.ListActiveWorkspaceIdsAsync(userId, cancellationToken).ConfigureAwait(false);
-        var participations = (await store.ListForUserAsync(userId, cancellationToken).ConfigureAwait(false))
-            .Where(p => p.Conversation.OrganizationId is not { } org
-                || (p.Participant.IsGuest ? guestOf.ContainsKey(org)
-                    : memberships.ContainsKey(org) && (p.Conversation.WorkspaceId is not { } ws || workspaces.Contains(ws))))
-            .ToList();
+        var participations = new List<Participation>();
+        foreach (var participation in await store.ListForUserAsync(userId, cancellationToken).ConfigureAwait(false))
+        {
+            var conversation = participation.Conversation;
+            if (conversation.OrganizationId is { } org
+                && !(participation.Participant.IsGuest ? guestOf.ContainsKey(org)
+                    : memberships.ContainsKey(org) && (conversation.WorkspaceId is not { } ws || workspaces.Contains(ws))))
+            {
+                continue;
+            }
+
+            if (conversation.Type == ConversationType.Website && conversation.OrganizationId is { } supportOrg && scopedAccess is not null)
+            {
+                var membership = await organizations.FindMemberAsync(supportOrg, userId, cancellationToken).ConfigureAwait(false);
+                if (membership is not { IsActive: true }) continue;
+                var supportAccess = await GetSupportAccessAsync(userId, supportOrg, membership, cancellationToken).ConfigureAwait(false);
+                if (!supportAccess.CanEnter || !(supportAccess.CanReadAll || supportAccess.CanReadParticipating)) continue;
+            }
+
+            participations.Add(participation);
+        }
         foreach (var (id, name) in guestOf)
         {
             memberships.TryAdd(id, name);
@@ -991,9 +1009,17 @@ public sealed partial class ConversationService(
             return true;
         }
 
+        if (conversation.Type == ConversationType.Website && scopedAccess is not null)
+        {
+            var membership = await organizations.FindMemberAsync(org, participant.UserId, cancellationToken).ConfigureAwait(false);
+            if (membership is not { IsActive: true }) return false;
+            var supportAccess = await GetSupportAccessAsync(participant.UserId, org, membership, cancellationToken).ConfigureAwait(false);
+            return supportAccess.CanEnter && (supportAccess.CanReadAll || supportAccess.CanReadParticipating);
+        }
+
         if (participant.IsGuest)
         {
-            return await organizations.FindGuestAsync(org, participant.UserId, cancellationToken).ConfigureAwait(false) is { IsActive: true }
+            return (await organizations.FindGuestAsync(org, participant.UserId, cancellationToken).ConfigureAwait(false))?.IsActiveAt(time.GetUtcNow()) == true
                 && await organizations.FindOrganizationAsync(org, cancellationToken).ConfigureAwait(false) is { GuestsEnabled: true };
         }
 

@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Audorix.KnockTwice.Application.Attachments;
+using Audorix.KnockTwice.Application.Identity;
+using Audorix.KnockTwice.Domain.Authorization;
 using Audorix.KnockTwice.Domain.Attachments;
 using Audorix.KnockTwice.Infrastructure.Persistence;
 using Audorix.KnockTwice.Infrastructure.Storage;
@@ -24,6 +26,91 @@ public sealed class AttachmentTests
     public static TheoryData<string> Providers => ["Sqlite", "PostgreSql"];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    [Fact]
+    public async Task Storage_migration_dry_run_reports_inventory_without_changing_live_attachments()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (admin, adminId) = await SignedInAsync(api, "migration-admin@example.org", "Migration Admin");
+        var (ana, anaId) = await SignedInAsync(api, "migration-ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "migration-ben@example.org", "Ben");
+        using var _1 = admin;
+        using var _2 = ana;
+        using var _3 = ben;
+        await using (var scope = api.Services.CreateAsyncScope())
+            Assert.True((await scope.ServiceProvider.GetRequiredService<IUserAccountManager>().AddToRoleAsync(adminId, Roles.InstallationAdministrator, Ct)).Succeeded);
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+        var conversationId = await DirectAsync(ana, benId);
+        var bytes = TestFiles.Png(2048);
+        var upload = await ana.UploadAsync($"/api/v1/conversations/{conversationId}/attachments", "migration.png", bytes, "image/png");
+        AssertStatus(HttpStatusCode.Created, upload);
+        var attachmentId = (await JsonAsync(upload)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync($"/api/v1/conversations/{conversationId}/messages", new
+        {
+            clientMessageId = "migration-preflight-message", body = "Keep this file readable.", attachmentIds = new[] { attachmentId },
+        }));
+
+        var sameProvider = await admin.PostAsync("/api/v1/admin/storage-migrations/dry-run", new { sourceProvider = "Local", destinationProvider = "Local" });
+        AssertStatus(HttpStatusCode.BadRequest, sameProvider);
+        var dryRunResponse = await admin.PostAsync("/api/v1/admin/storage-migrations/dry-run", new { sourceProvider = "Local", destinationProvider = "S3" });
+        AssertStatus(HttpStatusCode.OK, dryRunResponse);
+        var report = await JsonAsync(dryRunResponse);
+        Assert.Equal(1, report.GetProperty("totalFiles").GetInt64());
+        Assert.Equal(bytes.Length, report.GetProperty("totalBytes").GetInt64());
+        Assert.Contains(report.GetProperty("files").EnumerateArray(), file => file.GetProperty("id").GetGuid() == attachmentId);
+        Assert.Contains("destination_unavailable", report.GetProperty("blockers").EnumerateArray().Select(item => item.GetString()));
+        var liveDownload = await ben.GetAsync($"/api/v1/attachments/{attachmentId}/content");
+        AssertStatus(HttpStatusCode.OK, liveDownload);
+        Assert.Equal(bytes, await liveDownload.Content.ReadAsByteArrayAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Storage_migration_copy_job_verifies_destination_and_keeps_live_reference_unchanged()
+    {
+        await using var s3 = await FakeS3.StartAsync();
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db, new(FakeS3.Settings("chatx")), services =>
+            services.AddHttpClient(S3AttachmentStorage.HttpClientName).ConfigurePrimaryHttpMessageHandler(s3.CreateHandler));
+        var (admin, adminId) = await SignedInAsync(api, "migration-copy-admin@example.org", "Migration Admin");
+        var (ana, anaId) = await SignedInAsync(api, "migration-copy-ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "migration-copy-ben@example.org", "Ben");
+        using var _1 = admin; using var _2 = ana; using var _3 = ben;
+        await using (var scope = api.Services.CreateAsyncScope())
+            Assert.True((await scope.ServiceProvider.GetRequiredService<IUserAccountManager>().AddToRoleAsync(adminId, Roles.InstallationAdministrator, Ct)).Succeeded);
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+        var conversationId = await DirectAsync(ana, benId);
+        var content = TestFiles.Png(8192);
+        var attachmentId = await UploadReadyAsync(ana, conversationId, "copy-job.png", content);
+        AssertStatus(HttpStatusCode.Created, await ana.PostAsync($"/api/v1/conversations/{conversationId}/messages", new
+        {
+            clientMessageId = "migration-copy-message", body = "File for migration.", attachmentIds = new[] { attachmentId },
+        }));
+        Assert.Single(s3.Objects);
+
+        var started = await admin.PostAsync("/api/v1/admin/storage-migrations", new { sourceProvider = "S3", destinationProvider = "Local" });
+        AssertStatus(HttpStatusCode.Accepted, started);
+        var jobId = (await JsonAsync(started)).GetProperty("id").GetGuid();
+        JsonElement job = default;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(25);
+        do
+        {
+            await Task.Delay(250, Ct);
+            job = await JsonAsync(await admin.GetAsync($"/api/v1/admin/storage-migrations/{jobId}"));
+        } while ((job.GetProperty("state").GetString() is "Queued" or "Running") && DateTimeOffset.UtcNow < deadline);
+
+        Assert.Equal("Completed", job.GetProperty("state").GetString());
+        Assert.Equal(1, job.GetProperty("copiedFiles").GetInt64());
+        Assert.Single(s3.Objects); // source bytes remain available
+        await using (var scope = api.Services.CreateAsyncScope())
+        {
+            var row = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().Attachments.AsNoTracking().SingleAsync(x => x.Id == attachmentId, Ct);
+            Assert.Equal("S3", row.StorageProvider); // the copy stage never cuts references over
+        }
+        var download = await ben.GetAsync($"/api/v1/attachments/{attachmentId}/content");
+        AssertStatus(HttpStatusCode.OK, download);
+        Assert.Equal(content, await download.Content.ReadAsByteArrayAsync(Ct));
+    }
 
     [Theory]
     [MemberData(nameof(Providers))]
@@ -104,6 +191,7 @@ public sealed class AttachmentTests
         await using var scope = api.Services.CreateAsyncScope();
         var stored = await scope.ServiceProvider.GetRequiredService<ChatXDbContext>().Attachments.AsNoTracking().SingleAsync(a => a.Id == attachmentId, Ct);
         Assert.Equal((anaId, direct, AttachmentStatus.Ready, message.GetProperty("id").GetGuid()), (stored.OwnerUserId, stored.ConversationId, stored.Status, stored.MessageEntryId!.Value));
+        Assert.Equal("Local", stored.StorageProvider);
         Assert.Matches("^[0-9]{4}/[0-9]{2}/[0-9a-f]{32}$", stored.StorageKey);
         Assert.Equal(64, stored.Sha256.Length);
         Assert.True(File.Exists(Path.Combine(api.StorageRoot, stored.StorageKey.Replace('/', Path.DirectorySeparatorChar))));

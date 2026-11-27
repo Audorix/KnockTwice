@@ -18,6 +18,7 @@ internal static class AdministrationSetup
         services.AddSingleton<ConfigurationSources>();
         services.AddScoped<RuntimeSettingsManager>();
         services.AddScoped<ProviderSettingsManager>();
+        services.AddScoped<AiTranslationProviderProfiles>();
         services.AddHostedService<AuditRetentionService>();
         services.AddHostedService<DataRetentionHostedService>();
         return services;

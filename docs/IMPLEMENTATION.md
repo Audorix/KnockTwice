@@ -68,6 +68,16 @@ Other packages use names such as `@audorix/chatx-ui` and `@audorix/chatx-embed`;
 
 ## 3. Implementation phases
 
+**Roadmap sequencing:** Phases 1-24 cover the core platform and Release 1 foundations. Phases 25-29
+cover Release 2 work that the owner requested before Release 1 was closed. This was a deliberate
+exception to the release order, not evidence that Release 1 is complete. Phase 30 resumes the
+remaining Release 1 scope with an owner/admin organization setup checklist, followed by Phase 31's
+verified domains (Phase 31) and explicit, default-off automatic enrollment (Phase 32). Phase 29
+reliability-test execution remains a queue verification follow-up; add no further Release 2 features
+ahead of Release 1. Organization SSO is implemented in Phase 34. The next Release 1 work is granular
+permission management for private chats, support, organization management, channel creation, and
+the complete installation-admin surface (users, roles, permissions, groups, settings, and providers).
+
 ### Phase 1 — Solution foundation
 
 Deliverables:
@@ -226,6 +236,7 @@ Deliverables:
 - Storage abstraction.
 - Local storage.
 - S3-compatible storage.
+- Azure Blob Storage.
 - Upload API.
 - Download API.
 - Attachment metadata.
@@ -236,7 +247,7 @@ Deliverables:
 
 Acceptance criteria:
 
-- Both storage providers work.
+- All configured storage providers support upload, download, and deletion.
 - File metadata persists.
 - Unauthorized users cannot access attachments.
 - Invalid file types are rejected.
@@ -569,6 +580,289 @@ Acceptance criteria:
 - Simultaneous sends to one group all succeed with unique, gap-free positions (both databases).
 - All tests pass; push delivery unchanged.
 - Results recorded honestly, including what this machine can and cannot show.
+
+### Phase 25 - Widget setup preview
+
+Release 2 begins with the website-chat setup flow. The existing widget setup already supports a
+copyable install snippet, allowed website origins, and the visitor-to-agent conversation path.
+
+Deliverables:
+
+- Show a live, local preview of the visitor chat while an administrator edits its title, welcome
+  message, accent colour, and screen corner.
+- Make clear that the preview is visual only and does not start a visitor session or create a case.
+- Keep the preview responsive and localized in English and Spanish.
+
+Acceptance criteria:
+
+- Each visual setting updates the preview before saving.
+- The preview does not call visitor-session or conversation APIs.
+- Widget administration tests and the web type-check pass.
+
+### Phase 26 - Support queue visibility
+
+Make unassigned open website conversations visible as a first-class queue while preserving the
+existing organization and participant access rules.
+
+Deliverables:
+
+- Include an `unassignedOpen` count in support inbox totals, independent of the current assignment
+  filter but limited to conversations the caller may see.
+- Add a one-click queue filter for open, unassigned conversations.
+
+Acceptance criteria:
+
+- Queue count matches visible open conversations without an assignee.
+- Selecting the queue shows only unassigned open conversations; clearing it restores the normal
+  inbox filter.
+- SQLite and PostgreSQL integration tests and web tests pass.
+
+### Phase 27 - Claim conversations from the queue
+
+Let an agent take an open, unassigned conversation directly from its queue row using the existing
+claim operation. After a successful claim, remove it from the unassigned queue and update the normal
+inbox view with its assignee. Keep opening the row available for agents who want to inspect it first.
+
+Deliverables:
+
+- Add a localized, accessible **Take conversation** action to open unassigned inbox rows.
+- Prevent duplicate clicks while a claim is in flight and report claim failures through the inbox.
+- Refresh queue totals and assignment display after the server accepts the claim.
+
+Acceptance criteria:
+
+- Claiming an unassigned item calls the existing claim endpoint and removes it from the unassigned
+  queue after refresh.
+- The normal inbox shows the current agent as assignee; selecting the row still opens its details.
+- The queue interaction test and web type-check pass.
+
+### Phase 28 - Pluggable support routing queue
+
+Add a provider boundary for routing work without moving support cases out of the database.
+
+Progress: the Admin provider card, transactional outbox producer, database leasing worker, Redis
+Streams relay/consumer, startup activation, retry/backoff, and dead-letter handling are implemented.
+Website case creates and updates write durable event IDs in the same SQLite/PostgreSQL save as the
+case change. The relational database remains the source of truth in both modes; Redis is a
+transport/consumer queue. SQLite and Redis execution have passed integration tests. PostgreSQL
+migrations are generated, but PostgreSQL runtime tests still require a configured test endpoint.
+
+Deliverables:
+
+- Keep stable work IDs, leasing/acknowledgement, retry, and failed-item visibility in the routing
+  worker contract so another provider can be added without moving cases out of the database.
+- Implement the durable `Database` provider for SQLite and PostgreSQL and select it by default.
+- Implement an optional `Redis` provider using Streams and consumer groups; require explicit
+  configuration when selected.
+- Add an installation-admin provider card for selecting Database or Redis, saving the Redis
+  connection string as a masked secret, validating it, and testing Redis reachability before saving.
+- Apply provider changes after restart and show that restart requirement in the admin page.
+- Persist routing outbox events in the same database transaction as their case/message change, then
+  dispatch them to Redis when configured. Keep processing idempotent across retries and restarts.
+- Leave the contract ready for later Azure Service Bus and RabbitMQ adapters without adding those
+  dependencies now.
+
+Acceptance criteria:
+
+- Database mode starts without Redis configuration and recovers pending work after worker restart.
+- Redis mode uses the same work-item contract and acknowledges only after successful processing;
+  Redis outages leave work recoverable from the database outbox.
+- Invalid provider configuration fails startup with a clear message.
+- SQLite integration tests cover database processing and transactional outbox creation; a Docker
+  Redis integration test covers relay, consumption, and completion. PostgreSQL migration/runtime
+  validation remains follow-up coverage.
+
+### Phase 29 - Support queue reliability and recovery
+
+Prove that the support routing queue retries transient failures, dead-letters exhausted work,
+ignores duplicate deliveries, and recovers Redis messages left pending by a stopped consumer.
+
+Progress: added an application-owned `ISupportRoutingNotifier` seam so integration tests can inject
+deterministic transient and permanent failures without changing production behavior. Added SQLite
+tests for retry and dead-letter state, plus Redis tests for duplicate delivery and `XAUTOCLAIM`
+recovery. The integration test project builds in Release. Test execution in this workspace is
+currently blocked by the test runner's Windows named-pipe permission error; Redis tests also need a
+reachable Docker Redis endpoint.
+
+Deliverables:
+
+- Verify a transient Database provider failure is retried and eventually completed.
+- Verify work is retained with its error and dead-letter timestamp after the configured attempt
+  limit.
+- Verify a duplicate Redis stream entry for completed work is acknowledged without notifying staff
+  again.
+- Verify work pending under a simulated crashed Redis consumer is reclaimed and completed after
+  the configured idle lease.
+
+Acceptance criteria:
+
+- Focused retry and dead-letter tests pass against SQLite.
+- Duplicate-delivery and crashed-consumer recovery tests pass against Redis 7 in Docker.
+- The full unit and integration suites pass, with PostgreSQL runtime tests run when
+  `CHATX_TEST_POSTGRES` is configured.
+
+### Phase 30 - Guided organization setup
+
+Help organization owners and administrators complete the first company setup without adding new
+organization-management flows. Reuse the existing profile, workspace, member, role, and invitation
+controls.
+
+Progress: the organization profile now shows a localized setup checklist for adding a logo, reviewing
+the automatically created first workspace, and inviting teammates with roles. Checklist actions open
+the existing image editor, workspace tab, and member/invitation tab. Members do not see the guide;
+admins can hide it for the current page visit. The organization page test and web type-check pass.
+
+Deliverables:
+
+- Surface branding, first-workspace, and teammate/role setup steps from the organization profile.
+- Show completion based on the organization's current logo, workspace, members, and invitations.
+- Keep each action within the existing permission checks and localized in English and Spanish.
+
+Acceptance criteria:
+
+- Owners and administrators can open each relevant setup area directly from the checklist.
+- Existing workspace creation, role assignment, and invitation behavior remains unchanged.
+- Regular members do not see organization setup actions.
+- Organization page tests and web type-check pass.
+
+### Phase 31 - Verified organization domains
+
+Progress: owners and administrators can add a domain and receive a unique TXT challenge, check
+ownership through the host's configured DNS resolvers, and remove the claim. Domain names are
+IDN-normalized and globally unique. The API and organization Settings UI make clear that proof of
+ownership alone does not enroll users. SQLite and PostgreSQL migrations add the organization-domain
+table. Tests cover domain normalization, owner/admin-only API access, and the organization settings
+page; the backend test runner is blocked by named-pipe permissions in this environment.
+
+Deliverables:
+
+- Persist a DNS TXT challenge and verification timestamp per organization domain.
+- Check TXT answers through the machine's configured DNS resolvers; do not forward customer domain
+  lookups to a third-party DNS service.
+- Restrict domain management to organization owners and administrators, with tenant-scoped reads and
+  writes.
+- Keep automatic enrollment disabled. Implement any enrollment behavior only with an explicit
+  administrator setting, alongside its Release 1 acceptance tests.
+
+Acceptance criteria:
+
+- Invalid domains, duplicate claims, and unverified TXT values are rejected.
+- A matching TXT answer marks the domain verified; repeated checks preserve the original timestamp.
+- Members and non-members cannot read or modify domain challenges.
+- Apply both provider migrations on disposable databases and rerun organization integration tests.
+
+### Phase 32 - Explicit domain-based enrollment
+
+Progress: an owner/admin switch remains off by default and cannot be enabled until the organization
+has a verified domain. Confirmed accounts are matched against the exact email domain at registration
+confirmation and sign-in. Eligible users join as organization members and receive access only to the
+first workspace. Turning the setting off stops future enrollment without removing existing members;
+removing the last verified domain requires disabling enrollment first. SQLite and PostgreSQL
+migrations add the setting. Unit and integration tests cover the default, guard, and enrollment flow.
+
+Deliverables:
+
+- Require an explicit owner/admin choice before enrolling users who match a verified domain.
+- Require a confirmed email and exact domain match; keep automatic role assignment at Member.
+- Grant access to the first workspace only, without adding the account to additional workspaces.
+- Keep disabling reversible and non-destructive for current members.
+
+Acceptance criteria:
+
+- Enrollment is disabled for new and existing organizations by default.
+- Enabling without a verified domain fails; removing the last verified domain while enabled fails.
+- Confirmed exact-domain users join; unconfirmed, mismatched, and unverified-domain accounts do not.
+- Both provider migrations and organization integration tests pass.
+
+### Phase 33 - Organization OIDC configuration foundation
+
+Progress: owners and administrators can store an organization's OIDC issuer, client ID, and
+client secret through `GET`/`PUT`/`DELETE /api/v1/organizations/{id}/sso`. The API returns only
+whether a secret is configured; it never returns the secret. The secret is protected using the
+installation's shared ASP.NET Core Data Protection key ring before persistence. Configuration
+requires at least one verified organization domain, and removing the last verified domain is
+blocked until the saved SSO configuration is removed. SQLite and PostgreSQL receive matching
+nullable credential columns.
+
+At the end of Phase 33, this was configuration storage only. Phase 34 implements the OIDC
+challenge/callback, verified identity matching, and explicit account provisioning behavior.
+
+### Phase 34 - Organization OIDC sign-in
+
+Progress: organization OIDC configuration now starts a provider challenge and completes a verified
+sign-in. The callback accepts only a provider subject and verified email whose domain exactly
+matches a verified organization domain. A matching confirmed account is linked by exact email;
+new accounts are provisioned only when the organization's separate automatic-enrollment setting
+is enabled. Successful sign-in requires active membership and creates the normal server-side
+session. Password sign-in remains available; this phase does not enforce organization-wide SSO.
+
+The organization settings screen lets owners and administrators configure the issuer and client,
+rotate or remove the protected secret, and copy/open a shareable organization sign-in URL. Dynamic
+OIDC schemes are registered on demand, including on the API instance that receives the provider
+callback. Focused SQLite integration coverage checks configuration and registration; the web
+typecheck and organization page tests cover the settings panel. A live identity-provider round trip
+and PostgreSQL test run remain to be verified with a configured provider and test database.
+
+### Phase 35 - Permission scope and capability inventory
+
+Owner-defined scope: access to the following areas must be granted through explicit permissions,
+assigned through scoped roles and groups. This inventory is the acceptance boundary for the
+permission implementation; it does not grant installation administrators access to private
+conversation content.
+
+| Capability area | Required permission scope |
+| --- | --- |
+| Private chats | Allow or restrict use by approved users/groups. Existing invitation, session-bound lifetime, and participant-only access rules still apply. |
+| Support | Separate access to support work from organization membership and support-case handling; assignment must be organization-scoped. |
+| Organizations | Separate organization discovery/participation from organization administration; management grants apply only to the selected organization. |
+| Channels | Separate channel creation and channel administration; grants may be limited to an organization or workspace. |
+| Installation administration | Independently grant access to current admin areas: users, roles, permissions, groups, settings, providers, organizations, and audit. Provider and settings writes remain distinct from read access. |
+
+The existing implementation already has coarse installation permissions for users, organizations,
+settings/providers, and audit; organization owners/admins manage their own organizations; support
+agents are organization members with an explicit agent flag; channel creation follows an
+organization policy. Phase 35 must retain these boundaries while making grants independently
+assignable and reviewable. Do not replace participant/resource checks with broad role checks.
+
+Implementation order:
+
+1. Publish the stable permission catalog with explicit installation, organization, and workspace
+   scope. **Done:** built-in permission keys are available; planned keys are informational only.
+2. **Done for installation scope:** users belong to groups and groups receive custom roles; direct
+   custom-role-to-user assignments are not supported. Each role/permission pair is Allow, Deny, or
+   unassigned. A Deny from any assigned role overrides all Allows, including built-in role grants.
+   Resolve effective decisions on each request, expose effective grants and denials, and audit
+   changes. Existing direct custom-role assignments migrate to per-user groups to preserve access.
+   Only implemented installation keys can be assigned. Organization/workspace assignments remain.
+3. **Phase 38 complete for organization-context private chats:** organization-scoped roles and groups
+   now back `private_chats.use`. Existing behavior remains until a permission decision is attached to
+   a group. After configuration, a user needs an Allow; any Deny overrides all Allows. Contact
+   chats without organization context remain independent, and the existing shared-team rule remains
+   an additional organization policy.
+4. Apply organization-scoped permissions to support, organization management, and channel creation.
+5. Expose installation-admin permissions for every listed area, with distinct read and write
+   actions, in the admin role/group management UI.
+6. Add effective-access review and tests proving cross-organization/workspace grants do not leak.
+
+Each slice must include API enforcement and UI visibility; hiding a control alone is not
+authorization. Existing built-in system roles remain a compatibility baseline; custom grants are
+resolved only through group membership. Permission changes must be audited and take effect on the
+next request. Guest and invitation expiry is part of the same access-control release work.
+
+**Phase 35 progress:** Organization owners and administrators can require a shared workspace team
+for private chats started from their organization context. The organization ID travels with the
+live chat, and access is rechecked on accept, list/read, message send, file upload, and attachment
+download. Revoked shared-team access ends and removes the live chat. Contact-based personal chats
+omit organization context and remain independent. This first private-chat access slice uses existing
+workspace teams as the approved group. The admin Roles view and `GET /api/v1/admin/permissions/catalog`
+expose a stable, scope-labeled permission catalog. The view now manages installation-scoped custom
+roles and groups. Users receive custom roles only through group membership. Group membership and
+role grants apply on the next request, appear in `/users/me`, and are audited. Phase 38 adds
+organization-scoped roles/groups through the organization's Access tab;
+owners manage role decisions, role-to-group assignments, and group membership. Private-chat checks
+use these grants only when configured, with denies taking precedence. Personal contact chats remain
+independent. Workspace-scoped role administration and scoped permissions for support, organization
+management, and channel creation remain pending.
 
 ## 4. Initial API contracts
 
@@ -992,10 +1286,18 @@ Keep `/api/v1/` and `/hubs/chat` from the source baseline. Cookie sessions do no
 | Restore from backup | Accounts, messages and referenced attachments recovered coherently | Disposable restore drill |
 | EN/ES and keyboard use | Core flow usable; no missing keys or inaccessible critical controls | Frontend/browser review |
 
-Use actual SQLite and PostgreSQL databases for provider-sensitive checks, not EF in-memory substitutes. Verify Local and S3-compatible adapters with the same application contract tests. Use controlled faults for reliability checks, never live production data. Do not report an acceptance scenario as passed without running it.
+Use actual SQLite and PostgreSQL databases for provider-sensitive checks, not EF in-memory substitutes. Verify Local, S3-compatible, and Azure Blob adapters with the same application contract tests. Use controlled faults for reliability checks, never live production data. Do not report an acceptance scenario as passed without running it.
 
 ### 12.5 Release evidence and handoff
 
 For each completed slice record: delivered behavior; changed projects; applicable ADRs; migration impact; exact validation commands and outcomes; unresolved blockers; and next slice. Keep performance results tied to measured hardware, workload, message size, connections and storage profile. No numeric SLA is implied by the original draft.
 
 Before R1 release, include install and update instructions, backup/restore procedure, API reference, configuration reference, MIT license with confirmed copyright attribution, contribution guide and a real security-reporting contact. Do not invent contact addresses. Review dependency licenses and public default settings. This documentation task creates the three specifications; the remaining repository files are implementation deliverables.
+# Current Release 1 permission slice
+
+Phase 40 implements organization-scoped access through group-assigned roles. The implemented keys
+cover organization discovery, settings, members and invitations, roles and groups, and workspaces.
+Each key preserves its existing policy until configured; Deny overrides Allow. Phase 39 separately
+implemented support workspace and case permissions. The next permission slices are workspace-scoped
+channel creation/administration and installation administration; effective-access review and
+invitation/guest expiry remain outstanding.

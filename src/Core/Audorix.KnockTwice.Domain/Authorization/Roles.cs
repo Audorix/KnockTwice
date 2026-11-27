@@ -25,6 +25,9 @@ public static class Permissions
     /// <summary>Change live settings and provider configuration.</summary>
     public const string InstallationManage = "installation.manage";
 
+    /// <summary>Use the configured AI translation provider for incoming messages.</summary>
+    public const string MessagesTranslate = "messages.translate";
+
     /// <summary>Populate demonstration data (only where demo data is enabled).</summary>
     public const string DemoDataManage = "installation.demo_data";
 
@@ -51,8 +54,9 @@ public static class Permissions
         [Roles.Auditor] = [InstallationRead, UsersRead, OrganizationsRead, AuditRead],
     };
 
-    public static IReadOnlyList<string> All { get; } =
-        [InstallationRead, InstallationManage, DemoDataManage, UsersRead, UsersManage, OrganizationsRead, OrganizationsManage, AuditRead];
+    public static IReadOnlyList<string> All { get; } = PermissionCatalog.Available
+        .Where(permission => permission.Scope == PermissionScopes.Installation)
+        .Select(permission => permission.Key).ToList();
 
     /// <summary>Permissions granted by a role; unknown or inactive roles grant nothing.</summary>
     public static IReadOnlyList<string> ForRole(string role) =>
@@ -60,4 +64,20 @@ public static class Permissions
 
     public static bool IsGrantedBy(IEnumerable<string> roles, string permission) =>
         roles.Any(role => ForRole(role).Contains(permission, StringComparer.Ordinal));
+
+    /// <summary>Resolves a permission while preserving its legacy policy until the new key is configured.</summary>
+    public static bool IsEffectivelyGranted(
+        IEnumerable<string> roles,
+        string permission,
+        IReadOnlyCollection<string> allowed,
+        IReadOnlyCollection<string> denied,
+        IReadOnlyCollection<string> configured)
+    {
+        if (denied.Contains(permission, StringComparer.Ordinal)) return false;
+        var definition = PermissionCatalog.Find(permission);
+        if (definition?.LegacyFallbackKey is not { } fallback || configured.Contains(permission, StringComparer.Ordinal))
+            return IsGrantedBy(roles, permission) || allowed.Contains(permission, StringComparer.Ordinal);
+        if (denied.Contains(fallback, StringComparer.Ordinal)) return false;
+        return IsGrantedBy(roles, fallback) || allowed.Contains(fallback, StringComparer.Ordinal);
+    }
 }

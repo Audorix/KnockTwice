@@ -44,6 +44,24 @@ public sealed record AdminMemberRoleRequest(string? Role);
 /// <summary>An installation role and the permissions it grants (fixed in this release).</summary>
 public sealed record AdminRoleResponse(string Name, IReadOnlyList<string> Permissions, int Members);
 
+/// <summary>A stable permission key and the scope in which a future grant will be evaluated.</summary>
+public sealed record AdminPermissionDefinitionResponse(string Key, string Area, string Scope, string State, string Description);
+
+public sealed record AccessControlPermissionResponse(string Key, string Effect);
+public sealed record AccessControlRoleResponse(Guid Id, string Name, string Description, string Scope, IReadOnlyList<AccessControlPermissionResponse> Permissions, int Groups, Guid? OrganizationId = null, Guid? WorkspaceId = null);
+public sealed record AccessControlGroupResponse(Guid Id, string Name, string Description, IReadOnlyList<Guid> MemberIds, IReadOnlyList<Guid> RoleIds,
+    string Scope = "installation", Guid? OrganizationId = null, Guid? WorkspaceId = null);
+public sealed record EffectivePermissionsResponse(Guid UserId, IReadOnlyList<string> Permissions, IReadOnlyList<string> DeniedPermissions);
+public sealed record EffectiveAccessReviewResponse(Guid UserId, string Scope, Guid? OrganizationId, Guid? WorkspaceId, IReadOnlyList<EffectiveAccessGroupResponse> Groups, IReadOnlyList<EffectiveAccessPermissionResponse> Permissions);
+public sealed record EffectiveAccessReviewContextResponse(string Scope, Guid? OrganizationId, Guid? WorkspaceId, string Name);
+public sealed record EffectiveAccessGroupResponse(Guid Id, string Name, string Scope, IReadOnlyList<string> Roles);
+public sealed record EffectiveAccessPermissionResponse(string Key, string Outcome, string Source, IReadOnlyList<string> Decisions);
+public sealed record AccessControlPermissionRequest(string? Key, string? Effect);
+public sealed record CreateAccessControlRoleRequest(string? Name, string? Description, IReadOnlyList<AccessControlPermissionRequest>? Permissions);
+public sealed record UpdateAccessControlRoleRequest(string? Name, string? Description, IReadOnlyList<AccessControlPermissionRequest>? Permissions);
+public sealed record CreateAccessControlGroupRequest(string? Name, string? Description);
+public sealed record UpdateAccessControlGroupRequest(string? Name, string? Description);
+
 /// <summary>One audit record. Details hold short, non-sensitive facts only.</summary>
 /// <param name="ActorPhotoUrl">The actor's profile photo (versioned), or null when they show initials or are gone.</param>
 public sealed record AuditEntryResponse(
@@ -72,6 +90,7 @@ public sealed record ProviderGroupResponse(string Name, bool RestartRequired, IR
 
 /// <param name="Outcome"><c>sent</c> (email), <c>ok</c>, <c>valid</c> (no live check possible), <c>disabled</c>, <c>unavailable</c> or <c>failed</c>.</param>
 public sealed record ProviderTestResponse(string Outcome);
+public sealed record StorageMigrationDryRunRequest(string? SourceProvider, string? DestinationProvider);
 
 /// <summary>Installation overview for the administration home.</summary>
 public sealed record AdminOverviewResponse(

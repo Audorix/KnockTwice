@@ -1,12 +1,14 @@
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Audorix.KnockTwice.Application.Identity;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Sessions;
 using Audorix.KnockTwice.Domain.Authorization;
 using Audorix.KnockTwice.Infrastructure;
 using Audorix.KnockTwice.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -127,7 +129,21 @@ internal static class IdentitySetup
             });
         }
 
-        services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+        authentication.AddOpenIdConnect("OrganizationSsoTemplate", options =>
+        {
+            // The template exists only to register OpenIdConnectHandler as a supported handler
+            // type for dynamically added organization schemes. It is never challenged.
+            options.Authority = "https://organization-sso-template.invalid";
+            options.ClientId = "organization-sso-template-disabled";
+            options.ClientSecret = "organization-sso-template-disabled";
+            options.CallbackPath = "/__organization-sso-template-disabled";
+            options.SignInScheme = IdentityConstants.ExternalScheme;
+        });
+        services.AddSingleton<OrganizationOidcSchemeRegistry>();
+        services.AddSingleton<OrganizationOidcSchemeManager>();
+        services.AddSingleton<IConfigureOptions<OpenIdConnectOptions>, ConfigureOrganizationOidcOptions>();
+
+        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
         var authorization = services.AddAuthorizationBuilder();
         foreach (var permission in Permissions.All)
         {
@@ -223,17 +239,20 @@ internal sealed class PermissionRequirement(string permission) : IAuthorizationR
 }
 
 /// <summary>
-/// Grants a permission when any of the user's roles includes it. The roles are read from the
-/// account (once per request), not from the cookie, so a revoked or granted installation role
-/// takes effect on the next request (Phase 9). Without an HTTP request the cookie's roles are used.
+/// Explicit group-based denies take precedence over all grants, including built-in roles. Otherwise,
+/// a permission is granted by a built-in role or an allowed permission on a role assigned to one of
+/// the user's groups. Both are read once per request so changes apply on the next request.
 /// </summary>
-internal sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
+internal sealed class PermissionAuthorizationHandler(IEffectivePermissionReader effectivePermissions)
+    : AuthorizationHandler<PermissionRequirement>
 {
     private const string RolesItemKey = "chatx.roles";
+    private const string ScopedPermissionsItemKey = "chatx.scoped-permissions";
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
         IEnumerable<string> roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value);
+        Application.Administration.EffectivePermissionSet scoped = new([], []);
         if (context.Resource is HttpContext http && context.User.GetUserId() is { } userId)
         {
             if (http.Items[RolesItemKey] is not IReadOnlyList<string> current)
@@ -245,9 +264,16 @@ internal sealed class PermissionAuthorizationHandler : AuthorizationHandler<Perm
             }
 
             roles = current;
+            if (http.Items[ScopedPermissionsItemKey] is not Application.Administration.EffectivePermissionSet currentScoped)
+            {
+                currentScoped = await effectivePermissions.GetEffectivePermissionsAsync(userId, http.RequestAborted).ConfigureAwait(false);
+                http.Items[ScopedPermissionsItemKey] = currentScoped;
+            }
+
+            scoped = currentScoped;
         }
 
-        if (Permissions.IsGrantedBy(roles, requirement.Permission))
+        if (Permissions.IsEffectivelyGranted(roles, requirement.Permission, scoped.Allowed, scoped.Denied, scoped.Configured ?? []))
         {
             context.Succeed(requirement);
         }

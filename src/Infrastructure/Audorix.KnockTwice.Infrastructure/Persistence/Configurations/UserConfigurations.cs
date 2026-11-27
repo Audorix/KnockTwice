@@ -29,6 +29,8 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
         builder.HasIndex(p => p.Handle).IsUnique();
         builder.Property(p => p.PhotoKey).HasMaxLength(200);
         builder.Property(p => p.PhotoContentType).HasMaxLength(32);
+        builder.Property(p => p.GeneratedAvatarStyle).HasMaxLength(24);
+        builder.Property(p => p.GeneratedAvatarSeed).HasMaxLength(64);
         builder.Ignore(p => p.HasPhoto);
 
         // A profile cannot outlive its account.

@@ -7,7 +7,7 @@ namespace Audorix.KnockTwice.Application.Users;
 /// <summary>Public face of a user shown to other users. Never contains the email address.</summary>
 /// <param name="Deleted">The account was deleted; the name is a neutral placeholder (Phase 13).</param>
 /// <param name="PhotoVersion">The profile photo's version, or 0 when the person shows initials (redesign 2026-11).</param>
-public sealed record UserSummary(Guid Id, string DisplayName, string Initials, bool Deleted = false, int PhotoVersion = 0);
+public sealed record UserSummary(Guid Id, string DisplayName, string Initials, bool Deleted = false, int PhotoVersion = 0, string? GeneratedAvatarStyle = null, string? GeneratedAvatarSeed = null);
 
 /// <summary>Read model over accounts, profiles and organization membership (implemented by Infrastructure).</summary>
 public interface IUserDirectory

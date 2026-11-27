@@ -8,6 +8,7 @@ public sealed class StorageOptions
     public const string SectionName = "Storage";
     public const string LocalProvider = "Local";
     public const string S3Provider = "S3";
+    public const string AzureBlobProvider = "AzureBlob";
 
     public string Provider { get; set; } = LocalProvider;
 
@@ -15,10 +16,26 @@ public sealed class StorageOptions
 
     public S3StorageOptions S3 { get; set; } = new();
 
+    public AzureBlobStorageOptions AzureBlob { get; set; } = new();
+
     public static string Normalize(string? provider) =>
         string.Equals(provider?.Trim(), S3Provider, StringComparison.OrdinalIgnoreCase) ? S3Provider
+        : string.Equals(provider?.Trim(), AzureBlobProvider, StringComparison.OrdinalIgnoreCase) ? AzureBlobProvider
         : string.IsNullOrWhiteSpace(provider) || string.Equals(provider.Trim(), LocalProvider, StringComparison.OrdinalIgnoreCase) ? LocalProvider
         : provider.Trim();
+}
+
+/// <summary>Azure Blob destination. Keep the container private; all reads pass through API authorization.</summary>
+public sealed class AzureBlobStorageOptions
+{
+    public string ConnectionString { get; set; } = string.Empty;
+
+    public string Container { get; set; } = string.Empty;
+
+    /// <summary>Optional prefix inside the container.</summary>
+    public string Prefix { get; set; } = string.Empty;
+
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(100);
 }
 
 public sealed class LocalStorageOptions
@@ -87,13 +104,42 @@ internal sealed class StorageOptionsValidator : IValidateOptions<StorageOptions>
                 }
 
                 break;
+            case StorageOptions.AzureBlobProvider:
+                var azure = options.AzureBlob;
+                if (string.IsNullOrWhiteSpace(azure.ConnectionString))
+                {
+                    errors.Add("Storage:AzureBlob:ConnectionString is required for the Azure Blob provider.");
+                }
+
+                if (string.IsNullOrWhiteSpace(azure.Container) || azure.Container.Length is < 3 or > 63
+                    || !IsAzureContainerAlphanumeric(azure.Container[0]) || !IsAzureContainerAlphanumeric(azure.Container[^1])
+                    || azure.Container.Any(c => !(IsAzureContainerAlphanumeric(c) || c == '-'))
+                    || azure.Container.Contains("--", StringComparison.Ordinal))
+                {
+                    errors.Add("Storage:AzureBlob:Container must be a valid lower-case Azure container name (3-63 letters, digits or single hyphens).");
+                }
+
+                if (azure.Prefix.Contains("..", StringComparison.Ordinal)
+                    || azure.Prefix.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '/' or '-' or '_' or '.')))
+                {
+                    errors.Add("Storage:AzureBlob:Prefix may contain only letters, digits, slash, dot, underscore and hyphen, and cannot contain '..'.");
+                }
+
+                if (azure.Timeout <= TimeSpan.Zero)
+                {
+                    errors.Add("Storage:AzureBlob:Timeout must be positive.");
+                }
+
+                break;
             default:
-                errors.Add($"Storage:Provider '{options.Provider}' is not supported. Use Local or S3.");
+                errors.Add($"Storage:Provider '{options.Provider}' is not supported. Use Local, S3 or AzureBlob.");
                 break;
         }
 
         return errors.Count == 0 ? ValidateOptionsResult.Success : ValidateOptionsResult.Fail(errors);
     }
+
+    private static bool IsAzureContainerAlphanumeric(char value) => value is >= 'a' and <= 'z' or >= '0' and <= '9';
 }
 
 /// <summary>Malware scanning (Architecture §9), bound from <c>Scanning</c>. Off by default (owner decision).</summary>

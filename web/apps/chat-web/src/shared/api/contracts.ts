@@ -152,6 +152,8 @@ export interface ContactDetailsResponse {
 export interface AvatarResponse {
   initials: string;
   photoUrl?: string | null;
+  generatedStyle?: string | null;
+  generatedSeed?: string | null;
 }
 
 export interface UserSummary {
@@ -469,6 +471,7 @@ export interface PrivateChatResponse {
   usedBytes: number;
   maxBytes: number;
   maxFileSize: number;
+  organizationId?: string | null;
 }
 
 export interface PrivateAttachmentResponse {
@@ -531,6 +534,7 @@ export interface OrganizationResponse {
   supportAgent?: boolean;
   guestsEnabled?: boolean;
   channelCreation?: 'members' | 'administrators';
+  privateChatsRequireSharedTeam?: boolean;
   /** Square picture and wide background image (2026-11-24); versioned addresses, null when none. */
   photoUrl?: string | null;
   bannerUrl?: string | null;
@@ -742,6 +746,7 @@ export interface MyGuestInvitationResponse {
 export interface GuestResponse {
   user: UserSummary;
   joinedAtUtc: string;
+  accessExpiresAtUtc: string;
   channels: { id: string; name: string }[];
 }
 
@@ -773,7 +778,7 @@ export interface SupportInboxItemResponse {
 export interface SupportInboxPageResponse {
   items: SupportInboxItemResponse[];
   total: number;
-  counts: { open: number; pending: number; closed: number; all: number };
+  counts: { open: number; pending: number; closed: number; all: number; unassignedOpen?: number };
 }
 
 /** An internal note: visible to the support team, never to the customer. */

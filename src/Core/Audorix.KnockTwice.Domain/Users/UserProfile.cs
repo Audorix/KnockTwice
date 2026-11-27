@@ -141,6 +141,17 @@ public sealed partial class UserProfile
 
     public bool HasPhoto => PhotoKey is not null;
 
+    /// <summary>DiceBear style slug; rendered locally by clients from the saved seed.</summary>
+    public string? GeneratedAvatarStyle { get; private set; }
+
+    /// <summary>Stable seed so the illustrated avatar is consistent across devices.</summary>
+    public string? GeneratedAvatarSeed { get; private set; }
+
+    public static readonly IReadOnlySet<string> GeneratedAvatarStyles = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "identicon", "lorelei", "open-peeps", "pixel-art", "shapes", "thumbs",
+    };
+
     /// <summary>Uses a new photo; returns the key of the one it replaces (to delete), if any.</summary>
     public string? SetPhoto(string key, string contentType, DateTimeOffset nowUtc)
     {
@@ -152,6 +163,8 @@ public sealed partial class UserProfile
         var previous = PhotoKey;
         PhotoKey = key;
         PhotoContentType = contentType;
+        GeneratedAvatarStyle = null;
+        GeneratedAvatarSeed = null;
         PhotoVersion++;
         Touch(nowUtc);
         return previous;
@@ -161,13 +174,46 @@ public sealed partial class UserProfile
     public string? RemovePhoto(DateTimeOffset nowUtc)
     {
         var previous = PhotoKey;
-        if (previous is null)
+        if (previous is null && GeneratedAvatarStyle is null)
         {
             return null;
         }
 
         PhotoKey = null;
         PhotoContentType = null;
+        GeneratedAvatarStyle = null;
+        GeneratedAvatarSeed = null;
+        PhotoVersion++;
+        Touch(nowUtc);
+        return previous;
+    }
+
+    /// <summary>Select a locally rendered CC0 avatar, or clear it to use initials; returns a replaced photo key.</summary>
+    public string? SelectGeneratedAvatar(string? style, string? seed, DateTimeOffset nowUtc)
+    {
+        var normalizedStyle = style?.Trim().ToLowerInvariant();
+        var normalizedSeed = seed?.Trim();
+        if (normalizedStyle is not null && !GeneratedAvatarStyles.Contains(normalizedStyle))
+        {
+            throw new DomainRuleException("avatar_style_invalid", "Choose one of the supported avatar styles.");
+        }
+
+        if (normalizedStyle is null && normalizedSeed is not null || normalizedStyle is not null &&
+            (string.IsNullOrWhiteSpace(normalizedSeed) || normalizedSeed.Length > 64 || normalizedSeed.Any(char.IsControl)))
+        {
+            throw new DomainRuleException("avatar_seed_invalid", "A generated avatar needs a seed of at most 64 characters.");
+        }
+
+        if (PhotoKey is null && GeneratedAvatarStyle == normalizedStyle && GeneratedAvatarSeed == normalizedSeed)
+        {
+            return null;
+        }
+
+        var previous = PhotoKey;
+        PhotoKey = null;
+        PhotoContentType = null;
+        GeneratedAvatarStyle = normalizedStyle;
+        GeneratedAvatarSeed = normalizedSeed;
         PhotoVersion++;
         Touch(nowUtc);
         return previous;
@@ -189,6 +235,8 @@ public sealed partial class UserProfile
         NotificationPreviews = true;
         PhotoKey = null;
         PhotoContentType = null;
+        GeneratedAvatarStyle = null;
+        GeneratedAvatarSeed = null;
         Handle = null;
         ShareEmailWithContacts = false;
         DeletedAtUtc = utc;

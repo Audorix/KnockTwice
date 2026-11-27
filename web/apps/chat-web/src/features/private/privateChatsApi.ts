@@ -17,8 +17,8 @@ export async function listPrivateChats(): Promise<PrivateChatResponse[]> {
   return (await getJson<PrivateChatResponse[]>('/api/v1/private-chats')).body ?? [];
 }
 
-export async function startPrivateChat(userId: string): Promise<PrivateChatResponse> {
-  return (await sendJson<PrivateChatResponse>('POST', '/api/v1/private-chats', { userId }))!;
+export async function startPrivateChat(userId: string, organizationId?: string): Promise<PrivateChatResponse> {
+  return (await sendJson<PrivateChatResponse>('POST', '/api/v1/private-chats', { userId, ...(organizationId ? { organizationId } : {}) }))!;
 }
 
 export async function getPrivateChat(chatId: string): Promise<PrivateChatDetailResponse> {

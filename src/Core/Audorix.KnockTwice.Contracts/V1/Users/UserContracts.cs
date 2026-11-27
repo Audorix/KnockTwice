@@ -33,7 +33,10 @@ public sealed record DeleteAccountRequest(string? Password, string? ConfirmEmail
 
 /// <summary>Generated avatar. Image upload arrives with the storage module (Phase 7).</summary>
 /// <param name="PhotoUrl">The profile photo (signed-in people only; the address changes with every new photo), or null for initials.</param>
-public sealed record AvatarResponse(string Initials, string? PhotoUrl = null);
+public sealed record AvatarResponse(string Initials, string? PhotoUrl = null, string? GeneratedStyle = null, string? GeneratedSeed = null);
+
+/// <summary>Sets a locally rendered generated avatar; null style and seed restores initials.</summary>
+public sealed record UpdateAvatarRequest(string? Style, string? Seed);
 
 /// <param name="Platform"><c>website</c>, <c>github</c>, <c>linkedin</c>, <c>youtube</c>, <c>instagram</c> or <c>x</c>.</param>
 /// <param name="Visibility"><c>contacts</c> or <c>only_me</c>.</param>

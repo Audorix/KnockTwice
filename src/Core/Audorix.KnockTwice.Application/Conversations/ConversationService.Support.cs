@@ -1,4 +1,5 @@
 using Audorix.KnockTwice.Application.Common;
+using Audorix.KnockTwice.Application.Administration;
 using Audorix.KnockTwice.Application.Users;
 using Audorix.KnockTwice.Domain.Conversations;
 using Audorix.KnockTwice.Domain.Organizations;
@@ -15,7 +16,7 @@ public sealed record SupportItemView(Conversation Conversation, bool Participati
 public sealed record SupportInboxQuery(SupportStatus? Status, bool AssignedToMe, string? Search, bool OldestFirst, int Skip, int Take, bool? Assigned = null);
 
 /// <summary>Conversations per status under the other filters (assignment, search).</summary>
-public sealed record SupportInboxCounts(int Open, int Pending, int Closed, int All);
+public sealed record SupportInboxCounts(int Open, int Pending, int Closed, int All, int UnassignedOpen = 0);
 
 /// <param name="LastMessage">The newest message, for the preview; null when there is none.</param>
 /// <param name="FirstMessage">The first message, shown as the title while there is no subject.</param>
@@ -32,7 +33,7 @@ public sealed record SupportNoteView(SupportNote Note, UserSummary? Author);
 /// take part in a conversation see and work that conversation. Someone who takes a conversation sees
 /// its whole history (unlike groups): support needs the visitor's earlier messages.
 /// </summary>
-public sealed partial class ConversationService
+public sealed partial class ConversationService : ISupportRoutingNotifier
 {
     public const int InboxLimit = 200;
 
@@ -45,7 +46,9 @@ public sealed partial class ConversationService
             throw new ResourceNotFoundException("organization_not_found");
         }
 
-        var fullInbox = IsSupportStaff(membership);
+        var access = await GetSupportAccessAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false);
+        if (!access.CanEnter) throw new ForbiddenException();
+        var fullInbox = access.CanReadAll;
         var items = new List<(Conversation Conversation, bool Participating, int Unread)>();
         foreach (var conversation in await store.ListWebsiteConversationsAsync(organizationId, status, InboxLimit, cancellationToken).ConfigureAwait(false))
         {
@@ -56,7 +59,7 @@ public sealed partial class ConversationService
 
             var me = await store.FindParticipantAsync(conversation.Id, userId, cancellationToken).ConfigureAwait(false);
             var participating = me is { IsActive: true };
-            if (!fullInbox && !participating)
+            if (!fullInbox && (!access.CanReadParticipating || !participating))
             {
                 continue;
             }
@@ -92,23 +95,29 @@ public sealed partial class ConversationService
             throw new ResourceNotFoundException("organization_not_found");
         }
 
-        var fullInbox = IsSupportStaff(membership);
+        var access = await GetSupportAccessAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false);
+        if (!access.CanEnter) throw new ForbiddenException();
+        var fullInbox = access.CanReadAll;
         var all = await store.ListWebsiteConversationsAsync(organizationId, null, int.MaxValue, cancellationToken).ConfigureAwait(false);
         var mine = await store.ListParticipationsAsync(userId, all.Select(c => c.Id).ToList(), cancellationToken).ConfigureAwait(false);
         var text = query.Search?.Trim();
-        var matching = all
-            .Where(c => fullInbox || mine.GetValueOrDefault(c.Id) is { IsActive: true })
-            .Where(c => !query.AssignedToMe || c.AssignedToUserId == userId)
-            .Where(c => query.Assigned is null || (c.AssignedToUserId is not null) == query.Assigned)
+        var visible = all
+            .Where(c => fullInbox || (access.CanReadParticipating && mine.GetValueOrDefault(c.Id) is { IsActive: true }))
             .Where(c => string.IsNullOrEmpty(text)
                 || (c.Title?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (c.Subject?.Contains(text, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+        var unassignedOpen = visible.Count(c => c.SupportStatus == SupportStatus.Open && c.AssignedToUserId is null);
+        var matching = visible
+            .Where(c => !query.AssignedToMe || c.AssignedToUserId == userId)
+            .Where(c => query.Assigned is null || (c.AssignedToUserId is not null) == query.Assigned)
             .ToList();
         var counts = new SupportInboxCounts(
             matching.Count(c => c.SupportStatus == SupportStatus.Open),
             matching.Count(c => c.SupportStatus == SupportStatus.Pending),
             matching.Count(c => c.SupportStatus == SupportStatus.Closed),
-            matching.Count);
+            matching.Count,
+            unassignedOpen);
 
         var filtered = matching.Where(c => query.Status is null || c.SupportStatus == query.Status).ToList();
         var ordered = query.OldestFirst
@@ -160,7 +169,7 @@ public sealed partial class ConversationService
     /// <summary>Support staff join a conversation (whole history visible) to reply, without changing who it is assigned to.</summary>
     public async Task<SupportItemView> JoinSupportAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
     {
-        var (conversation, _) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var (conversation, _) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken, requireManage: true).ConfigureAwait(false);
         if (await store.FindParticipantAsync(conversationId, userId, cancellationToken).ConfigureAwait(false) is { IsActive: true })
         {
             return await SupportItemAsync(userId, conversation, cancellationToken).ConfigureAwait(false);
@@ -195,7 +204,7 @@ public sealed partial class ConversationService
     /// <summary>Sets or clears what the conversation is about. Internal: the customer does not see it.</summary>
     public async Task<SupportItemView> SetSupportSubjectAsync(Guid userId, Guid conversationId, string? subject, CancellationToken cancellationToken)
     {
-        await RequireSupportConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        await RequireSupportConversationAsync(userId, conversationId, cancellationToken, requireManage: true).ConfigureAwait(false);
         Conversation? updated = null;
         var changed = false;
         await MutateAsync(async () =>
@@ -225,7 +234,7 @@ public sealed partial class ConversationService
     /// <summary>Adds an internal note. Only staff are told about it; the customer never is.</summary>
     public async Task<SupportNoteView> AddSupportNoteAsync(Guid userId, Guid conversationId, string? body, CancellationToken cancellationToken)
     {
-        var (conversation, _) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var (conversation, _) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken, requireManage: true).ConfigureAwait(false);
         var now = time.GetUtcNow();
         var note = SupportNote.Create(Guid.CreateVersion7(now), conversation, userId, body, now);
         store.Add(note);
@@ -241,7 +250,7 @@ public sealed partial class ConversationService
         var team = (await store.ListActiveParticipantsAsync(conversation.Id, cancellationToken).ConfigureAwait(false))
             .Where(p => !p.IsVisitor).Select(p => p.UserId);
         var staff = conversation.OrganizationId is { } organizationId
-            ? (await organizations.ListActiveMembersAsync(organizationId, cancellationToken).ConfigureAwait(false)).Where(IsSupportStaff).Select(m => m.UserId)
+            ? await ListSupportStaffIdsAsync(organizationId, cancellationToken).ConfigureAwait(false)
             : [];
         await NotifyAsync(team.Concat(staff).Distinct().ToList(), conversation, "inbox", cancellationToken).ConfigureAwait(false);
     }
@@ -256,7 +265,7 @@ public sealed partial class ConversationService
     /// </summary>
     public async Task<SupportItemView> AssignAsync(Guid userId, Guid conversationId, Guid? assigneeId, CancellationToken cancellationToken)
     {
-        var (conversation, fullInbox) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        var (conversation, fullInbox) = await RequireSupportConversationAsync(userId, conversationId, cancellationToken, requireManage: true).ConfigureAwait(false);
         var organizationId = conversation.OrganizationId!.Value;
         if (assigneeId is { } target)
         {
@@ -267,7 +276,7 @@ public sealed partial class ConversationService
 
             var member = await organizations.FindMemberAsync(organizationId, target, cancellationToken).ConfigureAwait(false);
             var takesPart = await store.FindParticipantAsync(conversationId, target, cancellationToken).ConfigureAwait(false) is { IsActive: true };
-            if (member is not { IsActive: true } || (!IsSupportStaff(member) && !takesPart))
+            if (member is not { IsActive: true } || (!await IsSupportAgentAsync(organizationId, target, member, cancellationToken).ConfigureAwait(false) && !takesPart))
             {
                 throw new RequestValidationException("assigneeId", "assignee_not_agent");
             }
@@ -312,7 +321,7 @@ public sealed partial class ConversationService
     /// <summary>Closes or reopens a website conversation (support staff, or a responder who takes part).</summary>
     public async Task<SupportItemView> SetSupportStatusAsync(Guid userId, Guid conversationId, SupportStatus status, CancellationToken cancellationToken)
     {
-        await RequireSupportConversationAsync(userId, conversationId, cancellationToken).ConfigureAwait(false);
+        await RequireSupportConversationAsync(userId, conversationId, cancellationToken, requireManage: true).ConfigureAwait(false);
         var updated = await ChangeSupportStatusAsync(userId, conversationId, status, cancellationToken).ConfigureAwait(false);
         return await SupportItemAsync(userId, updated, cancellationToken).ConfigureAwait(false);
     }
@@ -349,7 +358,55 @@ public sealed partial class ConversationService
     private static bool IsSupportStaff(OrganizationMember membership) =>
         membership.IsActive && (membership.IsSupportAgent || membership.Can(OrganizationPermission.Manage));
 
-    private async Task<(Conversation Conversation, bool FullInbox)> RequireSupportConversationAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken)
+    private sealed record SupportAccess(bool CanEnter, bool CanReadAll, bool CanManageAll, bool CanReadParticipating);
+
+    private async Task<SupportAccess> GetSupportAccessAsync(Guid userId, Guid organizationId, OrganizationMember membership, CancellationToken cancellationToken)
+    {
+        var legacyStaff = IsSupportStaff(membership);
+        if (scopedAccess is null) return new SupportAccess(true, legacyStaff, legacyStaff, true);
+
+        var permissions = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+        var allowed = permissions.Allowed.ToHashSet(StringComparer.Ordinal);
+        var denied = permissions.Denied.ToHashSet(StringComparer.Ordinal);
+        var accessConfigured = await scopedAccess.IsPermissionConfiguredAsync(organizationId, "support.access", cancellationToken).ConfigureAwait(false);
+        var readConfigured = await scopedAccess.IsPermissionConfiguredAsync(organizationId, "support.cases.read", cancellationToken).ConfigureAwait(false);
+        var manageConfigured = await scopedAccess.IsPermissionConfiguredAsync(organizationId, "support.cases.manage", cancellationToken).ConfigureAwait(false);
+
+        // An explicit denial of the support area is a hard stop, including for legacy agents.
+        var canEnter = !accessConfigured || allowed.Contains("support.access");
+        var accessGrant = accessConfigured && allowed.Contains("support.access");
+        var readGrant = allowed.Contains("support.cases.read");
+        var manageGrant = allowed.Contains("support.cases.manage");
+        var canManageAll = canEnter && (manageConfigured ? manageGrant : legacyStaff);
+        var canReadAll = canEnter && (readConfigured ? readGrant : accessGrant || manageGrant || legacyStaff);
+        // Explicit access deny blocks any support participation path, even if it is an active case participant.
+        if (denied.Contains("support.access")) canEnter = false;
+        var canReadParticipating = canEnter && (!readConfigured || readGrant);
+        return new SupportAccess(canEnter, canReadAll, canManageAll, canReadParticipating);
+    }
+
+    private async Task<bool> IsSupportAgentAsync(Guid organizationId, Guid userId, OrganizationMember membership, CancellationToken cancellationToken)
+    {
+        var access = await GetSupportAccessAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false);
+        return access.CanEnter && (access.CanManageAll || access.CanReadAll);
+    }
+
+    private async Task<IReadOnlyList<Guid>> ListSupportStaffIdsAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        var members = await organizations.ListActiveMembersAsync(organizationId, cancellationToken).ConfigureAwait(false);
+        var staffIds = new List<Guid>();
+        foreach (var member in members)
+        {
+            if (await IsSupportAgentAsync(organizationId, member.UserId, member, cancellationToken).ConfigureAwait(false))
+            {
+                staffIds.Add(member.UserId);
+            }
+        }
+
+        return staffIds;
+    }
+
+    private async Task<(Conversation Conversation, bool FullInbox)> RequireSupportConversationAsync(Guid userId, Guid conversationId, CancellationToken cancellationToken, bool requireManage = false)
     {
         var conversation = await store.FindAsync(conversationId, cancellationToken).ConfigureAwait(false);
         if (conversation is not { Type: ConversationType.Website, OrganizationId: { } organizationId })
@@ -358,10 +415,24 @@ public sealed partial class ConversationService
         }
 
         var membership = await organizations.FindMemberAsync(organizationId, userId, cancellationToken).ConfigureAwait(false);
-        var fullInbox = membership is not null && IsSupportStaff(membership);
+        var access = membership is { IsActive: true }
+            ? await GetSupportAccessAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false)
+            : new SupportAccess(false, false, false, false);
+        if (!access.CanEnter) throw new ResourceNotFoundException(NotFound);
+        var fullInbox = access.CanReadAll;
         var takesPart = membership is { IsActive: true }
             && await store.FindParticipantAsync(conversationId, userId, cancellationToken).ConfigureAwait(false) is { IsActive: true };
-        return fullInbox || takesPart ? (conversation, fullInbox) : throw new ResourceNotFoundException(NotFound);
+        var canRead = fullInbox || (access.CanReadParticipating && takesPart);
+        if (!canRead) throw new ResourceNotFoundException(NotFound);
+        if (requireManage)
+        {
+            var manageConfigured = scopedAccess is not null
+                && await scopedAccess.IsPermissionConfiguredAsync(organizationId, "support.cases.manage", cancellationToken).ConfigureAwait(false);
+            var legacyManage = membership is not null && (IsSupportStaff(membership) || takesPart);
+            var canManage = access.CanManageAll || (!manageConfigured && legacyManage);
+            if (!canManage) throw new ForbiddenException();
+        }
+        return (conversation, fullInbox);
     }
 
     private async Task<SupportItemView> SupportItemAsync(Guid userId, Conversation conversation, CancellationToken cancellationToken)
@@ -381,9 +452,21 @@ public sealed partial class ConversationService
         await NotifyParticipantsAsync(conversation, "updated", [], cancellationToken).ConfigureAwait(false);
         if (conversation.OrganizationId is { } organizationId)
         {
-            var staff = (await organizations.ListActiveMembersAsync(organizationId, cancellationToken).ConfigureAwait(false))
-                .Where(IsSupportStaff).Select(m => m.UserId).ToList();
+            var staff = await ListSupportStaffIdsAsync(organizationId, cancellationToken).ConfigureAwait(false);
             await NotifyAsync(staff, conversation, "inbox", cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Replays the support inbox notification for a committed routing event. Duplicate delivery is
+    /// safe: clients reload the current case from the database rather than applying event deltas.
+    /// </summary>
+    public async Task NotifySupportRoutingAsync(Guid conversationId, CancellationToken cancellationToken)
+    {
+        var conversation = await store.FindAsync(conversationId, cancellationToken).ConfigureAwait(false);
+        if (conversation is { Type: ConversationType.Website })
+        {
+            await NotifySupportAsync(conversation, cancellationToken).ConfigureAwait(false);
         }
     }
 }

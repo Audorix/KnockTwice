@@ -24,7 +24,7 @@ internal static class PrivateChatEndpoints
         chats.MapPost(string.Empty, async Task<Results<Ok<PrivateChatResponse>, Created<PrivateChatResponse>>> (
             StartPrivateChatRequest request, HttpContext http, PrivateChatService service, CancellationToken ct) =>
         {
-            var (view, created) = await service.StartAsync(http.User.RequireUserId(), http.User.RequireSessionId(), request.UserId, ct);
+            var (view, created) = await service.StartAsync(http.User.RequireUserId(), http.User.RequireSessionId(), request.UserId, request.OrganizationId, ct);
             var response = ToResponse(view);
             return created ? TypedResults.Created($"/api/v1/private-chats/{response.Id}", response) : TypedResults.Ok(response);
         }).WithSummary("Invites a contact or organization colleague to a private chat bound to this sign-in session. They must accept first.");
@@ -63,10 +63,10 @@ internal static class PrivateChatEndpoints
             return TypedResults.Created($"/api/v1/private-chats/{chatId}/attachments/{file.Id}/content", ToAttachment(file));
         }).WithSummary("Keeps a file in memory for this private chat (multipart/form-data, field 'file'). Wiped when the chat ends.");
 
-        chats.MapGet("/{chatId:guid}/attachments/{fileId:guid}/content", (
-            Guid chatId, Guid fileId, bool? download, HttpContext http, PrivateChatService service) =>
+        chats.MapGet("/{chatId:guid}/attachments/{fileId:guid}/content", async (
+            Guid chatId, Guid fileId, bool? download, HttpContext http, PrivateChatService service, CancellationToken ct) =>
         {
-            var file = service.OpenFile(http.User.RequireUserId(), http.User.RequireSessionId(), chatId, fileId);
+            var file = await service.OpenFileAsync(http.User.RequireUserId(), http.User.RequireSessionId(), chatId, fileId, ct);
             AttachmentEndpoints.SetDownloadHeaders(http.Response, file.FileName, file.ContentType, download == true, cacheable: false);
             return Results.Bytes(file.Data, file.ContentType);
         }).WithSummary("Downloads a file of the chat. Never cached.");
@@ -85,7 +85,8 @@ internal static class PrivateChatEndpoints
         view.Chat.InvitationExpiresAtUtc,
         view.UsedBytes,
         view.MaxBytes,
-        view.MaxFileSize);
+        view.MaxFileSize,
+        view.Chat.OrganizationId);
 
     internal static PrivateMessageResponse ToMessage(PrivateMessageView m) => new(
         m.Id, m.Sequence, m.Author is null ? null : ToUser(m.Author), m.AuthorUserId, m.ClientMessageId, m.Body, m.Attachments.Select(ToAttachment).ToList(), m.CreatedAtUtc);

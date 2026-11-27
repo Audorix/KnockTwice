@@ -174,12 +174,16 @@ configured the same way.
 
 ## Limits of this setup
 
-- One API instance by default. To run several, set `ScaleOut__Redis` (a Redis connection string; see
-  the [configuration reference](development/configuration.md)): it adds the SignalR backplane,
-  shared presence and shared rate limits (ADR-035). Private chats still live in one instance's
-  memory, so with several instances keep everyone on one instance or switch private chats off (a
-  startup warning says so). The bundled Compose files start one instance and no Redis; this setup
-  has not been tested against a real Redis.
+- One API instance by default. To run several, set `ScaleOut__Redis` and the required,
+  environment-specific `ScaleOut__Prefix` (a Redis connection string; see the
+  [configuration reference](development/configuration.md)). Use the same values on each node and a
+  different prefix in staging and production. This enables the SignalR backplane, shared presence,
+  shared sign-in and visitor rate limits, and Redis readiness (ADR-035). Configure WebSocket
+  upgrades and cookie affinity for hub negotiation and connection/fallback requests. Private chats
+  still live in one instance's memory, so keep everyone on one instance or switch them off. A
+  reproducible two-node PostgreSQL/Redis/HAProxy stack and real-client test are in
+  [Phase 52](releases/phase-52-multi-node-signalr.md); the actual two-node test has not yet run in
+  this environment.
 - SQLite is supported for small single-server installs (use
   `docker/compose.sqlite.yaml` as a starting point and set `CHATX_ENVIRONMENT=Production`), but
   PostgreSQL is the recommended production database.

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Threading.Channels;
 using Audorix.KnockTwice.Contracts.V1.Realtime;
 using Audorix.KnockTwice.Infrastructure.Persistence;
@@ -101,6 +102,99 @@ public sealed class PrivateChatTests
     }
 
     [Fact]
+    public async Task Organization_private_chat_policy_requires_a_shared_team_but_does_not_restrict_personal_contact_chats()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        using var _1 = ana;
+        using var _2 = ben;
+        await BecomeContactsAsync(ana, anaId, ben, benId);
+        var organizationId = await CreateOrganizationAsync(ana, (ben, "ben@example.org"));
+        var workspaceId = await DefaultWorkspaceAsync(ana, organizationId);
+        await AddToWorkspaceAsync(ana, organizationId, workspaceId, benId);
+
+        AssertStatus(HttpStatusCode.OK, await ana.SendAsync(HttpMethod.Put, $"/api/v1/organizations/{organizationId}/settings",
+            new { guestsEnabled = (bool?)null, channelCreation = (string?)null, privateChatsRequireSharedTeam = true }));
+
+        // The organization policy only applies to organization-context chats.
+        Assert.Equal("user_not_found", await ErrorCodeAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId, organizationId })));
+        var personal = await JsonAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId }));
+        Assert.Equal(JsonValueKind.Null, personal.GetProperty("organizationId").ValueKind);
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/private-chats/{personal.GetProperty("id").GetGuid()}"));
+
+        var teams = $"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/teams";
+        var team = await JsonAsync(await ana.PostAsync(teams, new { name = "Approved" }));
+        var teamId = team.GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{teams}/{teamId}/members", new { userId = anaId }));
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{teams}/{teamId}/members", new { userId = benId }));
+
+        var orgChat = await JsonAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId, organizationId }));
+        Assert.Equal(organizationId, orgChat.GetProperty("organizationId").GetGuid());
+
+        // Removing a participant from the approved team revokes access and wipes the live chat.
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"{teams}/{teamId}/members/{benId}"));
+        Assert.Equal("private_chat_not_found", await ErrorCodeAsync(await ben.GetAsync($"/api/v1/private-chats/{orgChat.GetProperty("id").GetGuid()}")));
+        Assert.Empty((await JsonAsync(await ana.GetAsync("/api/v1/private-chats"))).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Organization_private_chat_roles_preserve_legacy_behavior_until_configured_then_deny_overrides_allow()
+    {
+        await using var db = await TestDatabase.CreateAsync("Sqlite");
+        await using var api = await StartAsync(db);
+        var (ana, anaId) = await SignedInAsync(api, "ana@example.org", "Ana");
+        var (ben, benId) = await SignedInAsync(api, "ben@example.org", "Ben");
+        using var _1 = ana;
+        using var _2 = ben;
+        var organizationId = await CreateOrganizationAsync(ana, (ben, "ben@example.org"));
+
+        // No active scoped decision means this organization keeps its previous member policy.
+        var legacy = await JsonAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId, organizationId }));
+        Assert.Equal(organizationId, legacy.GetProperty("organizationId").GetGuid());
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/private-chats/{legacy.GetProperty("id").GetGuid()}"));
+
+        var path = $"/api/v1/organizations/{organizationId}/access-control";
+        var allowRoleResponse = await ana.PostAsync(path + "/roles", new
+        {
+            name = "Approved private chat users",
+            permissions = new[] { new { key = "private_chats.use", effect = "allow" } },
+        });
+        AssertStatus(HttpStatusCode.Created, allowRoleResponse, await allowRoleResponse.Content.ReadAsStringAsync(Ct));
+        var allowRoleId = (await JsonAsync(allowRoleResponse)).GetProperty("id").GetGuid();
+        var allowGroupResponse = await ana.PostAsync(path + "/groups", new { name = "Private chat users" });
+        AssertStatus(HttpStatusCode.Created, allowGroupResponse);
+        var allowGroupId = (await JsonAsync(allowGroupResponse)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{path}/roles/{allowRoleId}/groups/{allowGroupId}"));
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{path}/groups/{allowGroupId}/members/{anaId}"));
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{path}/groups/{allowGroupId}/members/{benId}"));
+
+        var allowed = await JsonAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId, organizationId }));
+        Assert.Equal(organizationId, allowed.GetProperty("organizationId").GetGuid());
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/private-chats/{allowed.GetProperty("id").GetGuid()}"));
+
+        var denyRoleResponse = await ana.PostAsync(path + "/roles", new
+        {
+            name = "Restricted private chat users",
+            permissions = new[] { new { key = "private_chats.use", effect = "deny" } },
+        });
+        AssertStatus(HttpStatusCode.Created, denyRoleResponse, await denyRoleResponse.Content.ReadAsStringAsync(Ct));
+        var denyRoleId = (await JsonAsync(denyRoleResponse)).GetProperty("id").GetGuid();
+        var denyGroupResponse = await ana.PostAsync(path + "/groups", new { name = "Restricted members" });
+        AssertStatus(HttpStatusCode.Created, denyGroupResponse);
+        var denyGroupId = (await JsonAsync(denyGroupResponse)).GetProperty("id").GetGuid();
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{path}/roles/{denyRoleId}/groups/{denyGroupId}"));
+        AssertStatus(HttpStatusCode.OK, await ana.PostAsync($"{path}/groups/{denyGroupId}/members/{benId}"));
+
+        Assert.Equal("user_not_found", await ErrorCodeAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId, organizationId })));
+        // Personal contact chats remain governed by the contact flow, outside organization grants.
+        var personal = await JsonAsync(await ana.PostAsync("/api/v1/private-chats", new { userId = benId }));
+        Assert.Equal(JsonValueKind.Null, personal.GetProperty("organizationId").ValueKind);
+        AssertStatus(HttpStatusCode.NoContent, await ana.SendAsync(HttpMethod.Delete, $"/api/v1/private-chats/{personal.GetProperty("id").GetGuid()}"));
+    }
+
+    [Fact]
     public async Task Only_eligible_people_can_be_invited_and_invitations_can_be_declined_or_cancelled()
     {
         await using var db = await TestDatabase.CreateAsync("Sqlite");
@@ -170,6 +264,13 @@ public sealed class PrivateChatTests
         AssertStatus(HttpStatusCode.NoContent, await anaSetup.SendAsync(HttpMethod.Delete, $"/api/v1/auth/sessions/{current.GetProperty("id").GetGuid()}"));
         Assert.Equal(("ended", chatId, "session_ended"), await benEvents.NextEndAsync());
     }
+
+    private static async Task<Guid> DefaultWorkspaceAsync(ApiSession owner, Guid organizationId) =>
+        (await JsonAsync(await owner.GetAsync($"/api/v1/organizations/{organizationId}/workspaces")))
+            .EnumerateArray().First().GetProperty("id").GetGuid();
+
+    private static async Task AddToWorkspaceAsync(ApiSession admin, Guid organizationId, Guid workspaceId, Guid userId) =>
+        AssertStatus(HttpStatusCode.OK, await admin.PostAsync($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/members", new { userId }));
 
     /// <summary>Records private chat events of one device.</summary>
     private sealed class Events

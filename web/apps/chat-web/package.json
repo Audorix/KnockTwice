@@ -14,6 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@dicebear/core": "^11.0.0",
+    "@dicebear/styles": "^11.0.0",
     "@microsoft/signalr": "10.0.11",
     "bootstrap": "5.3.9",
     "i18next": "27.2.4",

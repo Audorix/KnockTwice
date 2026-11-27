@@ -102,12 +102,13 @@ public sealed record PrivateMessage(
 /// </summary>
 public sealed class PrivateChat
 {
-    internal PrivateChat(Guid id, Guid initiatorUserId, Guid initiatorSessionId, Guid inviteeUserId, DateTimeOffset createdAtUtc, DateTimeOffset invitationExpiresAtUtc)
+    internal PrivateChat(Guid id, Guid initiatorUserId, Guid initiatorSessionId, Guid inviteeUserId, Guid? organizationId, DateTimeOffset createdAtUtc, DateTimeOffset invitationExpiresAtUtc)
     {
         Id = id;
         InitiatorUserId = initiatorUserId;
         InitiatorSessionId = initiatorSessionId;
         InviteeUserId = inviteeUserId;
+        OrganizationId = organizationId;
         CreatedAtUtc = createdAtUtc;
         InvitationExpiresAtUtc = invitationExpiresAtUtc;
     }
@@ -122,6 +123,9 @@ public sealed class PrivateChat
     public Guid InitiatorSessionId { get; }
 
     public Guid InviteeUserId { get; }
+
+    /// <summary>Organization context, when the chat was started from an organization's member directory.</summary>
+    public Guid? OrganizationId { get; }
 
     public PrivateChatStatus Status { get; internal set; } = PrivateChatStatus.Invited;
 

@@ -111,13 +111,32 @@ function Start-Api([string] $where) {
     $arguments = @((Join-Path $apiDir 'Audorix.ChatX.Api.dll')) + (Get-ApiArguments $where)
     $process = Start-Process dotnet -ArgumentList ($arguments | ForEach-Object { '"' + $_ + '"' }) -WorkingDirectory $apiDir -PassThru `
         -RedirectStandardOutput (Join-Path $where 'api.log') -RedirectStandardError (Join-Path $where 'api.err') -WindowStyle Hidden
+    $lastReadiness = 'No response received.'
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Milliseconds 500
-        try { if ((Invoke-WebRequest "$baseUrl/health/ready" -UseBasicParsing -TimeoutSec 2).StatusCode -eq 200) { return $process } } catch { }
+        try {
+            $response = Invoke-WebRequest "$baseUrl/health/ready" -UseBasicParsing -TimeoutSec 2
+            $lastReadiness = "HTTP $([int]$response.StatusCode): $($response.Content)"
+            if ($response.StatusCode -eq 200) { return $process }
+        } catch {
+            $httpResponse = $_.Exception.Response
+            if ($httpResponse) {
+                $statusCode = [int]$httpResponse.StatusCode
+                $body = ''
+                try {
+                    $reader = New-Object IO.StreamReader($httpResponse.GetResponseStream())
+                    $body = $reader.ReadToEnd()
+                    $reader.Dispose()
+                } catch { }
+                $lastReadiness = "HTTP ${statusCode}: $body"
+            } else {
+                $lastReadiness = $_.Exception.Message
+            }
+        }
         if ($process.HasExited) { throw "The API stopped; see $where" }
     }
     Stop-Process $process -Force
-    throw "The API did not become ready; see $where"
+    throw "The API did not become ready. Last readiness response: $lastReadiness See $where"
 }
 
 function Stop-Api($process) {

@@ -54,6 +54,10 @@ import { startPrivateChat } from '../private/privateChatsApi';
 const editWindowMs = 15 * 60 * 1000;
 const maxLength = 4000;
 const typingRenewMs = 3000;
+const translationLanguages = [
+  ['en', 'English'], ['es', 'Español'], ['fr', 'Français'], ['de', 'Deutsch'], ['it', 'Italiano'],
+  ['ro', 'Română'], ['sv', 'Svenska'], ['pl', 'Polski'],
+] as const;
 
 interface PendingMessage {
   clientMessageId: string;
@@ -74,6 +78,24 @@ const inMainTimeline = (entry: ConversationEntryResponse) => !entry.threadRootId
 const attachmentLink = (item: Pick<MessageAttachmentResponse, 'id'>, download: boolean) => files.attachmentUrl(item.id, download);
 
 const formatLimit = (bytes: number, language: string) => formatBytes(bytes, language);
+
+const automaticTranslationQueue: (() => Promise<void>)[] = [];
+let activeAutomaticTranslations = 0;
+function queueAutomaticTranslation(task: () => Promise<void>) {
+  automaticTranslationQueue.push(task);
+  queueAutomaticTranslationPump();
+}
+
+function queueAutomaticTranslationPump() {
+  while (activeAutomaticTranslations < 2 && automaticTranslationQueue.length > 0) {
+    const next = automaticTranslationQueue.shift()!;
+    activeAutomaticTranslations++;
+    void Promise.resolve().then(next).catch(() => undefined).finally(() => {
+      activeAutomaticTranslations--;
+      queueAutomaticTranslationPump();
+    });
+  }
+}
 
 function newClientId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -100,6 +122,13 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
   const [showPins, setShowPins] = useState(false);
   // Redesign 2026-11: Messages / Shared files, and where "new messages" began when this was opened.
   const [view, setView] = useState<'messages' | 'files'>('messages');
+  const canUseTranslation = Boolean(user?.permissions.includes('messages.translate'));
+  const [translationTarget, setTranslationTarget] = useState(() => {
+    try { return localStorage.getItem('chatx.translation.targetLanguage') ?? 'en'; } catch { return 'en'; }
+  });
+  const [autoTranslateSupport, setAutoTranslateSupport] = useState(() => {
+    try { return localStorage.getItem('chatx.translation.autoSupport') === 'true'; } catch { return false; }
+  });
   const firstUnread = useRef<number | null>(null);
   if (detail && firstUnread.current === null) {
     firstUnread.current = detail.conversation.lastSequence > detail.conversation.lastReadSequence ? detail.conversation.lastReadSequence + 1 : Number.POSITIVE_INFINITY;
@@ -751,6 +780,40 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
             </option>
           ))}
         </select>
+        {canUseTranslation && view === 'messages' && (
+          <div className="cx-translation-preference">
+            <label className="cx-translation-target">
+              <span className="visually-hidden">{t('messages.translationLanguage')}</span>
+              <select
+                className="form-select form-select-sm"
+                aria-label={t('messages.translationLanguage')}
+                value={translationTarget}
+                onChange={(event) => {
+                  const language = event.target.value;
+                  setTranslationTarget(language);
+                  try { localStorage.setItem('chatx.translation.targetLanguage', language); } catch { /* preference remains available for this view */ }
+                }}
+              >
+                {translationLanguages.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+              </select>
+            </label>
+            {isWebsite && (
+              <label className="cx-auto-translate-control">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  checked={autoTranslateSupport}
+                  onChange={(event) => {
+                    const enabled = event.target.checked;
+                    setAutoTranslateSupport(enabled);
+                    try { localStorage.setItem('chatx.translation.autoSupport', String(enabled)); } catch { /* preference remains available for support */ }
+                  }}
+                />
+                <span><strong>{t('messages.autoTranslateSupport')}</strong><small>{t('messages.autoTranslateSupportHint')}</small></span>
+              </label>
+            )}
+          </div>
+        )}
       </div>
       {error !== null && <FormAlert tone="danger">{errorMessage(error, t)}</FormAlert>}
       {fileNotice && <FormAlert tone="info">{fileNotice}</FormAlert>}
@@ -800,12 +863,16 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
               )}
             {entry.kind === 'message' ? (
               <MessageItem
+                conversationId={c.id}
                 entry={entry}
                 mine={entry.actor?.id === me}
                 showAuthor={isGroup || isWebsite || isChannel}
                 receipt={entry.actor?.id === me && !entry.deletedAtUtc ? receipt(entry) : null}
                 canEdit={entry.actor?.id === me && !entry.deletedAtUtc && Date.now() - Date.parse(entry.createdAtUtc) < editWindowMs}
                 canDelete={!entry.deletedAtUtc && (entry.actor?.id === me || canModerate)}
+                canTranslate={!entry.deletedAtUtc && entry.actor?.id !== me && canUseTranslation}
+                autoTranslate={isWebsite && autoTranslateSupport && canUseTranslation && entry.actor?.id !== me && !entry.deletedAtUtc}
+                translationTarget={translationTarget}
                 language={i18n.language}
                 me={me}
                 names={names}
@@ -960,7 +1027,7 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
               />
             )}
             <ReactionPicker compact label={t('messages.insertEmoji')} onPick={insertAtCursor} />
-            <span className="cx-composer-divider" aria-hidden="true" />
+            {formatting.richTextButton}
             {formatting.toolbar}
             <span className="cx-composer-spacer" />
             <div className="cx-send-group">
@@ -984,6 +1051,8 @@ export function ConversationView({ conversationId, onChanged }: { conversationId
             </div>
           </div>
         </div>
+        {formatting.codeDialog}
+        {formatting.richTextDialog}
         <div className="form-text cx-composer-hint">{t('messages.hintShort')}</div>
       </form>
       )}
@@ -1182,12 +1251,16 @@ function SharedFiles({ conversationId, language }: { conversationId: string; lan
 const fileTypeLabel = (name: string) => (name.includes('.') ? name.slice(name.lastIndexOf('.') + 1).toUpperCase() : '');
 
 function MessageItem({
+  conversationId,
   entry,
   mine,
   showAuthor,
   receipt,
   canEdit,
   canDelete,
+  canTranslate,
+  autoTranslate,
+  translationTarget,
   language,
   me,
   names,
@@ -1200,6 +1273,7 @@ function MessageItem({
   onEdit,
   onDelete,
 }: {
+  conversationId: string;
   tools: MessageTools;
   highlighted: boolean;
   entry: ConversationEntryResponse;
@@ -1208,6 +1282,9 @@ function MessageItem({
   receipt: string | null;
   canEdit: boolean;
   canDelete: boolean;
+  canTranslate: boolean;
+  autoTranslate: boolean;
+  translationTarget: string;
   language: string;
   me: string;
   names: Map<string, string>;
@@ -1220,9 +1297,75 @@ function MessageItem({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
+  const [translation, setTranslation] = useState<{ language: string; text: string; sourceBody: string } | null>(null);
+  const [translationBusy, setTranslationBusy] = useState(false);
+  const [translationError, setTranslationError] = useState(false);
+  const automaticRequest = useRef<string | null>(null);
+  const desiredAutomaticRequest = useRef<string | null>(null);
+  const automaticEnabled = useRef(autoTranslate);
+  automaticEnabled.current = autoTranslate;
+  const messageElement = useRef<HTMLLIElement>(null);
+  const [autoVisible, setAutoVisible] = useState(false);
+  useEffect(() => {
+    automaticEnabled.current = autoTranslate;
+    return () => {
+      automaticEnabled.current = false;
+      desiredAutomaticRequest.current = null;
+    };
+  }, [autoTranslate]);
+  const translate = useCallback(async () => {
+    setTranslationBusy(true);
+    setTranslationError(false);
+    try {
+      const result = await api.translateMessage(conversationId, entry.id, translationTarget);
+      setTranslation({ language: result.targetLanguage, text: result.translation, sourceBody: entry.body ?? '' });
+    } catch {
+      setTranslationError(true);
+    } finally {
+      setTranslationBusy(false);
+    }
+  }, [conversationId, entry.body, entry.id, translationTarget]);
+  useEffect(() => {
+    if (!autoTranslate) {
+      setAutoVisible(false);
+      automaticRequest.current = null;
+      desiredAutomaticRequest.current = null;
+      return;
+    }
+    const element = messageElement.current;
+    if (!element) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setAutoVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver((observed) => {
+      if (observed.some(item => item.isIntersecting)) {
+        setAutoVisible(true);
+        observer.disconnect();
+      }
+    }, { root: element.closest('.cx-timeline'), threshold: 0.1 });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [autoTranslate, entry.id]);
+  useEffect(() => {
+    if (!autoTranslate || !autoVisible || !canTranslate || entry.deletedAtUtc || !entry.body) {
+      if (!autoTranslate) {
+        automaticRequest.current = null;
+        desiredAutomaticRequest.current = null;
+      }
+      return;
+    }
+    const requestKey = `${entry.id}:${entry.editedAtUtc ?? ''}:${translationTarget}:${entry.body}`;
+    if (automaticRequest.current === requestKey || (translation?.language === translationTarget && translation.sourceBody === entry.body)) return;
+    automaticRequest.current = requestKey;
+    desiredAutomaticRequest.current = requestKey;
+    setTranslationError(false);
+    queueAutomaticTranslation(() => desiredAutomaticRequest.current === requestKey && automaticEnabled.current ? translate() : Promise.resolve());
+  }, [autoTranslate, autoVisible, canTranslate, entry.body, entry.deletedAtUtc, entry.editedAtUtc, entry.id, translate, translation, translationTarget]);
+  const visibleTranslation = translation?.language === translationTarget && translation.sourceBody === (entry.body ?? '') ? translation.text : null;
   const deleted = Boolean(entry.deletedAtUtc);
   return (
-    <li id={`msg-${entry.id}`} className={`cx-message${mine ? ' is-mine' : ''}${deleted ? ' is-deleted' : ''}${highlighted ? ' is-highlighted' : ''}`}>
+    <li ref={messageElement} id={`msg-${entry.id}`} className={`cx-message${mine ? ' is-mine' : ''}${deleted ? ' is-deleted' : ''}${highlighted ? ' is-highlighted' : ''}`}>
       {!mine && entry.actor && <Avatar user={entry.actor} size="sm" />}
       <div className="cx-message-stack">
         <div className="cx-message-head">
@@ -1256,6 +1399,13 @@ function MessageItem({
           ) : (
             <>
               {entry.body && <RichText className="cx-message-body" text={entry.body} mentions={mentionsOf(entry, names, me)} />}
+              {visibleTranslation && (
+                <div className="cx-message-translation">
+                  <span className="cx-message-translation-label"><NavIcon name="globe" size={14} />{t('messages.translatedTo', { language: translationTarget })}</span>
+                  <RichText className="cx-message-body" text={visibleTranslation} />
+                  <details><summary>{t('messages.showOriginal')}</summary><RichText className="cx-message-body" text={entry.body ?? ''} mentions={mentionsOf(entry, names, me)} /></details>
+                </div>
+              )}
               <AttachmentList items={entry.attachments ?? []} urlFor={attachmentLink} />
             </>
           )}
@@ -1273,11 +1423,19 @@ function MessageItem({
         // Shown on hover and keyboard focus (always on touch screens); the buttons keep their words as names.
         <div className="cx-message-tools" role="toolbar" aria-label={t('messages.actions')}>
           <ToolButton icon="reply" label={t('messages.reply')} onClick={onReply} />
+          {canTranslate && <ToolButton icon="globe" label={visibleTranslation ? t('messages.translateAgain') : t('messages.translate')} disabled={translationBusy} onClick={() => void translate()} />}
           {canReact && <ReactionPicker compact onPick={(emoji) => onReact(emoji, true)} />}
           {onOpenThread && !entry.threadRootId && <ToolButton icon="thread" label={t('messages.replyInThread')} onClick={onOpenThread} />}
           {canEdit && <ToolButton icon="edit" label={t('messages.edit')} onClick={onEdit} />}
           {canDelete && <ToolButton icon="trash" label={t('messages.delete')} danger onClick={onDelete} />}
           <MessageMenu compact entry={entry} tools={tools} />
+        </div>
+      )}
+      {canTranslate && (
+        <div className="cx-message-translation-controls">
+          <span className="cx-meta">{t('messages.translationDisclosure')}</span>
+          {translationBusy && <span className="cx-meta">{t('messages.translating')}</span>}
+          {translationError && <span className="cx-meta text-danger">{t('messages.translationFailed')}</span>}
         </div>
       )}
     </li>

@@ -346,6 +346,7 @@ describe('ConversationView', () => {
     await waitFor(() => expect(container.querySelector('#msg-m1')).toHaveClass('is-highlighted'));
 
     await user.click(screen.getByRole('button', { name: 'More' }));
+    expect(screen.getByRole('menu').parentElement).toBe(document.body);
     await user.click(screen.getByRole('menuitem', { name: 'Save' }));
     expect(await screen.findByText('Message saved.')).toBeInTheDocument();
     expect(calls).toContain('saved {"saved":true}');
@@ -370,7 +371,7 @@ describe('ConversationView', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('formats with shortcuts and the toolbar, and shows formatted messages (Phase 19)', async () => {
+  it('keeps formatting controls in the rich editor and leaves the composer toolbar to code blocks', async () => {
     const sent: Record<string, unknown>[] = [];
     mockFetch({
       'GET /api/v1/auth/config': () => json(200, authConfig),
@@ -393,19 +394,22 @@ describe('ConversationView', () => {
 
     const box = (await screen.findByLabelText('Message')) as HTMLTextAreaElement;
     await user.type(box, 'ship it');
-    box.setSelectionRange(5, 7);
     await user.keyboard('{Control>}b{/Control}');
-    expect(box).toHaveValue('ship **it**');
-    // The formatted text keeps the word selected (applied right after the text renders).
-    await waitFor(() => expect(box.selectionStart).toBe(7));
-    box.setSelectionRange(0, 4);
-    await user.click(screen.getByRole('button', { name: 'Strikethrough' }));
-    expect(box).toHaveValue('~~ship~~ **it**');
+    expect(box).toHaveValue('ship it');
+    const toolbar = screen.getByRole('toolbar', { name: 'Formatting' });
+    expect(within(toolbar).getAllByRole('button')).toHaveLength(1);
+    expect(within(toolbar).getByRole('button', { name: 'Code block' })).toBeInTheDocument();
+    const richTextButton = screen.getByRole('button', { name: 'Rich text editor' });
+    expect(richTextButton.querySelector('svg')).not.toBeNull();
+    expect(richTextButton.querySelector('span:not(.visually-hidden)')).toBeNull();
+    await user.click(richTextButton);
+    const richTextDialog = screen.getByRole('dialog', { name: 'Rich text editor' });
+    expect(within(richTextDialog).getByRole('button', { name: 'Bold' })).toBeInTheDocument();
+    await user.click(within(richTextDialog).getByRole('button', { name: 'Cancel' }));
     await user.click(box);
     await user.keyboard('{End}{Enter}');
-    expect(sent[0]).toMatchObject({ body: '~~ship~~ **it**' });
-    const bubble = (await screen.findByText('it', { selector: 'strong' })).closest('.cx-message-body')!;
-    expect(bubble.querySelector('del')?.textContent).toBe('ship');
+    expect(sent[0]).toMatchObject({ body: 'ship it' });
+    expect(await screen.findByText('ship it')).toBeInTheDocument();
   });
 
   it('reacts with an emoji and replies in a thread (Phase 16)', async () => {

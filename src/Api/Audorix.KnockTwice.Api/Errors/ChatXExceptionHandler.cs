@@ -38,6 +38,7 @@ internal sealed class ChatXExceptionHandler(
             Application.Widgets.TooManyRequestsException => (StatusCodes.Status429TooManyRequests, ErrorCodes.TooManyRequests),
             DependencyUnavailableException unavailable => (StatusCodes.Status503ServiceUnavailable, unavailable.Code),
             Application.Attachments.StorageUnavailableException => (StatusCodes.Status503ServiceUnavailable, "attachment_storage_unavailable"),
+            Infrastructure.AI.AiTranslationUnavailableException translation => (StatusCodes.Status503ServiceUnavailable, translation.Code),
             ApplicationRuleException rule => (StatusCodes.Status400BadRequest, rule.Code),
             DomainRuleException rule => (StatusCodes.Status400BadRequest, rule.Code),
             AntiforgeryValidationException => (StatusCodes.Status400BadRequest, ErrorCodes.CsrfTokenInvalid),
@@ -47,7 +48,7 @@ internal sealed class ChatXExceptionHandler(
         };
 
         if (status >= 500 && exception is not EmailDeliveryException and not CaptchaRejectedException and not Setup.SetupException
-            and not DependencyUnavailableException)
+            and not DependencyUnavailableException and not Infrastructure.AI.AiTranslationUnavailableException)
         {
             // Server-side log keeps the exception for diagnosis; the response never does.
             logger.LogError(exception, "Unhandled exception while processing {Method} {Path}.", httpContext.Request.Method, httpContext.Request.Path);

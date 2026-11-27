@@ -4,8 +4,13 @@ using Audorix.KnockTwice.Application.Organizations;
 using Audorix.KnockTwice.Application.Users;
 using Audorix.KnockTwice.Contracts.V1.Organizations;
 using Audorix.KnockTwice.Contracts.V1.Users;
+using Audorix.KnockTwice.Contracts.V1.Admin;
+using Audorix.KnockTwice.Application.Administration;
+using Audorix.KnockTwice.Domain.Authorization;
 using Audorix.KnockTwice.Domain.Organizations;
+using Audorix.KnockTwice.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Audorix.KnockTwice.Api.Endpoints;
 
@@ -91,8 +96,80 @@ internal static class OrganizationEndpoints
         orgs.MapPut("/{organizationId:guid}/settings", async (
             Guid organizationId, UpdateOrganizationSettingsRequest request, HttpContext http, OrganizationService service, CancellationToken ct) =>
             TypedResults.Ok(ToResponse(await service.ConfigureAsync(http.User.RequireUserId(), organizationId, request.GuestsEnabled,
-                ParseChannelCreation(request.ChannelCreation), ct))))
-            .WithSummary("Organization-specific configuration: guests on/off and who creates channels (owners and administrators).");
+                ParseChannelCreation(request.ChannelCreation), request.PrivateChatsRequireSharedTeam, ct))))
+            .WithSummary("Organization-specific configuration: guest access, channel creation, and whether organization-context private chats require a shared team (owners and administrators).");
+        orgs.MapGet("/{organizationId:guid}/domains", async (
+            Guid organizationId, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+            TypedResults.Ok((await service.ListAsync(http.User.RequireUserId(), organizationId, ct)).Select(ToResponse).ToList()))
+            .WithSummary("Lists verified-domain ownership challenges (owners and administrators).");
+        orgs.MapPost("/{organizationId:guid}/domains", async (
+            Guid organizationId, AddOrganizationDomainRequest request, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+        {
+            var domain = await service.AddAsync(http.User.RequireUserId(), organizationId, request.Domain, ct);
+            return TypedResults.Created($"/api/v1/organizations/{organizationId}/domains/{domain.Id}", ToResponse(domain));
+        }).WithSummary("Creates a DNS TXT ownership challenge. Creating a challenge does not enable automatic enrollment.");
+        orgs.MapPost("/{organizationId:guid}/domains/{domainId:guid}/verify", async (
+            Guid organizationId, Guid domainId, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+            TypedResults.Ok(ToResponse(await service.VerifyAsync(http.User.RequireUserId(), organizationId, domainId, ct))))
+            .WithSummary("Verifies the ownership TXT record using the server's configured DNS resolvers.");
+        orgs.MapDelete("/{organizationId:guid}/domains/{domainId:guid}", async (
+            Guid organizationId, Guid domainId, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+        {
+            await service.RemoveAsync(http.User.RequireUserId(), organizationId, domainId, ct);
+            return TypedResults.NoContent();
+        }).WithSummary("Removes a domain ownership claim (owners and administrators).");
+        orgs.MapGet("/{organizationId:guid}/domains/automatic-enrollment", async (
+            Guid organizationId, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+            TypedResults.Ok(new AutomaticEnrollmentResponse(await service.GetAutomaticEnrollmentAsync(http.User.RequireUserId(), organizationId, ct))))
+            .WithSummary("Reads whether confirmed accounts on a verified domain may join automatically (owners and administrators).");
+        orgs.MapPut("/{organizationId:guid}/domains/automatic-enrollment", async (
+            Guid organizationId, SetAutomaticEnrollmentRequest request, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+            TypedResults.Ok(new AutomaticEnrollmentResponse(await service.SetAutomaticEnrollmentAsync(http.User.RequireUserId(), organizationId, request.Enabled, ct))))
+            .WithSummary("Opts into or out of automatic enrollment for confirmed email addresses matching a verified domain (owners and administrators; off by default).");
+        orgs.MapGet("/{organizationId:guid}/sso", async (
+            Guid organizationId, HttpContext http, OrganizationDomainService service, CancellationToken ct) =>
+        {
+            var organization = await service.GetSsoAsync(http.User.RequireUserId(), organizationId, ct);
+            return TypedResults.Ok(new OrganizationSsoResponse(organization.SsoConfigured, organization.SsoIssuer,
+                organization.SsoClientId, !string.IsNullOrEmpty(organization.ProtectedSsoClientSecret)));
+        }).WithSummary("Reads organization OpenID Connect settings without returning the client secret.");
+        orgs.MapPut("/{organizationId:guid}/sso", async (
+            Guid organizationId, ConfigureOrganizationSsoRequest request, HttpContext http, OrganizationDomainService service,
+            IDataProtectionProvider protection, OrganizationOidcSchemeManager ssoSchemes,
+            Application.Administration.AuditService audit, CancellationToken ct) =>
+        {
+            if (request.ClientSecret?.Length > 2048)
+                throw new DomainRuleException("organization_sso_secret_too_long", "The client secret is too long.");
+            var actorId = http.User.RequireUserId();
+            var current = await service.GetSsoAsync(actorId, organizationId, ct);
+            var protectedSecret = string.IsNullOrWhiteSpace(request.ClientSecret)
+                ? current.ProtectedSsoClientSecret
+                : protection.CreateProtector("Audorix.KnockTwice.OrganizationSso.ClientSecret.v1").Protect(request.ClientSecret);
+            var organization = await service.SetSsoAsync(actorId, organizationId, request.Issuer,
+                request.ClientId, protectedSecret, ct);
+            var signInSettings = await service.GetSsoForSignInAsync(organizationId, ct);
+            if (signInSettings is not null)
+            {
+                var clientSecret = protection.CreateProtector("Audorix.KnockTwice.OrganizationSso.ClientSecret.v1")
+                    .Unprotect(signInSettings.ProtectedClientSecret);
+                await ssoSchemes.EnsureRegisteredAsync(signInSettings, clientSecret);
+            }
+            await audit.RecordAsync(Application.Administration.AuditActions.OrganizationSsoConfigured, actorId,
+                "organization", organizationId.ToString(), cancellationToken: ct);
+            return TypedResults.Ok(new OrganizationSsoResponse(organization.SsoConfigured, organization.SsoIssuer,
+                organization.SsoClientId, !string.IsNullOrEmpty(organization.ProtectedSsoClientSecret)));
+        }).WithSummary("Configures organization OpenID Connect sign-in (owners and administrators; secret is protected at rest).");
+        orgs.MapDelete("/{organizationId:guid}/sso", async (
+            Guid organizationId, HttpContext http, OrganizationDomainService service,
+            OrganizationOidcSchemeManager ssoSchemes, Application.Administration.AuditService audit, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await service.ClearSsoAsync(actorId, organizationId, ct);
+            ssoSchemes.Remove(organizationId);
+            await audit.RecordAsync(Application.Administration.AuditActions.OrganizationSsoConfigurationRemoved, actorId,
+                "organization", organizationId.ToString(), cancellationToken: ct);
+            return TypedResults.NoContent();
+        }).WithSummary("Removes saved organization OpenID Connect settings (owners and administrators).");
         orgs.MapDelete("/{organizationId:guid}/members/{userId:guid}", async (
             Guid organizationId, Guid userId, HttpContext http, OrganizationService service,
             Application.Conversations.ConversationService conversations, CancellationToken ct) =>
@@ -172,18 +249,185 @@ internal static class OrganizationEndpoints
             return TypedResults.Ok(new WorkspaceMemberResponse(ToUser(member.User), WorkspaceRoleName(member.Member.Role), member.Member.JoinedAtUtc));
         }).WithSummary("Changes a workspace member's role (workspace or organization administrators).");
 
+        var access = orgs.MapGroup("/{organizationId:guid}/access-control").WithTags("Organization access control");
+        access.MapGet("/roles", async (Guid organizationId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            await RequireAccessManagerAsync(http.User.RequireUserId(), organizationId, orgService, ct);
+            return TypedResults.Ok((await service.ListOrganizationRolesAsync(organizationId, ct)).Select(ToAccessRoleResponse).ToList());
+        });
+        access.MapPost("/roles", async (Guid organizationId, CreateAccessControlRoleRequest request, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            var created = await service.CreateRoleAsync(actorId, request.Name, request.Description, ToPermissionAssignments(request.Permissions), ct,
+                PermissionScopes.Organization, organizationId);
+            return TypedResults.Created($"/api/v1/organizations/{organizationId}/access-control/roles/{created.Role.Id}", ToAccessRoleResponse(created));
+        });
+        access.MapPut("/roles/{roleId:guid}", async (Guid organizationId, Guid roleId, UpdateAccessControlRoleRequest request, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessRoleResponse(await service.UpdateRoleAsync(actorId, roleId, request.Name, request.Description,
+                ToPermissionAssignments(request.Permissions), ct, PermissionScopes.Organization, organizationId)));
+        });
+        access.MapDelete("/roles/{roleId:guid}", async (Guid organizationId, Guid roleId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            await service.DeleteRoleAsync(actorId, roleId, ct, PermissionScopes.Organization, organizationId);
+            return TypedResults.NoContent();
+        });
+        access.MapGet("/groups", async (Guid organizationId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            await RequireAccessManagerAsync(http.User.RequireUserId(), organizationId, orgService, ct);
+            return TypedResults.Ok((await service.ListOrganizationGroupsAsync(organizationId, ct)).Select(ToAccessGroupResponse).ToList());
+        });
+        access.MapPost("/groups", async (Guid organizationId, CreateAccessControlGroupRequest request, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            var created = await service.CreateGroupAsync(actorId, request.Name, request.Description, ct, PermissionScopes.Organization, organizationId);
+            return TypedResults.Created($"/api/v1/organizations/{organizationId}/access-control/groups/{created.Group.Id}", ToAccessGroupResponse(created));
+        });
+        access.MapPut("/groups/{groupId:guid}", async (Guid organizationId, Guid groupId, UpdateAccessControlGroupRequest request, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.UpdateGroupAsync(actorId, groupId, request.Name, request.Description, ct,
+                PermissionScopes.Organization, organizationId)));
+        });
+        access.MapDelete("/groups/{groupId:guid}", async (Guid organizationId, Guid groupId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            await service.DeleteGroupAsync(actorId, groupId, ct, PermissionScopes.Organization, organizationId);
+            return TypedResults.NoContent();
+        });
+        access.MapPost("/roles/{roleId:guid}/groups/{groupId:guid}", async (Guid organizationId, Guid roleId, Guid groupId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.AssignRoleToGroupAsync(actorId, groupId, roleId, ct, PermissionScopes.Organization, organizationId)));
+        });
+        access.MapDelete("/roles/{roleId:guid}/groups/{groupId:guid}", async (Guid organizationId, Guid roleId, Guid groupId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.RemoveRoleFromGroupAsync(actorId, groupId, roleId, ct, PermissionScopes.Organization, organizationId)));
+        });
+        access.MapPost("/groups/{groupId:guid}/members/{userId:guid}", async (Guid organizationId, Guid groupId, Guid userId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.AddMemberAsync(actorId, groupId, userId, ct, PermissionScopes.Organization, organizationId)));
+        });
+        access.MapDelete("/groups/{groupId:guid}/members/{userId:guid}", async (Guid organizationId, Guid groupId, Guid userId, HttpContext http, OrganizationService orgService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireAccessManagerAsync(actorId, organizationId, orgService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.RemoveMemberAsync(actorId, groupId, userId, ct, PermissionScopes.Organization, organizationId)));
+        });
+
+        MapWorkspaceAccessControl(orgs);
+
         return v1;
     }
 
+    private static void MapWorkspaceAccessControl(RouteGroupBuilder orgs)
+    {
+        var access = orgs.MapGroup("/{organizationId:guid}/workspaces/{workspaceId:guid}/access-control").WithTags("Workspace access control");
+        access.MapGet("/roles", async (Guid organizationId, Guid workspaceId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            await RequireWorkspaceAccessManagerAsync(http.User.RequireUserId(), organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok((await service.ListWorkspaceRolesAsync(organizationId, workspaceId, ct)).Select(ToAccessRoleResponse).ToList());
+        });
+        access.MapPost("/roles", async (Guid organizationId, Guid workspaceId, CreateAccessControlRoleRequest request, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            var created = await service.CreateRoleAsync(actorId, request.Name, request.Description, ToPermissionAssignments(request.Permissions), ct, PermissionScopes.Workspace, organizationId, workspaceId);
+            return TypedResults.Created($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/roles/{created.Role.Id}", ToAccessRoleResponse(created));
+        });
+        access.MapPut("/roles/{roleId:guid}", async (Guid organizationId, Guid workspaceId, Guid roleId, UpdateAccessControlRoleRequest request, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessRoleResponse(await service.UpdateRoleAsync(actorId, roleId, request.Name, request.Description, ToPermissionAssignments(request.Permissions), ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+        access.MapDelete("/roles/{roleId:guid}", async (Guid organizationId, Guid workspaceId, Guid roleId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            await service.DeleteRoleAsync(actorId, roleId, ct, PermissionScopes.Workspace, organizationId, workspaceId);
+            return TypedResults.NoContent();
+        });
+        access.MapGet("/groups", async (Guid organizationId, Guid workspaceId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            await RequireWorkspaceAccessManagerAsync(http.User.RequireUserId(), organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok((await service.ListWorkspaceGroupsAsync(organizationId, workspaceId, ct)).Select(ToAccessGroupResponse).ToList());
+        });
+        access.MapPost("/groups", async (Guid organizationId, Guid workspaceId, CreateAccessControlGroupRequest request, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            var created = await service.CreateGroupAsync(actorId, request.Name, request.Description, ct, PermissionScopes.Workspace, organizationId, workspaceId);
+            return TypedResults.Created($"/api/v1/organizations/{organizationId}/workspaces/{workspaceId}/access-control/groups/{created.Group.Id}", ToAccessGroupResponse(created));
+        });
+        access.MapPut("/groups/{groupId:guid}", async (Guid organizationId, Guid workspaceId, Guid groupId, UpdateAccessControlGroupRequest request, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.UpdateGroupAsync(actorId, groupId, request.Name, request.Description, ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+        access.MapDelete("/groups/{groupId:guid}", async (Guid organizationId, Guid workspaceId, Guid groupId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            await service.DeleteGroupAsync(actorId, groupId, ct, PermissionScopes.Workspace, organizationId, workspaceId);
+            return TypedResults.NoContent();
+        });
+        access.MapPost("/roles/{roleId:guid}/groups/{groupId:guid}", async (Guid organizationId, Guid workspaceId, Guid roleId, Guid groupId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.AssignRoleToGroupAsync(actorId, groupId, roleId, ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+        access.MapDelete("/roles/{roleId:guid}/groups/{groupId:guid}", async (Guid organizationId, Guid workspaceId, Guid roleId, Guid groupId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.RemoveRoleFromGroupAsync(actorId, groupId, roleId, ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+        access.MapPost("/groups/{groupId:guid}/members/{userId:guid}", async (Guid organizationId, Guid workspaceId, Guid groupId, Guid userId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.AddMemberAsync(actorId, groupId, userId, ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+        access.MapDelete("/groups/{groupId:guid}/members/{userId:guid}", async (Guid organizationId, Guid workspaceId, Guid groupId, Guid userId, HttpContext http, OrganizationService orgService, WorkspaceService workspaceService, ScopedAccessControlService service, CancellationToken ct) =>
+        {
+            var actorId = http.User.RequireUserId();
+            await RequireWorkspaceAccessManagerAsync(actorId, organizationId, workspaceId, orgService, workspaceService, ct);
+            return TypedResults.Ok(ToAccessGroupResponse(await service.RemoveMemberAsync(actorId, groupId, userId, ct, PermissionScopes.Workspace, organizationId, workspaceId)));
+        });
+    }
+
+    private static async Task RequireWorkspaceAccessManagerAsync(Guid userId, Guid organizationId, Guid workspaceId,
+        OrganizationService organizations, WorkspaceService workspaces, CancellationToken ct)
+    {
+        await RequireAccessManagerAsync(userId, organizationId, organizations, ct);
+        await workspaces.RequireWorkspaceAccessAsync(userId, organizationId, workspaceId, ct);
+    }
+
     internal static UserSummaryResponse ToUser(UserSummary user) =>
-        new(user.Id, user.DisplayName, new AvatarResponse(user.Initials, UserEndpoints.PhotoUrl(user.Id, user.PhotoVersion)), user.Deleted);
+        new(user.Id, user.DisplayName, new AvatarResponse(user.Initials, UserEndpoints.PhotoUrl(user.Id, user.PhotoVersion), user.GeneratedAvatarStyle, user.GeneratedAvatarSeed), user.Deleted);
 
     private static OrganizationResponse ToResponse(OrganizationView view) => new(
         view.Organization.Id,
         view.Organization.Name,
         RoleName(view.MyRole),
         view.Organization.CreatedAtUtc,
-        Enum.GetValues<OrganizationPermission>()
+        view.MyPermissions ?? Enum.GetValues<OrganizationPermission>()
             .Where(p => OrganizationPermissions.IsGranted(view.MyRole, p))
             .Select(p => p switch
             {
@@ -191,13 +435,13 @@ internal static class OrganizationEndpoints
                 OrganizationPermission.ManageMembers => "organization.members.manage",
                 OrganizationPermission.ManageRoles => "organization.roles.manage",
                 _ => "organization.workspaces.manage",
-            })
-            .ToList(),
+            }).ToList(),
         view.IsSupportAgent,
         view.Organization.GuestsEnabled,
         view.Organization.ChannelCreation == ChannelCreationPolicy.Administrators ? "administrators" : "members",
         ImageUrl(view.Organization.Id, "photo", view.Organization.PhotoKey, view.Organization.PhotoVersion),
-        ImageUrl(view.Organization.Id, "banner", view.Organization.BannerKey, view.Organization.BannerVersion));
+        ImageUrl(view.Organization.Id, "banner", view.Organization.BannerKey, view.Organization.BannerVersion),
+        view.Organization.PrivateChatsRequireSharedTeam);
 
     /// <summary>Versioned, so a browser may cache it for good.</summary>
     private static string? ImageUrl(Guid organizationId, string kind, string? key, int version) =>
@@ -221,6 +465,10 @@ internal static class OrganizationEndpoints
     private static InvitationResponse ToResponse(OrganizationInvitation invitation) =>
         new(invitation.Id, invitation.Email, RoleName(invitation.Role), invitation.CreatedAtUtc, invitation.ExpiresAtUtc);
 
+    private static OrganizationDomainResponse ToResponse(VerifiedOrganizationDomain domain) =>
+        new(domain.Id, domain.Domain, "_knocktwice-verification." + domain.Domain,
+            "knocktwice-verification=" + domain.VerificationToken, domain.IsVerified, domain.CreatedAtUtc, domain.VerifiedAtUtc);
+
     private static WorkspaceResponse ToResponse(WorkspaceView view) => new(
         view.Workspace.Id, view.Workspace.OrganizationId, view.Workspace.Name,
         view.MyRole is { } role ? WorkspaceRoleName(role) : null, view.Workspace.CreatedAtUtc);
@@ -234,6 +482,22 @@ internal static class OrganizationEndpoints
 
     private static string WorkspaceRoleName(WorkspaceRole role) =>
         role == WorkspaceRole.Administrator ? WorkspaceRoles.Administrator : WorkspaceRoles.Member;
+
+    private static async Task RequireAccessManagerAsync(Guid userId, Guid organizationId, OrganizationService organizations, CancellationToken ct)
+    {
+        await organizations.RequireRoleManagementAsync(userId, organizationId, ct);
+    }
+
+    private static List<RolePermissionDecision> ToPermissionAssignments(IReadOnlyList<AccessControlPermissionRequest>? permissions) =>
+        (permissions ?? []).Select(permission => new RolePermissionDecision(permission.Key ?? string.Empty,
+            Enum.TryParse<PermissionEffect>(permission.Effect, true, out var effect) ? effect : (PermissionEffect)0)).ToList();
+
+    private static AccessControlRoleResponse ToAccessRoleResponse(AccessRoleView view) => new(view.Role.Id, view.Role.Name, view.Role.Description,
+        view.Role.Scope, view.Permissions.Select(permission => new AccessControlPermissionResponse(permission.Key, permission.Effect.ToString().ToLowerInvariant())).ToList(),
+        view.Groups, view.Role.OrganizationId, view.Role.WorkspaceId);
+
+    private static AccessControlGroupResponse ToAccessGroupResponse(AccessGroupView view) => new(view.Group.Id, view.Group.Name, view.Group.Description,
+        view.MemberIds, view.RoleIds, view.Group.Scope, view.Group.OrganizationId, view.Group.WorkspaceId);
 
     private static OrganizationRole ParseOrganizationRole(string? role) => role?.Trim().ToLowerInvariant() switch
     {

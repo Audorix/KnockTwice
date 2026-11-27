@@ -56,6 +56,17 @@ public sealed class AttachmentRulesTests
         Assert.Equal((AttachmentStatus.Deleted, Now), (attachment.Status, attachment.DeletedAtUtc!.Value));
     }
 
+    [Fact]
+    public void Attachment_records_the_provider_that_owns_its_bytes()
+    {
+        var attachment = Attachment.Begin(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "2026/11/abc", "a.png", Now, " AzureBlob ");
+        Assert.Equal("AzureBlob", attachment.StorageProvider);
+
+        var legacy = Attachment.Begin(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "2026/11/old", "old.png", Now);
+        Assert.Null(legacy.StorageProvider);
+        Assert.Throws<DomainRuleException>(() => Attachment.Begin(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "2026/11/abc", "a.png", Now, new string('x', 33)));
+    }
+
     [Theory]
     [InlineData("a.png", "image/png", "image/png")]
     [InlineData("a.png", "", "image/png")]
@@ -238,6 +249,16 @@ public sealed class AttachmentRulesTests
         {
             Provider = "S3",
             S3 = { Endpoint = "https://s3.test", Bucket = "Bad_Bucket", AccessKeyId = "a", SecretAccessKey = "b" },
+        }).Succeeded);
+        Assert.True(validator.Validate(null, new StorageOptions
+        {
+            Provider = "AzureBlob",
+            AzureBlob = { ConnectionString = "UseDevelopmentStorage=true", Container = "chatx-files", Prefix = "attachments/" },
+        }).Succeeded);
+        Assert.False(validator.Validate(null, new StorageOptions
+        {
+            Provider = "AzureBlob",
+            AzureBlob = { ConnectionString = "UseDevelopmentStorage=true", Container = "Bad--Container" },
         }).Succeeded);
 
         var scanning = new ScanningOptionsValidator();

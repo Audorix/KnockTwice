@@ -99,7 +99,7 @@ export const removeTeamMember = (organizationId: string, workspaceId: string, te
 
 export async function updateOrganizationSettings(
   organizationId: string,
-  body: { guestsEnabled?: boolean; channelCreation?: 'members' | 'administrators' },
+  body: { guestsEnabled?: boolean; channelCreation?: 'members' | 'administrators'; privateChatsRequireSharedTeam?: boolean },
 ): Promise<OrganizationResponse> {
   return (await sendJson<OrganizationResponse>('PUT', `${org(organizationId)}/settings`, body))!;
 }

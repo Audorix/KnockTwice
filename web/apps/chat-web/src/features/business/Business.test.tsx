@@ -186,13 +186,14 @@ describe('business communication', () => {
       conversationId: id, visitorName: name, widgetId: 'wg-1', widgetName: 'Website chat', status, assignedTo: null, participating: false,
       unreadCount: 0, createdAtUtc: new Date(Date.now() - 20 * 60_000).toISOString(), lastActivityAtUtc: new Date().toISOString(), subject: null, ...extra,
     });
+    let emmaClaimed = false;
     const items = () => [
-      { conversation: conversation('cv-1', 'Emma Miller', { subject: 'Unable to upload a document', unreadCount: 1 }), title: 'Unable to upload a document',
+      { conversation: conversation('cv-1', 'Emma Miller', { subject: 'Unable to upload a document', unreadCount: 1, ...(emmaClaimed ? { assignedTo: ana, participating: true } : {}) }), title: 'Unable to upload a document',
         lastMessage: { text: 'It stops at 80% every time.', fromCustomer: true, sentAtUtc: new Date(Date.now() - 12 * 60_000).toISOString() } },
       { conversation: conversation('cv-2', 'James Wilson', { assignedTo: ana, widgetName: 'In-app' }), title: 'Invite link has expired',
         lastMessage: { text: 'Could you send me a new invitation?', fromCustomer: true, sentAtUtc: new Date(Date.now() - 18 * 60_000).toISOString() } },
     ];
-    const page = () => json(200, { items: items(), total: 2, counts: { open: 2, pending: 3, closed: 10, all: 15 } });
+    const page = () => json(200, { items: items(), total: 2, counts: { open: 2, pending: 3, closed: 10, all: 15, unassignedOpen: emmaClaimed ? 0 : 1 } });
     const entry = (id: string, sequence: number, actor: typeof ana, body: string) => ({
       id, sequence, kind: 'message', actor, subject: null, text: null, body, createdAtUtc: new Date(Date.now() - (30 - sequence) * 60_000).toISOString(), attachments: [],
     });
@@ -202,9 +203,15 @@ describe('business communication', () => {
       'GET /api/v1/organizations/o-1/members': () =>
         json(200, { members: [{ user: ana, role: 'member', joinedAtUtc: '2026-11-23T10:00:00Z', supportAgent: true }], pendingInvitations: null }),
       'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20': () => page(),
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20&assignment=unassigned': () =>
+        json(200, { items: emmaClaimed ? [] : [items()[0]], total: emmaClaimed ? 0 : 1, counts: { open: emmaClaimed ? 0 : 1, pending: 0, closed: 0, all: emmaClaimed ? 0 : 1, unassignedOpen: emmaClaimed ? 0 : 1 } }),
       'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20&q=upload': () => {
         calls.push('search');
         return page();
+      },
+      'GET /api/v1/organizations/o-1/support/inbox?status=open&skip=0&take=20&assignment=unassigned&q=upload': () => {
+        calls.push('search');
+        return json(200, { items: [items()[0]], total: 1, counts: { open: 1, pending: 0, closed: 0, all: 1, unassignedOpen: 1 } });
       },
       'GET /api/v1/support/conversations/cv-1/history': () =>
         json(200, { items: [entry('e-1', 2, emma, 'Hi! The upload stops at 80%.'), entry('e-2', 3, ana, 'Which browser are you using?')], nextCursor: null, hasMore: false }),
@@ -218,6 +225,11 @@ describe('business communication', () => {
       'POST /api/v1/support/conversations/cv-1/join': () => {
         calls.push('join');
         return json(200, conversation('cv-1', 'Emma Miller', { participating: true }));
+      },
+      'POST /api/v1/support/conversations/cv-1/claim': () => {
+        calls.push('claim');
+        emmaClaimed = true;
+        return json(200, conversation('cv-1', 'Emma Miller', { assignedTo: ana, participating: true }));
       },
       'POST /api/v1/conversations/cv-1/messages': (init) => {
         calls.push(`reply ${JSON.parse(String(init?.body)).body as string}`);
@@ -240,14 +252,28 @@ describe('business communication', () => {
     expect(await screen.findByRole('heading', { name: '2 open conversations' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Open 2' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tab', { name: 'Pending 3' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unassigned queue 1' })).toBeInTheDocument();
     const james = screen.getByText('James Wilson').closest('button')!;
     expect(within(james).getByText('Invite link has expired')).toBeInTheDocument();
     expect(within(james).getByText('In-app')).toBeInTheDocument();
     expect(within(james).getByText('Assigned to you')).toBeInTheDocument();
-    const emmaRow = screen.getByText('Emma Miller').closest('button')!;
+    let emmaRow = screen.getByText('Emma Miller').closest('button')!;
     expect(within(emmaRow).getByText('Unassigned')).toBeInTheDocument();
     expect(within(emmaRow).getByText('12 min')).toBeInTheDocument();
     expect(screen.getByText('Showing 2 of 2')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Unassigned queue 1' }));
+    expect(screen.getByRole('button', { name: 'Unassigned queue 1' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByText('Showing 1 of 1')).toBeInTheDocument();
+    expect(screen.queryByText('James Wilson')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Take the conversation with Emma Miller' }));
+    await vi.waitFor(() => expect(calls).toContain('claim'));
+    expect(await screen.findByRole('heading', { name: '0 open conversations' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Unassigned queue 0' }));
+    expect(await screen.findByText('Showing 2 of 2')).toBeInTheDocument();
+    emmaRow = screen.getByText('Emma Miller').closest('button')!;
+    expect(within(emmaRow).getByText('Assigned to you')).toBeInTheDocument();
 
     await user.type(screen.getByRole('searchbox', { name: 'Search support conversations' }), 'upload{Enter}');
     await vi.waitFor(() => expect(calls).toContain('search'));
@@ -270,7 +296,7 @@ describe('business communication', () => {
     await user.type(screen.getByLabelText('Reply to Emma'), 'Try a smaller file.');
     await user.click(screen.getByRole('button', { name: 'Send reply' }));
     await vi.waitFor(() => expect(calls).toContain('reply Try a smaller file.'));
-    expect(calls.indexOf('join')).toBeLessThan(calls.indexOf('reply Try a smaller file.'));
+    expect(calls.indexOf('claim')).toBeLessThan(calls.indexOf('reply Try a smaller file.'));
 
     await user.click(screen.getByRole('button', { name: 'Mark resolved' }));
     await vi.waitFor(() => expect(calls).toContain('status {"status":"closed"}'));

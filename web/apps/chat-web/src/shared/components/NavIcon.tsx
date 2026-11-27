@@ -7,7 +7,7 @@ export type NavIconName =
   | 'database' | 'folder' | 'door' | 'layers' | 'sliders' | 'list' | 'arrow-right' | 'alert' | 'eye' | 'minus' | 'bank'
   | 'globe' | 'mail' | 'refresh' | 'copy' | 'grid'
   | 'warning' | 'message-x' | 'sun' | 'moon' | 'server' | 'eye-off' | 'message-dots' | 'home' | 'tools' | 'user-plus' | 'camera' | 'grip' | 'move' | 'upload' | 'rotate-left' | 'rotate-right' | 'link'
-  | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo';
+  | 'github' | 'linkedin' | 'youtube' | 'instagram' | 'x-logo' | 'code';
 
 /** Line icons for the navigation and message tools (drawn here; no icon font or package). */
 export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number }) {
@@ -89,6 +89,7 @@ export function NavIcon({ name, size = 22 }: { name: NavIconName; size?: number 
       {name === 'rotate-left' && <path {...common} d="M4 4v5h5M4.5 13a8 8 0 1 0 2-6.5L4 9" />}
       {name === 'rotate-right' && <path {...common} d="M20 4v5h-5M19.5 13a8 8 0 1 1-2-6.5L20 9" />}
       {name === 'link' && <path {...common} d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1" />}
+      {name === 'code' && <path {...common} d="m8 6-5 6 5 6m8-12 5 6-5 6m-2-14-4 16" />}
       {name === 'github' && (
         <path fill="currentColor" d="M12 2.5a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.7c-2.7.6-3.3-1.2-3.3-1.2-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.5 2.3 1.1 2.9.8.1-.6.3-1.1.6-1.3-2.1-.2-4.4-1.1-4.4-4.7 0-1 .4-1.9 1-2.6-.1-.2-.4-1.2.1-2.5 0 0 .8-.3 2.6 1a9 9 0 0 1 4.8 0c1.8-1.3 2.6-1 2.6-1 .5 1.3.2 2.3.1 2.5.6.7 1 1.6 1 2.6 0 3.7-2.3 4.5-4.4 4.7.3.3.6.9.6 1.8v2.7c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.5z" />
       )}

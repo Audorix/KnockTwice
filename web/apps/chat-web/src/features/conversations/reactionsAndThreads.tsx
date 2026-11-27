@@ -489,7 +489,8 @@ export function ThreadPanel({
         <div ref={end} />
       </div>
       <form className="cx-composer" onSubmit={(e) => void submit(e)}>
-        {formatting.toolbar}
+        {formatting.codeDialog}
+        {formatting.richTextDialog}
         <label htmlFor="thread-composer" className="visually-hidden">
           {t('threads.placeholder')}
         </label>
@@ -515,6 +516,10 @@ export function ThreadPanel({
           <button type="submit" className="btn btn-primary" disabled={!draft.trim() || sending}>
             {t('messages.send')}
           </button>
+        </div>
+        <div className="cx-thread-composer-tools">
+          {formatting.richTextButton}
+          {formatting.toolbar}
         </div>
         <div className="form-check mt-1">
           <input

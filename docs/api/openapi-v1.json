@@ -885,6 +885,36 @@
         }
       }
     },
+    "/api/v1/users/me/avatar": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Selects a locally rendered CC0 avatar style and seed, or clears the generated avatar to use initials.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAvatarRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/links": {
       "get": {
         "tags": [
@@ -3943,6 +3973,74 @@
           }
         }
       }
+    },
+    "/api/v1/admin/storage-migrations/dry-run": {
+      "post": {
+        "tags": ["Administration"],
+        "summary": "Checks attachment inventory, source readability, and destination access without copying files or changing storage configuration.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sourceProvider", "destinationProvider"],
+                "properties": {
+                  "sourceProvider": { "type": ["string", "null"] },
+                  "destinationProvider": { "type": ["string", "null"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["sourceProvider", "destinationProvider", "totalFiles", "totalBytes", "files", "filesTruncated", "destinationReachable", "capacityAssessment", "blockers", "warnings"],
+                  "properties": {
+                    "sourceProvider": { "type": "string" },
+                    "destinationProvider": { "type": "string" },
+                    "totalFiles": { "type": "integer", "format": "int64" },
+                    "totalBytes": { "type": "integer", "format": "int64" },
+                    "files": { "type": "array", "items": { "type": "object", "required": ["id", "fileName", "size", "status", "blockers"], "properties": { "id": { "type": "string", "format": "uuid" }, "fileName": { "type": "string" }, "size": { "type": "integer", "format": "int64" }, "status": { "type": "string" }, "blockers": { "type": "array", "items": { "type": "string" } } } } },
+                    "filesTruncated": { "type": "boolean" },
+                    "destinationReachable": { "type": "boolean" },
+                    "capacityAssessment": { "type": "string" },
+                    "blockers": { "type": "array", "items": { "type": "string" } },
+                    "warnings": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/storage-migrations": {
+      "post": {
+        "tags": ["Administration"],
+        "summary": "Starts a persistent verified attachment copy job after a successful preflight. Does not switch providers or attachment references.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["sourceProvider", "destinationProvider"], "properties": { "sourceProvider": { "type": "string" }, "destinationProvider": { "type": "string" } } } } } },
+        "responses": { "202": { "description": "Copy job accepted" }, "400": { "description": "Preflight blocked or provider pair invalid" } }
+      },
+      "get": {
+        "tags": ["Administration"],
+        "summary": "Lists the 50 most recent attachment copy jobs with progress counts.",
+        "responses": { "200": { "description": "Recent copy jobs" } }
+      }
+    },
+    "/api/v1/admin/storage-migrations/{jobId}": {
+      "get": { "tags": ["Administration"], "summary": "Gets attachment copy job status and progress.", "parameters": [{ "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "Copy job status" }, "404": { "description": "Job not found" } } }
+    },
+    "/api/v1/admin/storage-migrations/{jobId}/pause": {
+      "post": { "tags": ["Administration"], "summary": "Pauses a queued or running attachment copy job.", "parameters": [{ "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "Updated copy job status" }, "404": { "description": "Job not found" } } }
+    },
+    "/api/v1/admin/storage-migrations/{jobId}/resume": {
+      "post": { "tags": ["Administration"], "summary": "Resumes a paused attachment copy job.", "parameters": [{ "name": "jobId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }], "responses": { "200": { "description": "Updated copy job status" }, "404": { "description": "Job not found" } } }
     },
     "/api/v1/admin/providers": {
       "get": {
@@ -7243,6 +7341,553 @@
           }
         }
       }
+    },
+    "/api/v1/admin/permissions/catalog": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Stable permission keys, evaluation scope and implementation state. Planned keys are not yet grantable.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminPermissionDefinitionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/access-control/roles": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "List custom installation roles.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessControlRoleResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Create a custom installation role.",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlRoleResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccessControlRoleRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/access-control/roles/{roleId}": {
+      "put": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Update a custom installation role.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlRoleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccessControlRoleRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Delete a custom installation role.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/access-control/roles/{roleId}/groups/{groupId}": {
+      "post": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Grant a custom role to a group.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Revoke a custom role from a group.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roleId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/access-control/groups": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "List custom installation groups.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AccessControlGroupResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Create a custom installation group.",
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAccessControlGroupRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/access-control/groups/{groupId}": {
+      "put": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Update a custom installation group.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccessControlGroupRequest"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Delete a custom installation group.",
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/access-control/groups/{groupId}/members/{userId}": {
+      "post": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Add a user to an installation group.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Remove a user from an installation group.",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessControlGroupResponse"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/users/{userId}/effective-permissions": {
+      "get": {
+        "tags": [
+          "Administration"
+        ],
+        "summary": "Review a user’s effective installation permissions.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectivePermissionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{userId}/access-review-contexts": {
+      "get": {
+        "tags": ["Administration"],
+        "summary": "List installation, organization, and workspace contexts available for reviewing a user's effective access.",
+        "parameters": [{ "name": "userId", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["scope", "organizationId", "workspaceId", "name"],
+                    "properties": {
+                      "scope": { "type": "string", "enum": ["installation", "organization", "workspace"] },
+                      "organizationId": { "type": ["string", "null"], "format": "uuid" },
+                      "workspaceId": { "type": ["string", "null"], "format": "uuid" },
+                      "name": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{userId}/access-review": {
+      "get": {
+        "tags": ["Administration"],
+        "summary": "Review effective permissions and group-to-role paths for a scope and its inherited scopes.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "schema": { "type": "string", "enum": ["installation", "organization", "workspace"], "default": "installation" }
+          },
+          {
+            "name": "organizationId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "workspaceId",
+            "in": "query",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["userId", "scope", "organizationId", "workspaceId", "groups", "permissions"],
+                  "properties": {
+                    "userId": { "type": "string", "format": "uuid" },
+                    "scope": { "type": "string" },
+                    "organizationId": { "type": ["string", "null"], "format": "uuid" },
+                    "workspaceId": { "type": ["string", "null"], "format": "uuid" },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["id", "name", "scope", "roles"],
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "scope": { "type": "string" },
+                          "roles": { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": ["key", "outcome", "source", "decisions"],
+                        "properties": {
+                          "key": { "type": "string" },
+                          "outcome": { "type": "string", "enum": ["allowed", "denied", "not_granted"] },
+                          "source": { "type": "string" },
+                          "decisions": { "type": "array", "items": { "type": "string" } }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7445,6 +8090,35 @@
             "format": "date-time"
           },
           "photoUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generatedStyle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "generatedSeed": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "UpdateAvatarRequest": {
+        "type": "object",
+        "properties": {
+          "style": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "seed": {
             "type": [
               "null",
               "string"
@@ -9668,6 +10342,7 @@
         "required": [
           "user",
           "joinedAtUtc",
+          "accessExpiresAtUtc",
           "channels"
         ],
         "type": "object",
@@ -9676,6 +10351,10 @@
             "$ref": "#/components/schemas/UserSummaryResponse"
           },
           "joinedAtUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accessExpiresAtUtc": {
             "type": "string",
             "format": "date-time"
           },
@@ -12653,6 +13332,232 @@
           "createdAtUtc": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "AccessControlGroupResponse": {
+        "required": [
+          "id",
+          "name",
+          "description",
+          "memberIds",
+          "roleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "memberIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "AccessControlRoleResponse": {
+        "required": [
+          "id",
+          "name",
+          "description",
+          "scope",
+          "permissions",
+          "groups"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "installation"
+            ]
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessControlPermissionDecision"
+            }
+          },
+          "groups": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CreateAccessControlGroupRequest": {
+        "required": [],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateAccessControlRoleRequest": {
+        "required": [],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessControlPermissionDecision"
+            },
+            "nullable": true
+          }
+        }
+      },
+      "EffectivePermissionsResponse": {
+        "required": [
+          "userId",
+          "permissions",
+          "deniedPermissions"
+        ],
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "deniedPermissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "UpdateAccessControlGroupRequest": {
+        "required": [],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "UpdateAccessControlRoleRequest": {
+        "required": [],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessControlPermissionDecision"
+            },
+            "nullable": true
+          }
+        }
+      },
+      "AdminPermissionDefinitionResponse": {
+        "required": [
+          "key",
+          "area",
+          "scope",
+          "state",
+          "description"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "area": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "installation",
+              "organization",
+              "workspace"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "implemented",
+              "planned"
+            ]
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      },
+      "AccessControlPermissionDecision": {
+        "required": [
+          "key",
+          "effect"
+        ],
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "effect": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny"
+            ]
           }
         }
       }

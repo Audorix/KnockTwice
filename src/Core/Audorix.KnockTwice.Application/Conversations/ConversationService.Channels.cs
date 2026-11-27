@@ -1,4 +1,6 @@
 using Audorix.KnockTwice.Application.Common;
+using Audorix.KnockTwice.Application.Administration;
+using Audorix.KnockTwice.Domain.Authorization;
 using Audorix.KnockTwice.Domain.Conversations;
 using Audorix.KnockTwice.Domain.Organizations;
 
@@ -21,11 +23,9 @@ public sealed partial class ConversationService
 {
     private const string ChannelNotFound = "channel_not_found";
 
-    private sealed record WorkspaceContext(Organization Organization, OrganizationMember Membership, Workspace Workspace, WorkspaceMember? WorkspaceMembership)
+    private sealed record WorkspaceContext(Organization Organization, OrganizationMember Membership, Workspace Workspace, WorkspaceMember? WorkspaceMembership, bool ManagesAll)
     {
         public bool IsWorkspaceMember => WorkspaceMembership is { IsActive: true };
-
-        public bool ManagesAll => Membership.Can(OrganizationPermission.ManageWorkspaces) || WorkspaceMembership is { IsActive: true, Role: WorkspaceRole.Administrator };
     }
 
     private sealed record ChannelAccess(Conversation Channel, ConversationParticipant? Me, bool CanManage, bool IsWorkspaceMember);
@@ -72,7 +72,12 @@ public sealed partial class ConversationService
             throw new ForbiddenException("not_workspace_member");
         }
 
-        if (context.Organization.ChannelCreation == ChannelCreationPolicy.Administrators && !context.ManagesAll)
+        var createPermissionConfigured = scopedAccess is not null
+            && await scopedAccess.IsWorkspacePermissionConfiguredAsync(workspaceId, "channels.create", cancellationToken).ConfigureAwait(false);
+        var canCreate = createPermissionConfigured
+            ? await HasWorkspacePermissionAsync(userId, workspaceId, "channels.create", cancellationToken).ConfigureAwait(false)
+            : context.Organization.ChannelCreation != ChannelCreationPolicy.Administrators || context.ManagesAll;
+        if (!canCreate)
         {
             throw new ForbiddenException("channel_creation_restricted");
         }
@@ -412,13 +417,16 @@ public sealed partial class ConversationService
         var organization = membership is { IsActive: true } ? await organizations.FindOrganizationAsync(organizationId, cancellationToken).ConfigureAwait(false) : null;
         var workspace = organization is null ? null : await organizations.FindWorkspaceAsync(organizationId, workspaceId, cancellationToken).ConfigureAwait(false);
         var workspaceMembership = workspace is null ? null : await organizations.FindWorkspaceMemberAsync(workspace.Id, userId, cancellationToken).ConfigureAwait(false);
+        var orgCanManageWorkspaces = organization is not null && membership is not null
+            && await CanManageOrganizationWorkspacesAsync(userId, organizationId, membership, cancellationToken).ConfigureAwait(false);
         if (organization is null || workspace is null
-            || (workspaceMembership is not { IsActive: true } && !membership!.Can(OrganizationPermission.ManageWorkspaces)))
+            || (workspaceMembership is not { IsActive: true } && !orgCanManageWorkspaces))
         {
             throw new ResourceNotFoundException("workspace_not_found");
         }
 
-        return new WorkspaceContext(organization, membership!, workspace, workspaceMembership);
+        var managesAll = orgCanManageWorkspaces || workspaceMembership is { IsActive: true, Role: WorkspaceRole.Administrator };
+        return new WorkspaceContext(organization, membership!, workspace, workspaceMembership, managesAll);
     }
 
     /// <summary>The channel as the caller may see it; anything they may not see is "channel not found".</summary>
@@ -437,9 +445,18 @@ public sealed partial class ConversationService
             ? await organizations.FindWorkspaceMemberAsync(channel.WorkspaceId!.Value, userId, cancellationToken).ConfigureAwait(false)
             : null;
         var isWorkspaceMember = workspaceMembership is { IsActive: true };
-        var managesAll = membership is { IsActive: true } && (membership.Can(OrganizationPermission.ManageWorkspaces)
+        var canManageOrganizationWorkspaces = membership is { IsActive: true }
+            && await CanManageOrganizationWorkspacesAsync(userId, channel.OrganizationId!.Value, membership, cancellationToken).ConfigureAwait(false);
+        var legacyManagesAll = membership is { IsActive: true } && (canManageOrganizationWorkspaces
             || workspaceMembership is { IsActive: true, Role: WorkspaceRole.Administrator });
-        var canManage = managesAll || me is { IsGuest: false, Role: >= ParticipantRole.Administrator };
+        var managePermissionConfigured = scopedAccess is not null
+            && await scopedAccess.IsWorkspacePermissionConfiguredAsync(channel.WorkspaceId!.Value, "channels.manage", cancellationToken).ConfigureAwait(false);
+        var managesAll = managePermissionConfigured
+            ? await HasWorkspacePermissionAsync(userId, channel.WorkspaceId!.Value, "channels.manage", cancellationToken).ConfigureAwait(false)
+            : legacyManagesAll;
+        var canManage = managePermissionConfigured
+            ? managesAll
+            : legacyManagesAll || me is { IsGuest: false, Role: >= ParticipantRole.Administrator };
         var visible = me is not null || managesAll || (channel.Visibility == ChannelVisibility.Public && isWorkspaceMember);
         return visible ? new ChannelAccess(channel, me, canManage, isWorkspaceMember) : throw new ResourceNotFoundException(ChannelNotFound);
     }
@@ -448,6 +465,26 @@ public sealed partial class ConversationService
     {
         var access = await RequireChannelAsync(userId, channelId, cancellationToken).ConfigureAwait(false);
         return access.CanManage ? access : throw new ForbiddenException();
+    }
+
+    private async Task<bool> HasWorkspacePermissionAsync(Guid userId, Guid workspaceId, string permissionKey, CancellationToken cancellationToken)
+    {
+        if (scopedAccess is null) return false;
+        var permissions = await scopedAccess.GetWorkspacePermissionsAsync(userId, workspaceId, cancellationToken).ConfigureAwait(false);
+        return permissions.Allowed.Contains(permissionKey, StringComparer.Ordinal)
+            && !permissions.Denied.Contains(permissionKey, StringComparer.Ordinal);
+    }
+
+    private async Task<bool> CanManageOrganizationWorkspacesAsync(Guid userId, Guid organizationId, OrganizationMember membership, CancellationToken cancellationToken)
+    {
+        if (scopedAccess is null || !await scopedAccess.IsPermissionConfiguredAsync(organizationId, "organization.workspaces.manage", cancellationToken).ConfigureAwait(false))
+        {
+            return membership.Can(OrganizationPermission.ManageWorkspaces);
+        }
+
+        var permissions = await scopedAccess.GetOrganizationPermissionsAsync(userId, organizationId, cancellationToken).ConfigureAwait(false);
+        return permissions.Allowed.Contains("organization.workspaces.manage", StringComparer.Ordinal)
+            && !permissions.Denied.Contains("organization.workspaces.manage", StringComparer.Ordinal);
     }
 
     private async Task<Conversation> RequireChannelEntityAsync(Guid channelId, CancellationToken cancellationToken) =>

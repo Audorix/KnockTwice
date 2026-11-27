@@ -119,6 +119,111 @@ Channels, groups, direct and website conversations all use these same routes. Ch
 under `/api/v1/channels/{id}`; organization, workspace, team, guest and support management under
 `/api/v1/organizations/{id}/…`.
 
+## Verified organization domains
+
+Organization owners and administrators manage domain challenges with `GET /api/v1/organizations/{id}/domains`
+and `POST /api/v1/organizations/{id}/domains`; verify with
+`POST /api/v1/organizations/{id}/domains/{domainId}/verify`, or remove with
+`DELETE /api/v1/organizations/{id}/domains/{domainId}`. `POST` accepts
+`{ "domain": "example.com" }` and returns the TXT record name and value to publish. Verification
+checks the host's configured DNS resolver. Domain proof does not automatically add members;
+enrollment remains disabled until an owner or administrator explicitly enables it with
+`GET`/`PUT /api/v1/organizations/{id}/domains/automatic-enrollment`. The enrollment switch requires
+at least one verified domain. Only confirmed, exact-domain email matches join; new members receive
+the member role and access to the first workspace. Disabling the switch does not remove existing
+members.
+
+## Organization-context private chats
+
+An organization can require the two people to share a workspace team for chats started in that
+organization context. Set `privateChatsRequireSharedTeam` through
+`PUT /api/v1/organizations/{id}/settings`; when enabled, `POST /api/v1/private-chats` accepts an
+optional `organizationId` to apply the rule. Chats started from the independent contact flow omit
+that field and are not affected. Organization-context access is checked again on accept, read,
+send, upload, and attachment download; losing the shared-team relationship ends the live chat.
+
+## Permission catalog
+
+Installation administrators and auditors with `users.read` can list the stable permission keys at
+`GET /api/v1/admin/permissions/catalog`. Each entry includes its area, scope (`installation`,
+`organization`, or `workspace`), and state. Entries marked `planned` are catalog metadata only;
+they are not yet accepted by authorization policies or assignable to roles.
+
+## Installation roles and groups
+
+Custom installation access is managed under `/api/v1/admin/access-control`. Listing roles or groups
+requires `users.read`; creating, editing, deleting, or assigning them requires `users.manage`.
+Installation roles accept only implemented installation-scope permission keys. Planned keys and
+organization/workspace keys are rejected. Users receive custom roles only through group membership.
+Each role permission is unassigned, `allow`, or `deny`; any matching `deny` overrides `allow` from
+another group or role, including built-in permission grants. Changes affect API authorization on the
+next request.
+
+| Method and path | Operation |
+| --- | --- |
+| `GET /admin/access-control/roles` | List custom installation roles and grants |
+| `POST /admin/access-control/roles` | Create a custom role |
+| `PUT` / `DELETE /admin/access-control/roles/{roleId}` | Update or remove a custom role |
+| `POST` / `DELETE /admin/access-control/roles/{roleId}/groups/{groupId}` | Grant or revoke a group role |
+| `GET` / `POST /admin/access-control/groups` | List or create groups |
+| `PUT` / `DELETE /admin/access-control/groups/{groupId}` | Update or remove a group |
+| `POST` / `DELETE /admin/access-control/groups/{groupId}/members/{userId}` | Add or remove a group member |
+| `GET /admin/users/{userId}/effective-permissions` | Review custom installation grants |
+| `GET /admin/users/{userId}/access-review-contexts` | List installation, organization, and workspace contexts available for a user |
+| `GET /admin/users/{userId}/access-review?scope=...` | Review effective permissions and group-to-role paths for the selected scope (plus inherited scopes) |
+| `POST /admin/storage-migrations/dry-run` | Inventory files and verify source/destination access before a storage migration |
+| `POST /admin/storage-migrations` | Start a persistent verified attachment copy job after preflight |
+| `GET /admin/storage-migrations` | List the 50 most recent copy jobs with progress counts |
+| `GET /admin/storage-migrations/{jobId}` | Read copy job status and progress |
+| `POST /admin/storage-migrations/{jobId}/pause` | Pause a queued or running copy job |
+| `POST /admin/storage-migrations/{jobId}/resume` | Resume a paused copy job |
+
+`GET /api/v1/users/me` includes effective allowed and denied permissions. Custom installation roles
+are group-based. The separate built-in `InstallationAdministrator` and `Auditor` system roles remain
+managed through the installation user administration controls for bootstrap and compatibility.
+Installation permissions do not grant conversation content access; resource and conversation
+membership checks remain separate.
+
+## Organization-scoped access and private chats
+
+Organization owners manage scoped roles and groups under
+`/api/v1/organizations/{organizationId}/access-control`. Organization administrators and members
+may use the organization's other management features, but only an owner can manage these role and
+group assignments. Group membership accepts active organization members only.
+
+| Method and path | Operation |
+| --- | --- |
+| `GET` / `POST /organizations/{organizationId}/access-control/roles` | List or create organization roles |
+| `PUT` / `DELETE /organizations/{organizationId}/access-control/roles/{roleId}` | Update or remove an organization role |
+| `GET` / `POST /organizations/{organizationId}/access-control/groups` | List or create organization groups |
+| `PUT` / `DELETE /organizations/{organizationId}/access-control/groups/{groupId}` | Update or remove an organization group |
+| `POST` / `DELETE /organizations/{organizationId}/access-control/roles/{roleId}/groups/{groupId}` | Assign or remove a role on a group |
+| `POST` / `DELETE /organizations/{organizationId}/access-control/groups/{groupId}/members/{userId}` | Add or remove a group member |
+
+Organization roles can assign the implemented `private_chats.use` permission. Until a decision is
+assigned to an organization group, that organization keeps its existing private-chat policy. Once
+configured, both people need an effective Allow; a Deny overrides Allow from another role. The
+check applies to chats started with `organizationId` and does not affect personal contact chats.
+Existing shared-team policy remains an additional restriction when enabled. The role and group scope
+is checked on every API operation; IDs from another organization return not found.
+
+## Organization SSO configuration foundation
+
+Owners and administrators can save organization-scoped OIDC settings with
+`GET`/`PUT /api/v1/organizations/{id}/sso` and remove them with `DELETE` on the same route.
+`PUT` accepts `issuer`, `clientId`, and `clientSecret`; later updates may omit the secret to keep
+the protected value already stored. The issuer must be an HTTPS URL and the organization must have
+a verified domain. Responses return issuer, client ID, and a `clientSecretConfigured` flag only.
+The client secret is protected with the installation's shared Data Protection key ring.
+
+Configured organizations can start sign-in at
+`GET /api/v1/auth/organization-sso/{organizationId}`. The OIDC callback requires a verified email
+whose domain exactly matches a verified organization domain. Existing confirmed accounts are
+linked by exact email; creating a new account requires the organization's separate automatic-
+enrollment opt-in. A successful login must still have active membership in the organization.
+SSO is an available sign-in method and does not disable password or other configured sign-in
+methods.
+
 ## Support inbox
 
 Website conversations are the support conversations. Their `status` is `open`, `pending` (waiting
@@ -130,7 +235,8 @@ inbox; responders see the conversations they take part in.
   Filters: `status` (`open`, `pending`, `closed`, `all`), `mine=true`, `assignment` (`anyone`,
   `assigned`, `unassigned`), `q` (customer name or subject), `sort` (`oldest`, the longest waiting
   first, or `newest`), `skip` and `take` (1–100, default 25). `counts` gives `open`, `pending`,
-  `closed` and `all` under the other filters. Each item has the `conversation`, a `title` (the
+  `closed` and `all` under the other filters, plus `unassignedOpen` for visible open conversations
+  with no assignee. Each item has the `conversation`, a `title` (the
   subject, or the first line of the first message) and the `lastMessage`
   (`{ text, fromCustomer, sentAtUtc }`). The older `GET …/support` list stays.
 - `GET /api/v1/support/conversations/{id}/history` gives support staff the whole history, whether
@@ -143,6 +249,22 @@ inbox; responders see the conversations they take part in.
   characters; `note_body_required`, `note_body_invalid`). Notes are stored apart from the history,
   so no message path (history, realtime, notifications, search, the visitor widget) ever carries
   one; only the team is told to reload.
+
+## Message translation
+
+- Users granted `messages.translate` through the installation group-to-role access model may request
+  `POST /api/v1/conversations/{conversationId}/messages/{messageId}/translate` with
+  `{ targetLanguage: "en" }`. The response is `{ translation, targetLanguage }`; the original message
+  is not changed or stored as a translation. The caller must already be able to read the message.
+- The web client also offers authorized support agents an opt-in browser preference that requests
+  translations for support messages as they become visible. It uses the same endpoint and permission
+  check; translation remains off by default.
+- Administrators with `providers.read` can list named provider profiles at
+  `GET /api/v1/admin/providers/ai/translation`. With `providers.manage`, they can create a profile
+  (`POST`), update one (`PUT /{profileId}`), test one (`POST /{profileId}/test`), select the active
+  profile (`POST /{profileId}/activate`), and delete an inactive profile (`DELETE /{profileId}`).
+  API keys are never returned. Existing flat AI translation settings remain available as a legacy
+  active provider until an administrator selects a named profile.
 
 ## Search
 

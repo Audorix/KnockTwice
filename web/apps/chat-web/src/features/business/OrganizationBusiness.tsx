@@ -10,7 +10,7 @@ import * as api from './businessApi';
 export function OrganizationSettingsSection({ organization, onSaved }: { organization: OrganizationResponse; onSaved: (o: OrganizationResponse) => void }) {
   const { t } = useTranslation();
   const [error, setError] = useState<unknown>(null);
-  const save = async (body: { guestsEnabled?: boolean; channelCreation?: 'members' | 'administrators' }) => {
+  const save = async (body: { guestsEnabled?: boolean; channelCreation?: 'members' | 'administrators'; privateChatsRequireSharedTeam?: boolean }) => {
     setError(null);
     try {
       onSaved(await api.updateOrganizationSettings(organization.id, body));
@@ -37,6 +37,13 @@ export function OrganizationSettingsSection({ organization, onSaved }: { organiz
           <option value="administrators">{t('business.channelCreationAdministrators')}</option>
         </select>
       </div>
+      <div className="form-check form-switch mt-3">
+        <input id="org-private-chat-team" className="form-check-input" type="checkbox" role="switch"
+          checked={organization.privateChatsRequireSharedTeam ?? false}
+          onChange={(e) => void save({ privateChatsRequireSharedTeam: e.target.checked })} aria-describedby="org-private-chat-team-hint" />
+        <label className="form-check-label" htmlFor="org-private-chat-team">{t('business.privateChatsRequireSharedTeam')}</label>
+        <div id="org-private-chat-team-hint" className="form-text">{t('business.privateChatsRequireSharedTeamHint')}</div>
+      </div>
     </section>
   );
 }
@@ -57,7 +64,7 @@ export function SupportAgentToggle({ organizationId, userId, name, value, onChan
 
 /** Guests and pending guest invitations (owners and administrators). Guests are invited from a channel's page. */
 export function GuestsSection({ organizationId }: { organizationId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [guests, setGuests] = useState<GuestResponse[]>([]);
   const [invitations, setInvitations] = useState<GuestInvitationResponse[]>([]);
   const [error, setError] = useState<unknown>(null);
@@ -88,6 +95,7 @@ export function GuestsSection({ organizationId }: { organizationId: string }) {
               <span>
                 {g.user.displayName} <span className="cx-meta">· {g.channels.map((c) => `#${c.name}`).join(', ') || t('business.noChannels')}</span>
               </span>
+              <span className="cx-meta">{t('business.guestAccessExpires', { date: new Date(g.accessExpiresAtUtc).toLocaleDateString(i18n.language) })}</span>
               <button type="button" className="btn btn-sm btn-outline-danger" aria-label={t('business.removeGuestNamed', { name: g.user.displayName })}
                 onClick={() => void confirm({
                   title: t('confirm.removeGuest.title', { name: g.user.displayName }),
@@ -106,7 +114,7 @@ export function GuestsSection({ organizationId }: { organizationId: string }) {
           <ul className="list-unstyled cx-session-list mb-0">
             {invitations.map((i) => (
               <li key={i.id} className="cx-session">
-                <span className="text-truncate">{i.email} <span className="cx-meta">· #{i.channelName}</span></span>
+                <span className="text-truncate">{i.email} <span className="cx-meta">· #{i.channelName}</span><br /><span className="cx-meta">{t('business.invitationExpires', { date: new Date(i.expiresAtUtc).toLocaleDateString(i18n.language) })}</span></span>
                 <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => act(() => api.revokeGuestInvitation(organizationId, i.id))}>
                   {t('organizations.revoke')}
                 </button>
