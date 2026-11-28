@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/social-preview.png" width="100%" alt="Knock Twice: self-hosted team and customer chat, with an embeddable website chat">
+</p>
+
 # Installation
 
 Knock Twice is one ASP.NET Core API plus a static web app. Choose:
