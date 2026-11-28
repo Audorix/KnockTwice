@@ -1,3 +1,5 @@
+![Knock Twice: self-hosted team and customer chat](https://raw.githubusercontent.com/Audorix/KnockTwice/master/docs/assets/social-preview.png)
+
 # Knock Twice web app
 
 The web front end for **Knock Twice by Audorix**: open-source, self-hosted team and customer chat. This image is nginx serving the React web app, the embeddable website-chat page and its loader. It forwards `/api`, `/hubs` (realtime, WebSocket) and `/health` to the API. MIT licensed.

@@ -1,3 +1,5 @@
+![Knock Twice: self-hosted team and customer chat](https://raw.githubusercontent.com/Audorix/KnockTwice/master/docs/assets/social-preview.png)
+
 # Knock Twice API
 
 The server for **Knock Twice by Audorix**: open-source, self-hosted team and customer chat. One messaging engine serves personal chat, business communication and an embeddable website chat. Built with ASP.NET Core (.NET 10), runs on SQLite or PostgreSQL, in English and Spanish. MIT licensed.
