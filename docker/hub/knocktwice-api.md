@@ -21,6 +21,19 @@ You need Docker (Docker Desktop on Windows or Mac) and one file. Nothing is buil
 
 This uses SQLite and is reachable only from your computer. Step-by-step guide: [Quick start with Docker](https://github.com/Audorix/KnockTwice/blob/master/docs/quick-start-docker.md)
 
+### Port already in use?
+
+The quick start uses port `8080` (web app) and `8025` (email inbox). Choose others with `KNOCKTWICE_PORT` and `KNOCKTWICE_MAIL_PORT` when you start it, for example:
+
+```sh
+# PowerShell
+$env:KNOCKTWICE_MAIL_PORT = "8026"; docker compose -f compose.quickstart.yaml up -d
+# Linux or Mac
+KNOCKTWICE_MAIL_PORT=8026 docker compose -f compose.quickstart.yaml up -d
+```
+
+The wizard's email settings stay host `mailpit`, port `1025`. If you change the web port, enter the new address as the wizard's **Web app address**. Details: [If a port is already in use](https://github.com/Audorix/KnockTwice/blob/master/docs/quick-start-docker.md#if-a-port-is-already-in-use)
+
 ## Run it on a server
 
 For a server use the production Compose file from the source repository (PostgreSQL, HTTPS behind a reverse proxy):
