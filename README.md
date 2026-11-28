@@ -12,6 +12,11 @@
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
+<p align="center">
+  <a href="https://hub.docker.com/r/ikemyle/knocktwice-api"><img src="https://img.shields.io/docker/v/ikemyle/knocktwice-api?sort=semver&amp;label=Docker%20Hub&amp;logo=docker&amp;logoColor=white" alt="Docker Hub version"></a>
+  <a href="https://hub.docker.com/r/ikemyle/knocktwice-api"><img src="https://img.shields.io/docker/pulls/ikemyle/knocktwice-api?logo=docker&amp;logoColor=white" alt="Docker pulls"></a>
+</p>
+
 **by Audorix.** Open-source, self-hosted team and customer chat built with ASP.NET Core (.NET 10)
 and React. One messaging engine serves personal chat, business communication and an embeddable
 website chat. Runs on **SQLite** or **PostgreSQL**, in English and Spanish.
