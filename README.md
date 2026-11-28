@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="web/apps/chat-web/public/favicon.svg" width="96" height="96" alt="Knock Twice logo">
+  <img src="docs/assets/social-preview.png" width="100%" alt="Knock Twice: self-hosted team and customer chat, with an embeddable website chat">
 </p>
 
 # Knock Twice
