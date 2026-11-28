@@ -88,10 +88,10 @@ Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/K
 
 | You want to… | Read |
 | --- | --- |
-| Try it on your machine with Docker | [Docker development profiles](docs/development/docker.md): `docker compose -f docker/compose.sqlite.yaml up --build -d`, then open <http://localhost:8080> |
+| Try it on your machine with Docker | [Quick start](docs/quick-start-docker.md): download [`compose.quickstart.yaml`](docker/compose.quickstart.yaml), run `docker compose -f compose.quickstart.yaml up -d`, then open <http://localhost:8080> |
 | Run it on a server | [Docker deployment](docs/deployment-docker.md) (PostgreSQL + HTTPS) or [installation without Docker](docs/installation.md) |
 | Get the Docker images | [`ikemyle/knocktwice-api`](https://hub.docker.com/r/ikemyle/knocktwice-api) and [`ikemyle/knocktwice-web`](https://hub.docker.com/r/ikemyle/knocktwice-web) on Docker Hub; the [Docker deployment](docs/deployment-docker.md) guide uses them |
-| Develop it | [Getting started](docs/development/getting-started.md) and [contributing](CONTRIBUTING.md) |
+| Develop it | [Getting started](docs/development/getting-started.md), [Docker development profiles](docs/development/docker.md) and [contributing](CONTRIBUTING.md) |
 
 Every path starts with the **setup wizard** in the browser. It chooses the database, configures email
 and creates the first administrator, after you enter the setup code the server prints
@@ -112,6 +112,7 @@ A complete example with server-signed identities is in
 | Topic | Document |
 | --- | --- |
 | Installation, upgrades, administrators | [installation.md](docs/installation.md) |
+| Quick start on your computer (Docker) | [quick-start-docker.md](docs/quick-start-docker.md) |
 | Docker deployment | [deployment-docker.md](docs/deployment-docker.md) |
 | Backup and restore (with a restore drill) | [backup-restore.md](docs/backup-restore.md) |
 | Database migrations | [database-migrations.md](docs/database-migrations.md) |

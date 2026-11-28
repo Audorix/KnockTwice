@@ -2,7 +2,8 @@
 
 This guide runs Knock Twice on one server with Docker Compose, PostgreSQL and HTTPS. For local
 development profiles (SQLite or PostgreSQL, Mailpit, Swagger) see
-[development/docker.md](development/docker.md).
+[development/docker.md](development/docker.md). To just try it on your own computer, see the
+[quick start](quick-start-docker.md).
 
 ## What you get
 

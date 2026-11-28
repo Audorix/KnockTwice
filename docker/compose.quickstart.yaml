@@ -1,0 +1,62 @@
+# Quick start: try Knock Twice on your own computer with the published Docker Hub images.
+# Needs only this file and Docker (Docker Desktop on Windows or Mac). Nothing is built, and
+# there is no password or settings file to create.
+#
+#   docker compose -f compose.quickstart.yaml up -d
+#
+# Then open http://localhost:8080 and follow the setup wizard. Its setup code is in the log of
+# the "api" container (Docker Desktop: Containers > knocktwice > api > Logs). In the wizard, send
+# email to host "mailpit", port 1025, security "None"; read it at http://localhost:8025.
+#
+# This is for trying it out: SQLite, everything on this computer only. For a server use
+# docker/compose.production.yaml (PostgreSQL, HTTPS); see docs/deployment-docker.md.
+# Stop: docker compose -f compose.quickstart.yaml down   (add -v to delete all data too)
+name: knocktwice
+
+x-api: &api
+  image: ikemyle/knocktwice-api:1.1.0
+  environment:
+    ASPNETCORE_ENVIRONMENT: Production
+    # The wizard writes email, captcha and web address settings here, in the data volume.
+    Setup__SettingsPath: /app/data/chatx.settings.json
+    Storage__Local__Path: /app/data/attachments
+    # The database is fixed to SQLite in the data volume; the wizard shows it as locked.
+    Database__Provider: Sqlite
+    Database__ConnectionString: Data Source=/app/data/chatx.db
+  volumes:
+    - data:/app/data
+
+services:
+  # Creates or updates the database tables, then exits. The API starts after it succeeds.
+  migrate:
+    <<: *api
+    command: ["migrate"]
+    restart: "no"
+
+  api:
+    <<: *api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    # Not published: the web container forwards to it.
+    restart: unless-stopped
+
+  web:
+    image: ikemyle/knocktwice-web:1.1.0
+    ports:
+      # Reachable from this computer only.
+      - "127.0.0.1:${KNOCKTWICE_PORT:-8080}:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Catches all email the app sends (account confirmation, password reset). Inbox:
+  # http://localhost:8025. Messages are kept in memory only.
+  mailpit:
+    image: axllent/mailpit:v1.34
+    ports:
+      - "127.0.0.1:${KNOCKTWICE_MAIL_PORT:-8025}:8025"
+    restart: unless-stopped
+
+volumes:
+  data:
