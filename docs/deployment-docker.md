@@ -50,8 +50,8 @@ password from this file.
 Use the published images from Docker Hub (quickest), or build them yourself from the code.
 
 **Option A: published images.** The API and web images are published on Docker Hub as
-[`audorix/knocktwice-api`](https://hub.docker.com/r/audorix/knocktwice-api) and
-[`audorix/knocktwice-web`](https://hub.docker.com/r/audorix/knocktwice-web). The Compose file already names
+[`ikemyle/knocktwice-api`](https://hub.docker.com/r/ikemyle/knocktwice-api) and
+[`ikemyle/knocktwice-web`](https://hub.docker.com/r/ikemyle/knocktwice-web). The Compose file already names
 them; download them and start without building:
 
 ```sh
@@ -63,7 +63,7 @@ docker compose -f docker/compose.production.yaml --env-file docker/.env.producti
 Leave out `--build`, which would compile the images from the checked-out code instead. The
 default tags match the Compose file in the release you cloned. To run another version, set
 `CHATX_API_IMAGE` and `CHATX_WEB_IMAGE` in `docker/.env.production`, for example
-`CHATX_API_IMAGE=audorix/knocktwice-api:1.1.0`, and always use the same version for both images.
+`CHATX_API_IMAGE=ikemyle/knocktwice-api:1.1.0`, and always use the same version for both images.
 
 **Option B: build from the code.**
 

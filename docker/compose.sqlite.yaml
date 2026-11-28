@@ -8,7 +8,7 @@ x-api-image: &api-image
   build:
     context: ..
     dockerfile: docker/api.Dockerfile
-  image: audorix/knocktwice-api:dev
+  image: ikemyle/knocktwice-api:dev
 
 x-api-environment: &api-environment
   ASPNETCORE_ENVIRONMENT: ${CHATX_ENVIRONMENT:-Development}
@@ -57,7 +57,7 @@ services:
     build:
       context: ..
       dockerfile: docker/web.Dockerfile
-    image: audorix/knocktwice-web:dev
+    image: ikemyle/knocktwice-web:dev
     ports:
       - "${CHATX_WEB_PORT:-8080}:8080"
     depends_on:
