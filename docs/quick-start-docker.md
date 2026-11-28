@@ -68,6 +68,53 @@ Then:
 
 Click *Install*. The API restarts by itself; then sign in.
 
+## If a port is already in use
+
+The quick start uses two ports on your computer. If another program already uses one of them,
+`up` fails with an error such as *port is already allocated* or *bind: address already in use*.
+Choose other ports with these variables:
+
+| Variable | Default | What it is |
+| --- | --- | --- |
+| `KNOCKTWICE_PORT` | `8080` | The Knock Twice web app |
+| `KNOCKTWICE_MAIL_PORT` | `8025` | The Mailpit inbox, where you read the emails the app sends |
+
+Set them in the same command that starts Knock Twice. In PowerShell:
+
+```powershell
+$env:KNOCKTWICE_MAIL_PORT = "8026"; docker compose -f compose.quickstart.yaml up -d
+```
+
+On Linux or Mac:
+
+```sh
+KNOCKTWICE_MAIL_PORT=8026 docker compose -f compose.quickstart.yaml up -d
+```
+
+To keep the choice, so you do not have to set it every time, put it in a file named `.env` next to
+`compose.quickstart.yaml`. Docker Compose reads that file by itself on every start:
+
+```text
+KNOCKTWICE_PORT=8090
+KNOCKTWICE_MAIL_PORT=8026
+```
+
+Good to know:
+
+- **Email settings in the wizard stay the same:** host `mailpit`, port `1025`. That port is inside
+  Docker's own network, so programs on your computer cannot block it. Only the inbox page moves, for
+  example to <http://localhost:8026>.
+- **If you change the web port**, open Knock Twice at the new address (for example
+  <http://localhost:8090>) and enter that address as the **Web app address** in the wizard, so links
+  in emails point to the right place.
+- **Already running?** Stop it with `docker compose -f compose.quickstart.yaml down` (your data is
+  kept), then start it again with the new port.
+- **To see which program uses a port** on Windows, for example 8025:
+
+  ```powershell
+  Get-NetTCPConnection -LocalPort 8025 -State Listen | ForEach-Object { Get-Process -Id $_.OwningProcess }
+  ```
+
 ## Stop, start again, remove
 
 | Task | Command |
@@ -77,9 +124,6 @@ Click *Install*. The API restarts by itself; then sign in.
 | Remove everything, including all data | `docker compose -f compose.quickstart.yaml down -v` |
 
 The data (database, uploaded files, settings) is kept in the Docker volume `knocktwice_data`.
-
-Ports: if 8080 or 8025 is already in use, set `KNOCKTWICE_PORT` or `KNOCKTWICE_MAIL_PORT` before
-starting, for example `$env:KNOCKTWICE_PORT = "8090"` in PowerShell.
 
 Use a current Chrome, Edge or Firefox: sign-in cookies require HTTPS, which these browsers also
 accept on `http://localhost`.
