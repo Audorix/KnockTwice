@@ -47,6 +47,26 @@ password from this file.
 
 ## 2. Start
 
+Use the published images from Docker Hub (quickest), or build them yourself from the code.
+
+**Option A: published images.** The API and web images are published on Docker Hub as
+[`audorix/chatx-api`](https://hub.docker.com/r/audorix/chatx-api) and
+[`audorix/chatx-web`](https://hub.docker.com/r/audorix/chatx-web). The Compose file already names
+them; download them and start without building:
+
+```sh
+docker compose -f docker/compose.production.yaml --env-file docker/.env.production pull
+docker compose -f docker/compose.production.yaml --env-file docker/.env.production up -d
+docker compose -f docker/compose.production.yaml --env-file docker/.env.production ps
+```
+
+Leave out `--build`, which would compile the images from the checked-out code instead. The
+default tags match the Compose file in the release you cloned. To run another version, set
+`CHATX_API_IMAGE` and `CHATX_WEB_IMAGE` in `docker/.env.production`, for example
+`CHATX_API_IMAGE=audorix/chatx-api:1.1.0`, and always use the same version for both images.
+
+**Option B: build from the code.**
+
 ```sh
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production up --build -d
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production ps
@@ -131,14 +151,17 @@ administrators: see [installation.md](installation.md#administrators).
 | Health | `curl -fsS https://chat.example.org/health/ready` |
 | Stop (keeps data) | `docker compose -f docker/compose.production.yaml --env-file docker/.env.production down` |
 
-**Upgrades.** Pull the new code, rebuild, run migrations, restart:
+**Upgrades.** Get the new code and images, run migrations, restart. With the published images:
 
 ```sh
 git pull
-docker compose -f docker/compose.production.yaml --env-file docker/.env.production build
+docker compose -f docker/compose.production.yaml --env-file docker/.env.production pull
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production run --rm migrate
 docker compose -f docker/compose.production.yaml --env-file docker/.env.production up -d
 ```
+
+If you pinned versions with `CHATX_API_IMAGE`/`CHATX_WEB_IMAGE`, update both first. When you build
+the images yourself, run `build` instead of `pull`.
 
 Read the release notes (`CHANGELOG.md`) first and back up before upgrading.
 
