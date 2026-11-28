@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/social-preview.png" width="100%" alt="Knock Twice: self-hosted team and customer chat, with an embeddable website chat">
+</p>
+
 # Deploying with Docker
 
 This guide runs Knock Twice on one server with Docker Compose, PostgreSQL and HTTPS. For local
