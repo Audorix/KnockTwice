@@ -6,7 +6,7 @@ x-api-image: &api-image
   build:
     context: ..
     dockerfile: docker/api.Dockerfile
-  image: ${CHATX_SCALEOUT_API_IMAGE:-audorix/chatx-api:scaleout-staging}
+  image: ${CHATX_SCALEOUT_API_IMAGE:-audorix/knocktwice-api:scaleout-staging}
 
 x-api-environment: &api-environment
   ASPNETCORE_ENVIRONMENT: Development
@@ -90,7 +90,7 @@ services:
     build:
       context: ..
       dockerfile: docker/web.Dockerfile
-    image: ${CHATX_SCALEOUT_WEB_IMAGE:-audorix/chatx-web:scaleout-staging}
+    image: ${CHATX_SCALEOUT_WEB_IMAGE:-audorix/knocktwice-web:scaleout-staging}
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 10s

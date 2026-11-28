@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Knock Twice API image. Build context: repository root.
-#   docker build -f docker/api.Dockerfile -t audorix/chatx-api:dev .
-# The same image serves HTTP (default) or applies migrations: `... audorix/chatx-api:dev migrate`.
+#   docker build -f docker/api.Dockerfile -t audorix/knocktwice-api:dev .
+# The same image serves HTTP (default) or applies migrations: `... audorix/knocktwice-api:dev migrate`.
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
