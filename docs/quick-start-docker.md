@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/social-preview.png" width="100%" alt="Knock Twice: self-hosted team and customer chat, with an embeddable website chat">
+</p>
+
 # Quick start with Docker
 
 Try Knock Twice on your own computer in a few minutes with the published Docker Hub images
