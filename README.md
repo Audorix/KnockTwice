@@ -7,6 +7,7 @@
 <p align="center">
   <a href="ROADMAP.md"><strong>🗺️ Roadmap</strong></a> ·
   <a href="#features">Features</a> ·
+  <a href="#quick-start-with-docker">Quick start</a> ·
   <a href="#get-started">Get started</a> ·
   <a href="#documentation">Documentation</a> ·
   <a href="CHANGELOG.md">Changelog</a>
@@ -83,6 +84,26 @@ Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/K
   - Explicit migrations.
   - Docker images on [Docker Hub](https://hub.docker.com/u/ikemyle) and Compose profiles.
   - Optional Redis for running several API instances.
+
+## Quick start with Docker
+
+Try Knock Twice on your own computer with the published images. You need
+[Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux) and one file:
+
+1. Download [`compose.quickstart.yaml`](https://raw.githubusercontent.com/Audorix/KnockTwice/master/docker/compose.quickstart.yaml)
+   into an empty folder.
+2. In that folder, run:
+
+   ```sh
+   docker compose -f compose.quickstart.yaml up -d
+   ```
+
+3. Open <http://localhost:8080> and follow the setup wizard. The setup code is in the log of the
+   `api` container (Docker Desktop: **Containers > knocktwice > api > Logs**). For email, use host
+   `mailpit`, port `1025`, security *None*; the emails arrive at <http://localhost:8025>.
+
+Details, stopping and removing: [Quick start with Docker](docs/quick-start-docker.md). For a server,
+use the [Docker deployment guide](docs/deployment-docker.md).
 
 ## Get started
 
