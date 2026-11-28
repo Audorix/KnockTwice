@@ -76,7 +76,7 @@ Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/K
   - Setup wizard on first start.
   - Health endpoints.
   - Explicit migrations.
-  - Docker images and Compose profiles.
+  - Docker images on [Docker Hub](https://hub.docker.com/u/ikemyle) and Compose profiles.
   - Optional Redis for running several API instances.
 
 ## Get started
@@ -85,6 +85,7 @@ Have a use case or a gap to report? [Open an issue](https://github.com/Audorix/K
 | --- | --- |
 | Try it on your machine with Docker | [Docker development profiles](docs/development/docker.md): `docker compose -f docker/compose.sqlite.yaml up --build -d`, then open <http://localhost:8080> |
 | Run it on a server | [Docker deployment](docs/deployment-docker.md) (PostgreSQL + HTTPS) or [installation without Docker](docs/installation.md) |
+| Get the Docker images | [`ikemyle/knocktwice-api`](https://hub.docker.com/r/ikemyle/knocktwice-api) and [`ikemyle/knocktwice-web`](https://hub.docker.com/r/ikemyle/knocktwice-web) on Docker Hub; the [Docker deployment](docs/deployment-docker.md) guide uses them |
 | Develop it | [Getting started](docs/development/getting-started.md) and [contributing](CONTRIBUTING.md) |
 
 Every path starts with the **setup wizard** in the browser. It chooses the database, configures email
