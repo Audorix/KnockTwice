@@ -6,8 +6,10 @@ files: after changing one, paste it into the repository's *Repository overview* 
 
 | File | Docker Hub repository | Short description |
 | --- | --- | --- |
-| [knocktwice-api.md](knocktwice-api.md) | [ikemyle/knocktwice-api](https://hub.docker.com/r/ikemyle/knocktwice-api) | Knock Twice API: self-hosted team, customer and website chat (ASP.NET Core, .NET 10). |
-| [knocktwice-web.md](knocktwice-web.md) | [ikemyle/knocktwice-web](https://hub.docker.com/r/ikemyle/knocktwice-web) | Knock Twice web app: nginx serving the chat UI and proxying to the Knock Twice API. |
+| [knocktwice-api.md](knocktwice-api.md) | [ikemyle/knocktwice-api](https://hub.docker.com/r/ikemyle/knocktwice-api) | Knock Twice self-hosted chat API. Quick start: one Compose file, one command - see the overview. |
+| [knocktwice-web.md](knocktwice-web.md) | [ikemyle/knocktwice-web](https://hub.docker.com/r/ikemyle/knocktwice-web) | Knock Twice web app (nginx). Quick start: one Compose file, one command - see the overview. |
+
+Short descriptions are limited to 100 characters.
 
 Categories: API: Networking, Message queues. Web: Networking, Web servers.
 
